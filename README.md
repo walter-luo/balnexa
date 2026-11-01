@@ -26,8 +26,6 @@ Never commit real financial statements, account credentials, personal financial 
 
 ## License
 
-## License
-
 Balnexa is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license terms.
 
 Third-party components and code not yet reviewed for public release remain subject to their respective ownership and license terms.
