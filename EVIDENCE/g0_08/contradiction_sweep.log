@@ -1,0 +1,21 @@
+PASS gate decisions consistent: [["G0", "CONDITIONAL", "CONDITIONAL"], ["M0", "CONDITIONAL", "CONDITIONAL"], ["G2-proposed", "REVISE", "REVISE"], ["Production", "BLOCK", "BLOCK"]]
+PASS role names: roles=['bnx_app', 'bnx_auth', 'bnx_authn', 'bnx_backup', 'bnx_definer', 'bnx_migrator', 'bnx_worker'] unknown=[]
+PASS bnx_executor only mentioned as not existing
+PASS code facts referenced by documents exist in code: {"backstop 3 h": [true, true], "tick 5 min": [true, true], "lease 10 min": [true, true], "URL TTL 60 s": [true, true], "access token 15 min": [true, true], "session 90 d absolute / 30 d idle": [true, true]}
+PASS migration list = README_CLOSURE: files-only=set() listed-only=set()
+PASS README_CLOSURE hashes equal files: []
+PASS tracker 54 unique AUD IDs
+PASS tracker has no CLOSED
+PASS tracker status vocabulary: set()
+PASS tracker copies identical
+PASS every cited R1 test ID exists in the executed results: []
+PASS PG16 40/0/0 and PG17 38/0/2 as stated
+PASS black-box 7/7 on both servers
+PASS every Draft-04 occurrence of a superseded token is listed in the delta: []
+PASS D-07 listed lines all state the 24 h target
+PASS crosswalk 10/13/7/1/3 and R28 STANDALONE
+PASS Owner-confirmed rows = R09,R10,R19,R20,R25,R26,R28,R34: ['R09', 'R10', 'R19', 'R20', 'R25', 'R26', 'R28', 'R34']
+PASS R28 oracle all PASS and document quotes oracle amounts
+PASS error codes cited exist in SQL/Worker/oracle: []
+PASS no PASS claimed for M0/production/provider items: []
+== contradiction sweep: PASS (0 failing checks)

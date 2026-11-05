@@ -1,0 +1,25 @@
+PASS 2.0.0: AI-ENTRY.example_R6.2_Draft03.md
+PASS: C1 no native dates; C2 schema bnx-ai-entry/1.1 valid (format-checked); C3 no forbidden content;
+PASS: C4 cross-field rules incl. R0 file consistency;
+PASS: C5 config_sha256 79aa7237bd94423299f83875334281fce78ab2970e7a30f80a3962b48b772a92 = SHA-256(JCS(front matter - config_sha256 - generated_at))
+NOTE: verification is not implementation evidence.
+exit=0
+ok   valid example -> PASS 2.0.0: /tmp/claude-0/-home-claude/c0c7ff53-d683-5772-8ec1-8799b711a8e3/scratchpad/aie/ai-entry/fixtures/../AI-ENTRY.example_R6.2_Draft03.md
+ok   N01_native_date (expect C1) -> FAIL: C1: native YAML date values (must be quoted strings): ['$.generated_at']
+ok   N02_bad_offset (expect C2) -> FAIL: C2: schema validation: effective_from: '2026-10-30T14:00:00-0400' is not a 'date-time'; effective_from: 
+ok   N03_enabled_not_planned (expect C4.1) -> FAIL: C4: C4.1 host chatgpt_mobile: enabled modes not planned ['R']
+ok   N04_enabled_unverified (expect C2) -> FAIL: C2: schema validation: ai_hosts/1/enabled_modes: ['J'] is expected to be empty
+ok   N05_email (expect C3) -> FAIL: C3: forbidden content: ['email address']
+ok   N06_luhn_number (expect C3) -> FAIL: C3: forbidden content: ["Luhn-valid number '4111 1111 1111 1111'"]
+ok   N07_token (expect C3) -> FAIL: C3: forbidden content: ['token-like pattern \\bsk-[A-Za-z0-9]{10,}']
+ok   N08_actor_extras (expect C3) -> FAIL: C3: forbidden content: ['actor_extras present in file']
+ok   N09_digest_mismatch (expect C5) -> FAIL: C5: digest mismatch: file 79aa7237bd94423299f83875334281fce78ab2970e7a30f80a3962b48b772a92 computed 5e2f
+ok   N10_unknown_r0_id (expect C4.6) -> FAIL: C4: C4.6 R0 IDs not in R0 file: ['R0-0099']; C4.6 proposed_ids differ from R0 file: missing [], extra ['
+ok   N11_r0_in_two_axes (expect C4.4) -> FAIL: C4: C4.4 R0 ID both proposed and active: ['R0-0002']
+ok   N12_duplicate_member (expect C4.3) -> FAIL: C4: C4.3 duplicate member_id: ['mb_01JBZK9B2C3D4E5F6G7H8J9K0M']
+ok   N13_r0_version_mismatch (expect C4.6) -> FAIL: C4: C4.6 r0_version 2 != R0 file r0_version 3
+ok   N14_r0_proposed_incomplete (expect C4.6) -> FAIL: C4: C4.6 proposed_ids differ from R0 file: missing ['R0-0014'], extra []
+ok   N15_unknown_onboarding_rule (expect C4.5) -> FAIL: C4: C4.5 onboarding rule not in ai_rules: ['TR-15']
+ok   verify did not modify the example
+ALL FIXTURES PASS
+exit=0
