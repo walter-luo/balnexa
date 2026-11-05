@@ -1153,8 +1153,12 @@ def t_backup(server, ev):
         (cur if cur is not None else bnx_part).append(line)
         if line == "\\.":
             cur = None
+    # S4 re-baseline (S4B-F11, 9002): the truncate list is generated from bnx.migration_seeded_table, not hard-coded
+    with psycopg.connect(h.dsn(server, "bnx_migrator", rdb)) as cx:
+        cx.execute("set role bnx_definer")
+        seeded = [r[0] for r in cx.execute("select table_name from bnx.migration_seeded_table order by 1")]
     pre = ("begin;\nset role bnx_definer;\nset local bnx.restore_mode = 'on';\n"
-           "truncate bnx.table_class, bnx.ledger_state, bnx.queue_state, bnx.currency, bnx.m1_future_fact cascade;\n")
+           f"truncate {', '.join(seeded + ['bnx.m1_future_fact'])} cascade;\n")
     open(os.path.join(ev, "AT-BAK-01_restore_preamble.sql"), "w").write(pre)
     rr = subprocess.run([h.PSQL, h.dsn(server, "bnx_migrator", rdb), "-X", "-q", "-v", "ON_ERROR_STOP=1"],
                         input=pre + "\n".join(bnx_part) + "\ncommit;\n", capture_output=True, text=True)

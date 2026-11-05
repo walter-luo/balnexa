@@ -25,13 +25,21 @@ def drop_all(server):
             cx.execute(f'drop role "{r}"')
 
 
-def bootstrap(server, db):
+def run_bootstrap(server, db, name, user="postgres"):
+    r = subprocess.run([PSQL, dsn(server, user, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1",
+                        "-f", os.path.join(ROOT, "db/bootstrap", name)], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(f"{name} failed: " + r.stderr)
+    return r
+
+
+def bootstrap(server, db, b002=True):
+    """B001 and (S4, default) B002 by the installer identity. b002=False reproduces an R1-only database."""
     with psycopg.connect(dsn(server, "postgres", "postgres"), autocommit=True) as cx:
         cx.execute(f'create database "{db}"')
-    r = subprocess.run([PSQL, dsn(server, "postgres", db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1",
-                        "-f", os.path.join(ROOT, "db/bootstrap/B001_bootstrap.sql")], capture_output=True, text=True)
-    if r.returncode:
-        raise RuntimeError("B001 failed: " + r.stderr)
+    run_bootstrap(server, db, "B001_bootstrap.sql")
+    if b002:
+        run_bootstrap(server, db, "B002_bootstrap_s4.sql")
 
 
 def migrate(server, db, *extra, check=True, log=None, mdir=None):

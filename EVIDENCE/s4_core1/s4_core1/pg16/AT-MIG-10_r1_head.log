@@ -1,0 +1,54 @@
+session_user=bnx_migrator current_user=bnx_migrator rolsuper=False rolinherit=False
+server=PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+apply 0002_reference_and_accounts.sql sha256=705660726d0ae9fe session_user=bnx_migrator current_user=bnx_definer
+apply 0003_ledger.sql sha256=0da834f92271feec session_user=bnx_migrator current_user=bnx_definer
+apply 0004_evidence.sql sha256=f0fe79fa984d48c8 session_user=bnx_migrator current_user=bnx_definer
+apply 0005_matching.sql sha256=b69a31fe480cde2f session_user=bnx_migrator current_user=bnx_definer
+apply 0006_version_aware_readers.sql sha256=f4626897b7cf903b session_user=bnx_migrator current_user=bnx_definer
+apply 0101_grants_r1.sql sha256=6e215cac6626a225 session_user=bnx_migrator current_user=bnx_definer
+apply 0102_journal_completeness.sql sha256=f9a2d524ad6f3bb9 session_user=bnx_migrator current_user=bnx_definer
+apply 0103_currency_integrity.sql sha256=623df431fc8c794f session_user=bnx_migrator current_user=bnx_definer
+apply 0104_ownership_determinism.sql sha256=958d7443f7c61f0f session_user=bnx_migrator current_user=bnx_definer
+apply 0105_source_link_events.sql sha256=0c0ae8e1bcc6d361 session_user=bnx_migrator current_user=bnx_definer
+apply 0106_command_core.sql sha256=413621fb8e68312c session_user=bnx_migrator current_user=bnx_definer
+apply 0107_snapshot_authz.sql sha256=c60c02c0ba661839 session_user=bnx_migrator current_user=bnx_definer
+apply 0108_grants_and_privilege_audit.sql sha256=4fc92f2b9b3dda0a session_user=bnx_migrator current_user=bnx_definer
+apply 0109_archive_integrity_and_dual_copy_gate.sql sha256=82ace89c511b9b79 session_user=bnx_migrator current_user=bnx_definer
+apply 9001_import_draft02_logical_state.sql sha256=48ef95fc69674687 session_user=bnx_migrator current_user=bnx_definer
+OK migrations=15 head=9001 privilege_violations=0
+session_user=bnx_migrator current_user=bnx_migrator rolsuper=False rolinherit=False
+server=PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+apply 0002_reference_and_accounts.sql sha256=705660726d0ae9fe session_user=bnx_migrator current_user=bnx_definer
+apply 0003_ledger.sql sha256=0da834f92271feec session_user=bnx_migrator current_user=bnx_definer
+apply 0004_evidence.sql sha256=f0fe79fa984d48c8 session_user=bnx_migrator current_user=bnx_definer
+apply 0005_matching.sql sha256=b69a31fe480cde2f session_user=bnx_migrator current_user=bnx_definer
+apply 0006_version_aware_readers.sql sha256=f4626897b7cf903b session_user=bnx_migrator current_user=bnx_definer
+apply 0101_grants_r1.sql sha256=6e215cac6626a225 session_user=bnx_migrator current_user=bnx_definer
+apply 0102_journal_completeness.sql sha256=f9a2d524ad6f3bb9 session_user=bnx_migrator current_user=bnx_definer
+apply 0103_currency_integrity.sql sha256=623df431fc8c794f session_user=bnx_migrator current_user=bnx_definer
+apply 0104_ownership_determinism.sql sha256=958d7443f7c61f0f session_user=bnx_migrator current_user=bnx_definer
+apply 0105_source_link_events.sql sha256=0c0ae8e1bcc6d361 session_user=bnx_migrator current_user=bnx_definer
+apply 0106_command_core.sql sha256=413621fb8e68312c session_user=bnx_migrator current_user=bnx_definer
+apply 0107_snapshot_authz.sql sha256=c60c02c0ba661839 session_user=bnx_migrator current_user=bnx_definer
+apply 0108_grants_and_privilege_audit.sql sha256=4fc92f2b9b3dda0a session_user=bnx_migrator current_user=bnx_definer
+apply 0109_archive_integrity_and_dual_copy_gate.sql sha256=82ace89c511b9b79 session_user=bnx_migrator current_user=bnx_definer
+apply 9001_import_draft02_logical_state.sql sha256=48ef95fc69674687 session_user=bnx_migrator current_user=bnx_definer
+OK migrations=15 head=9001 privilege_violations=0
+session_user=bnx_migrator current_user=bnx_migrator rolsuper=False rolinherit=False
+server=PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+apply 0002_reference_and_accounts.sql sha256=705660726d0ae9fe session_user=bnx_migrator current_user=bnx_definer
+apply 0003_ledger.sql sha256=0da834f92271feec session_user=bnx_migrator current_user=bnx_definer
+apply 0004_evidence.sql sha256=f0fe79fa984d48c8 session_user=bnx_migrator current_user=bnx_definer
+apply 0005_matching.sql sha256=b69a31fe480cde2f session_user=bnx_migrator current_user=bnx_definer
+apply 0006_version_aware_readers.sql sha256=f4626897b7cf903b session_user=bnx_migrator current_user=bnx_definer
+apply 0101_grants_r1.sql sha256=6e215cac6626a225 session_user=bnx_migrator current_user=bnx_definer
+apply 0102_journal_completeness.sql sha256=f9a2d524ad6f3bb9 session_user=bnx_migrator current_user=bnx_definer
+apply 0103_currency_integrity.sql sha256=623df431fc8c794f session_user=bnx_migrator current_user=bnx_definer
+apply 0104_ownership_determinism.sql sha256=958d7443f7c61f0f session_user=bnx_migrator current_user=bnx_definer
+apply 0105_source_link_events.sql sha256=0c0ae8e1bcc6d361 session_user=bnx_migrator current_user=bnx_definer
+apply 0106_command_core.sql sha256=413621fb8e68312c session_user=bnx_migrator current_user=bnx_definer
+apply 0107_snapshot_authz.sql sha256=c60c02c0ba661839 session_user=bnx_migrator current_user=bnx_definer
+apply 0108_grants_and_privilege_audit.sql sha256=4fc92f2b9b3dda0a session_user=bnx_migrator current_user=bnx_definer
+apply 0109_archive_integrity_and_dual_copy_gate.sql sha256=82ace89c511b9b79 session_user=bnx_migrator current_user=bnx_definer
+apply 9001_import_draft02_logical_state.sql sha256=48ef95fc69674687 session_user=bnx_migrator current_user=bnx_definer
+OK migrations=15 head=9001 privilege_violations=0

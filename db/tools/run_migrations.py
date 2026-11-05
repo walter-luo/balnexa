@@ -8,8 +8,13 @@ apply_grants() -> audit_privileges() must report zero violations -> COMMIT.  Any
 Fail-closed rules
   * the connected session must be bnx_migrator (unless --expect-user names another non-superuser identity);
   * the session must not be superuser and must not inherit privileges;
-  * applied versions must equal a prefix of the ordered file list and every applied SHA-256 must match its file
-    (a tampered or removed applied migration aborts BEFORE anything is applied);
+  * two ordered lanes (S4 V1.2 UA §6.2, S4B-F01): the core lane 0001-8999 and the conversion/extension lane 9000-9999.
+    Within each lane the applied versions must equal a prefix of that lane's ordered file list and every applied SHA-256
+    must match its file (a tampered or removed applied migration aborts BEFORE anything is applied). Pending core files
+    are applied first, then pending lane-9 files; a lane-9 file may therefore follow any core version;
+  * the conversion migration 9001 is never applied after an extension migration 9002+ (CONVERSION_AFTER_EXTENSION);
+  * before the first extension migration (9002+) is applied, bootstrap B002 must be present: bnx.schema_bootstrap has
+    'B002', the four S4 schemas exist owned by bnx_definer and bnx_backup holds USAGE on them (else BOOTSTRAP_MISSING);
   * Draft-04 0001 (privileged bootstrap) and 0007 (needed RESET ROLE) are refused: they are superseded by
     db/bootstrap/B001_bootstrap.sql and 0101; the originals are kept unchanged in db/history/draft04.
 
@@ -19,6 +24,9 @@ Usage: run_migrations.py --dsn "host=... port=... user=bnx_migrator dbname=..." 
 import argparse, hashlib, json, os, re, sys
 import psycopg
 
+EXT_FROM = "9000"          # first version of the conversion/extension lane
+S4_FROM = "9002"           # first S4 extension migration (needs bootstrap B002)
+S4_SCHEMAS = ("bnx_doc", "bnx_intake", "bnx_tax", "bnx_fed")
 REFUSED = {"0001": "superseded by db/bootstrap/B001_bootstrap.sql", "0007": "superseded by 0101_grants_r1.sql"}
 
 
@@ -62,17 +70,35 @@ def main():
         cur.execute("select version, sha256 from bnx.schema_migrations order by version")
         have = dict(cur.fetchall())
         cx.rollback()
-        ordered = sorted(bodies)
-        applied = sorted(have)
-        if applied != ordered[:len(applied)]:
-            extra = [v for v in applied if v not in bodies]
-            log(fh, f"FAIL applied versions {applied} are not a prefix of files {ordered} (missing files: {extra})"); sys.exit(4)
+        core_files = sorted(v for v in bodies if v < EXT_FROM)
+        ext_files = sorted(v for v in bodies if v >= EXT_FROM)
+        core_applied = sorted(v for v in have if v < EXT_FROM)
+        ext_applied = sorted(v for v in have if v >= EXT_FROM)
+        for lane, files_, applied_ in (("core", core_files, core_applied), ("extension", ext_files, ext_applied)):
+            if applied_ != files_[:len(applied_)]:
+                extra = [v for v in applied_ if v not in bodies]
+                code = "CONVERSION_AFTER_EXTENSION " if lane == "extension" and "9001" in files_ and "9001" not in applied_ else ""
+                log(fh, f"FAIL {code}{lane} lane: applied versions {applied_} are not a prefix of files {files_} "
+                        f"(missing files: {extra})"); sys.exit(4)
+        applied = core_applied + ext_applied
         for v in applied:
             if have[v] != hashes[v]:
                 log(fh, f"FAIL {names[v]}: applied sha256 {have[v][:16]} != file {hashes[v][:16]} (migrations are immutable)")
                 sys.exit(5)
             log(fh, f"skip  {names[v]} sha256={hashes[v][:16]} (applied, verified)")
-        for v in ordered[len(applied):]:
+        pending = core_files[len(core_applied):] + ext_files[len(ext_applied):]
+        if any(v >= S4_FROM for v in pending):
+            cur.execute("set local role bnx_definer")
+            cur.execute("select exists (select 1 from bnx.schema_bootstrap where version = 'B002')")
+            b002 = cur.fetchone()[0]
+            cur.execute("select count(*) from pg_namespace where nspname = any(%s) and pg_get_userbyid(nspowner) = 'bnx_definer' "
+                        "and has_schema_privilege('bnx_backup', oid, 'USAGE')", (list(S4_SCHEMAS),))
+            nsch = cur.fetchone()[0]
+            cx.rollback()
+            if not b002 or nsch != len(S4_SCHEMAS):
+                log(fh, f"FAIL BOOTSTRAP_MISSING: B002 row={b002}, S4 schemas owned by bnx_definer with backup USAGE={nsch}/"
+                        f"{len(S4_SCHEMAS)}; run db/bootstrap/B002_bootstrap_s4.sql as the installer first"); sys.exit(6)
+        for v in pending:
             try:
                 cur.execute("select pg_advisory_xact_lock(hashtext('bnx.migrations'))")
                 cur.execute("set local role bnx_definer")
