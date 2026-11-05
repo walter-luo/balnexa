@@ -5,7 +5,7 @@
 | Design baseline | `Balnexa_S4_Unified_Architecture_V1.2.zip`, SHA-256 `0f4bc6b71bd2024d044708002d39d0a25fe546ed657c05db24161f1e140c6b3f` |
 | Process | S5 independent review **waived by the Owner** on 2026-11-05 (see `OWNER_WAIVER_S5_2026-11-05.md`); development started by the Owner's instruction |
 | Code baseline | R1 commit `5e39b6a` (Balnexa R6.2-R1 one-pass G0 remediation, synthetic, local only); branch `s4/core-1` |
-| Scope of this increment | `run_migrations.py` two lanes; bootstrap B002; migrations 9002, 9003, 9004; tests |
+| Scope of this increment | `run_migrations.py` two lanes; bootstrap B002; migrations 9002, 9003, 9004; R1 `0108` amendment (Owner decision F-C1-01 option a); tests |
 | Data | synthetic only; local disposable PostgreSQL clusters; no cloud resource, account, credential or real data touched |
 | Evidence grade of every PASS | `AUTHOR_RUNTIME_EVIDENCE` (the author ran the tests). Nothing here is `VERIFIED_INDEPENDENT`. |
 
@@ -22,17 +22,19 @@
 | CORE-1 tests (12) | `tests/py/run_s4_core1.py` (NEW) | Test Register V1.2 |
 | AT-BAK-01 re-baseline: the restore truncate list is generated from `bnx.migration_seeded_table` | `tests/py/run_g0.py` (MODIFY, 1 hunk) | S4B-F11 (partial; the full 9-step procedure is 9016) |
 
-R1 migrations `0002`–`0109`, `9001` and `B001` are byte-identical to R1 (checksums verified by every runner invocation).
+R1 migrations `0002`–`0107`, `0109`, `9001` and `B001` are byte-identical to R1 (checksums verified by every runner invocation). **`0108` is amended** by Owner decision F-C1-01 option (a) (2026-11-05): its membership rule also accepts the B001 installer's ADMIN-only membership. The R1 original is kept unchanged in `db/history/r1/`; a database built with the original `0108` is refused by the amended chain with exit 5 (AT-MIG-11c). `README_CLOSURE.md` and `EVIDENCE/g0_08/manifest_sha256.json` describe R1 commit `5e39b6a` and are not rewritten.
+
+Installer procedure for a non-superuser CREATEROLE installer (Neon project owner): run B001 and B002 with `PGOPTIONS='-c createrole_self_grant=set,inherit'`; B002 ends by revoking the installer's own SET/INHERIT self-grants, leaving the ADMIN-only membership PostgreSQL keeps, which is the only installer membership the audits accept (the installer can still switch LOGIN on `bnx_stager`/`bnx_fed_reader`). For a superuser installer (local tests) the option and the revoke are no-ops.
 
 ## 2. Results (raw output in `EVIDENCE/s4_core1/`)
 
 | Suite | PG16 16.15 (Ubuntu) | PG17 17.11 (embedded-postgres beta, see §5) |
 |---|---|---|
 | G0 phase 1 — frozen R1 suite at R1 head (commit `5e39b6a`, before any change) | 40 PASS / 0 FAIL / 0 SKIP | 38 PASS / 0 FAIL / 2 SKIP (AT-BAK-01/02: no pg_dump 17) |
-| G0 phase 2 — R1 suite on B002 + 9002–9004 | 40 PASS / 0 FAIL / 0 SKIP | 38 PASS / 0 FAIL / 2 SKIP (same reason) |
+| G0 phase 2 — R1 suite on B002 + amended 0108 + 9002–9004 | 40 PASS / 0 FAIL / 0 SKIP | 38 PASS / 0 FAIL / 2 SKIP (same reason) |
 | R1 black-box API (`tests/blackbox/api.test.mjs`) on the extended chain | 7 / 7 | 7 / 7 |
 | R1 dispatch simulation | PASS | — |
-| CORE-1 suite (`run_s4_core1.py`) | 10 PASS / **1 FAIL** / 1 SKIP | 10 PASS / **1 FAIL** / 1 SKIP |
+| CORE-1 suite (`run_s4_core1.py`) | 12 PASS / 0 FAIL / 1 SKIP | 12 PASS / 0 FAIL / 1 SKIP |
 
 CORE-1 suite detail:
 
@@ -41,7 +43,8 @@ CORE-1 suite detail:
 | AT-MIG-09 | PASS | B002 idempotent; 9 roles; 0 violations; an unregistered `bnx_definer` schema, a schema usable by `bnx_app` and an extra `bnx_*` role are detected; the runner refuses the next migration while a violation exists |
 | AT-MIG-10 | PASS | R1 head with data → B002 → 9002–9004 → `adopt_existing_household` (PENDING_DEPLOY, not active) → `install_activate_config` → ACTIVE; ledger fingerprint pre = post; `q_balances` identical; audit chain intact; R1 posting works afterwards |
 | AT-MIG-11 | PASS | without B002 the runner refuses (exit 6 `BOOTSTRAP_MISSING`) before applying anything; R1-head database stays at 9001; removed/tampered extension files → exit 4/5; a core-lane file after 9004 applies (lane independence) |
-| **AT-MIG-11b** | **FAIL (finding F-C1-01)** | the frozen R1 chain cannot be installed by a non-superuser CREATEROLE installer under any of four procedures tried |
+| AT-MIG-11b | PASS (after option a) | without the documented option B001 fails as a non-superuser installer; with it, B001+B002+0002…9004 complete with 0 violations; 9 ADMIN-only installer memberships remain; installer can still toggle LOGIN; an added SET membership is reported |
+| AT-MIG-11c | PASS | a database built with the R1-original 0108 is refused (exit 5), nothing applied |
 | AT-ISO-03 | PASS | identity written by `install_household_v2`; re-install, R1 re-install, re-adoption, identity update, `project_id = product_id`, invalid modules refused; 12 runtime-role calls to installer functions denied |
 | AT-CFG-14 | PASS | lifecycle: acceptance leaves PENDING_DEPLOY while the previous version stays ACTIVE; only `install_activate_config` activates; B1/B2/B8 mismatches, non-owner, wrong digest/modules, stale (> 15 min) session, double acceptance, `bnx_app` activation, direct state update, flag update and incomplete flags all refused; reject path |
 | AT-CFG-15 | PASS | `q_health` answers without a credential and reveals no identity values; `q_whoami` |
@@ -57,7 +60,7 @@ Severity: **B** = blocks a later gate until the Owner decides; **D** = design te
 
 | ID | Sev | Finding | What was done | Needs |
 |---|---|---|---|---|
-| F-C1-01 | **B** | **S4B-F17 cannot be closed with the frozen R1 chain.** Run as a non-superuser CREATEROLE installer that owns the database (the Neon project-owner situation), with files unchanged: (1) defaults → B001 line 39 `CREATE SCHEMA … AUTHORIZATION bnx_definer` fails (`must be able to SET ROLE`); (2) `createrole_self_grant=set` → B001 line 44 `REVOKE … ON SCHEMA bnx` fails; (3) `createrole_self_grant=set,inherit` → B001/B002 succeed, 0002–0107 apply, then **R1 0108's own audit** refuses the installer memberships (`UNEXPECTED_MEMBERSHIP`); (4) as (3) plus self-revoke after bootstrap → PostgreSQL keeps the implicit ADMIN-only grant from the bootstrap superuser, and 0108 still refuses. 9002's `INSTALLER_MEMBERSHIP` rule would accept the ADMIN-only grant, but 0108 runs first. | AT-MIG-11b records all four variants and fails. | **Owner decision:** (a) amend R1 `0108` to accept the B001 installer's ADMIN-only membership (changes an R1 checksum; no real R1 database exists), or (b) keep R1 frozen and require M0-C-06 to show that Neon's owner role behaves differently (it is a member of `neon_superuser`, which this local test does not model), or (c) require a superuser-capable installer (not available on Neon). |
+| F-C1-01 | **B → resolved by Owner decision (a)** | **S4B-F17 could not be closed with the frozen R1 chain.** Run as a non-superuser CREATEROLE installer that owns the database (the Neon project-owner situation), with files unchanged: (1) defaults → B001 line 39 `CREATE SCHEMA … AUTHORIZATION bnx_definer` fails (`must be able to SET ROLE`); (2) `createrole_self_grant=set` → B001 line 44 `REVOKE … ON SCHEMA bnx` fails; (3) `createrole_self_grant=set,inherit` → B001/B002 succeed, 0002–0107 apply, then **R1 0108's own audit** refuses the installer memberships (`UNEXPECTED_MEMBERSHIP`); (4) as (3) plus self-revoke after bootstrap → PostgreSQL keeps the implicit ADMIN-only grant from the bootstrap superuser, and 0108 still refuses. 9002's `INSTALLER_MEMBERSHIP` rule would accept the ADMIN-only grant, but 0108 runs first. | Owner chose (a) on 2026-11-05: `0108` amended; B002 self-revoke; 9002 rule tightened to ADMIN-only (no SET). AT-MIG-11b/11c pass. Local test only: Neon role semantics remain M0-C-06. | Decided. Options were: (a) amend R1 `0108` to accept the B001 installer's ADMIN-only membership (changes an R1 checksum; no real R1 database exists), or (b) keep R1 frozen and require M0-C-06 to show that Neon's owner role behaves differently (it is a member of `neon_superuser`, which this local test does not model), or (c) require a superuser-capable installer (not available on Neon). |
 | F-C1-02 | D | WP matrix CORE-1 lists 9007 and 9005, but the migration register makes 9007 depend on 9006 (CORE-2). | 9007 deferred to after 9006; AT-FLG-10 NOT_EXECUTED. 9005 (audit v2) not started (outside this increment's stated scope). | Next increment order: 9005, 9006, 9007. |
 | F-C1-03 | D | UA §6.1 lists `bnx_auth` as NOLOGIN; R1 B001 creates it LOGIN. | R1 kept (B001 frozen); audit rule DEFINER_LOGIN applies to `bnx_definer` only, as in R1. | Correct UA §6.1. |
 | F-C1-04 | D | UA §6.1 says `bnx_worker` executes `wrk_`/`q_`; R1 grants `q_` only to `bnx_app`. | R1 behaviour kept. | Correct UA §6.1. |

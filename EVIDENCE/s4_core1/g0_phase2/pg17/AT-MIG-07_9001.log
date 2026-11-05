@@ -12,10 +12,10 @@ skip  0104_ownership_determinism.sql sha256=958d7443f7c61f0f (applied, verified)
 skip  0105_source_link_events.sql sha256=0c0ae8e1bcc6d361 (applied, verified)
 skip  0106_command_core.sql sha256=413621fb8e68312c (applied, verified)
 skip  0107_snapshot_authz.sql sha256=c60c02c0ba661839 (applied, verified)
-skip  0108_grants_and_privilege_audit.sql sha256=4fc92f2b9b3dda0a (applied, verified)
+skip  0108_grants_and_privilege_audit.sql sha256=4615ba8de2bf8f8f (applied, verified)
 skip  0109_archive_integrity_and_dual_copy_gate.sql sha256=82ace89c511b9b79 (applied, verified)
 apply 9001_import_draft02_logical_state.sql sha256=48ef95fc69674687 session_user=bnx_migrator current_user=bnx_definer
-apply 9002_s4_bootstrap_assert_and_privileges.sql sha256=916c4cffde35e834 session_user=bnx_migrator current_user=bnx_definer
+apply 9002_s4_bootstrap_assert_and_privileges.sql sha256=b7fff8de2245e682 session_user=bnx_migrator current_user=bnx_definer
 apply 9003_s4_identity_config_release.sql sha256=87d451c602c04dfd session_user=bnx_migrator current_user=bnx_definer
 apply 9004_s4_constraint_replacements.sql sha256=bf22de72ad933d36 session_user=bnx_migrator current_user=bnx_definer
 OK migrations=18 head=9004 privilege_violations=0

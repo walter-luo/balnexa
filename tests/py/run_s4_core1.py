@@ -177,57 +177,90 @@ def t_bootstrap_missing(server, ev):
             "core file 0110 after 9004 -> applied (R1 prefix rule would refuse with exit 4)")
 
 
-SELF_REVOKE = """do $$ declare r record; begin
-  for r in select g.rolname from pg_auth_members am join pg_roles g on g.oid = am.roleid join pg_roles u on u.oid = am.member
-            where u.rolname = current_user and g.rolname like 'bnx\\_%' and am.grantor = (select oid from pg_roles where rolname = current_user) loop
-    execute format('revoke %I from %I', r.rolname, current_user);
-  end loop; end $$;"""
+DOC_OPTS = "-c createrole_self_grant=set,inherit"   # documented installer procedure (B002 header; F-C1-01 option a)
 
 
-@test("AT-MIG-11b", "S4B-F17 (non-superuser CREATEROLE installer; Neon semantics remain M0-C-06)")
+def nonsuper_install(server, db, inst, opts):
+    """Fresh cluster roles; database owned by a non-superuser CREATEROLE installer; B001+B002 run by it with PGOPTIONS."""
+    h.drop_all(server)          # roles are cluster-wide: the installer must create them itself
+    with psycopg.connect(h.dsn(server, "postgres", "postgres"), autocommit=True) as cx:
+        cx.execute(f"drop database if exists {db} with (force)")
+        if not cx.execute("select 1 from pg_roles where rolname = %s", (inst,)).fetchone():
+            cx.execute(f"create role {inst} login createrole")
+        cx.execute(f"create database {db} owner {inst}")
+    res = {}
+    for name in ("B001_bootstrap.sql", "B002_bootstrap_s4.sql"):
+        r = subprocess.run([h.PSQL, h.dsn(server, inst, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f",
+                            os.path.join(ROOT, "db/bootstrap", name)], capture_output=True, text=True, env={**os.environ, "PGOPTIONS": opts})
+        res[name] = {"exit": r.returncode, "error": (r.stderr.strip().splitlines() or [""])[-1][:160]}
+        if r.returncode:
+            break
+    return res
+
+
+def installer_memberships(server, db, inst):
+    with psycopg.connect(h.dsn(server, inst, db)) as cx:
+        return cx.execute("select g.rolname, am.admin_option, am.inherit_option, am.set_option, pg_get_userbyid(am.grantor) "
+                          "from pg_auth_members am join pg_roles g on g.oid = am.roleid join pg_roles u on u.oid = am.member "
+                          "where u.rolname = %s order by 1", (inst,)).fetchall()
+
+
+@test("AT-MIG-11b", "S4B-F17, F-C1-01 option a (non-superuser CREATEROLE installer; Neon semantics remain M0-C-06)")
 def t_nonsuper_installer(server, ev):
-    """B001/B002 and the migration chain run by a non-superuser CREATEROLE installer that owns the database, with the files
-    unchanged. Closure condition: at least one documented installer procedure reaches 9004 with 0 privilege violations."""
-    inst = "installer_s4"
-    variants = [("default", "", False), ("createrole_self_grant=set", "-c createrole_self_grant=set", False),
-                ("createrole_self_grant=set,inherit", "-c createrole_self_grant=set,inherit", False),
-                ("set,inherit + self-revoke after bootstrap", "-c createrole_self_grant=set,inherit", True)]
+    """Documented procedure: the installer runs unchanged B001 and B002 with createrole_self_grant=set,inherit; B002 removes
+    its SET/INHERIT self-grants; amended 0108 and 9002 accept only the remaining ADMIN-only membership."""
+    inst, db = "installer_s4", "bnx_s4mig11b"
     out = {}
-    for variant, opts, revoke in variants:
-        db = "bnx_s4mig11b"
-        h.drop_all(server)          # roles are cluster-wide: the installer must create them itself
-        with psycopg.connect(h.dsn(server, "postgres", "postgres"), autocommit=True) as cx:
-            cx.execute(f"drop database if exists {db} with (force)")
-            if not cx.execute("select 1 from pg_roles where rolname = %s", (inst,)).fetchone():
-                cx.execute(f"create role {inst} login createrole")
-            cx.execute(f"create database {db} owner {inst}")
-        res = {}
-        steps = [("B001_bootstrap.sql", None), ("B002_bootstrap_s4.sql", None)] + ([("self_revoke", SELF_REVOKE)] if revoke else [])
-        for name, sql in steps:
-            args = [h.PSQL, h.dsn(server, inst, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1"]
-            args += ["-c", sql] if sql else ["-f", os.path.join(ROOT, "db/bootstrap", name)]
-            r = subprocess.run(args, capture_output=True, text=True, env={**os.environ, "PGOPTIONS": opts})
-            res[name] = {"exit": r.returncode, "error": (r.stderr.strip().splitlines() or [""])[-1][:160]}
-            if r.returncode:
-                break
-        if all(x["exit"] == 0 for x in res.values()) and "B002_bootstrap_s4.sql" in res:
-            m = h.migrate(server, db, check=False, log=os.path.join(ev, f"AT-MIG-11b_migrate_{len(out)}.log"))
-            last = [l for l in m.stdout.splitlines() if l.startswith(("FAIL", "OK"))][-1:]
-            res["migrate"] = {"exit": m.returncode, "last": (last[0] if last else "")[:300]}
-            with psycopg.connect(h.dsn(server, inst, db)) as cx:
-                res["installer_memberships"] = cx.execute(
-                    "select count(*), bool_or(am.admin_option), bool_or(am.inherit_option), bool_or(am.set_option) from pg_auth_members am "
-                    "join pg_roles u on u.oid = am.member where u.rolname = %s", (inst,)).fetchone()
-        out[variant] = res
-        with psycopg.connect(h.dsn(server, "postgres", "postgres"), autocommit=True) as cx:
-            cx.execute(f"drop database if exists {db} with (force)")
-    h.drop_all(server)              # later tests bootstrap with the postgres installer
+    # negative evidence: without the documented option B001 cannot run as a non-superuser installer
+    for variant, opts in (("default", ""), ("createrole_self_grant=set", "-c createrole_self_grant=set")):
+        out[variant] = nonsuper_install(server, db, inst, opts)
+    check(out["default"]["B001_bootstrap.sql"]["exit"] != 0 and out["createrole_self_grant=set"]["B001_bootstrap.sql"]["exit"] != 0,
+          f"expected B001 to fail without the documented option: {out}")
+    # documented procedure
+    res = nonsuper_install(server, db, inst, DOC_OPTS)
+    check(all(x["exit"] == 0 for x in res.values()) and len(res) == 2, f"documented bootstrap: {res}")
+    mem = installer_memberships(server, db, inst)
+    m = h.migrate(server, db, check=False, log=os.path.join(ev, "AT-MIG-11b_migrate_documented.log"))
+    with migrator(server, db) as cx:
+        v = cx.execute("select bnx.audit_privileges()").fetchone()[0]["violations"]
+    check(m.returncode == 0 and "privilege_violations=0" in m.stdout and v == [], f"migrate exit {m.returncode}: {m.stdout[-600:]} {v}")
+    check(len(mem) == 9 and all(x[1] and not x[2] and not x[3] for x in mem), f"installer memberships must be ADMIN-only: {mem}")
+    res["memberships"] = [list(x) for x in mem]
+    res["migrate"] = m.stdout.strip().splitlines()[-1]
+    # the installer can still perform its later steps (role LOGIN switches need ADMIN) ...
+    with psycopg.connect(h.dsn(server, inst, db), autocommit=True) as cx:
+        cx.execute("alter role bnx_stager login"); cx.execute("alter role bnx_stager nologin")
+    # ... but a membership with SET (an installer that can act as bnx_definer) is reported
+    with psycopg.connect(h.dsn(server, "postgres", db), autocommit=True) as cx:
+        cx.execute(f"grant bnx_definer to {inst} with inherit false, set true granted by {inst}")
+    with migrator(server, db) as cx:
+        v2 = cx.execute("select bnx.audit_privileges()").fetchone()[0]["violations"]
+    check(any(x["rule"] == "INSTALLER_MEMBERSHIP" and x["group"] == "bnx_definer" for x in v2), f"SET membership not reported: {v2}")
+    out["documented (createrole_self_grant=set,inherit)"] = res
     json.dump(out, open(os.path.join(ev, "AT-MIG-11b_nonsuperuser_installer.json"), "w"), indent=1, default=str)
-    brief = {k: (v.get("migrate", {}).get("exit"), v.get("migrate", {}).get("last", "") or
-                 next((f"{n}: {x['error']}" for n, x in v.items() if isinstance(x, dict) and x.get("exit")), ""))[:2] for k, v in out.items()}
-    closed = any(v.get("migrate", {}).get("exit") == 0 for v in out.values())
-    check(closed, "S4B-F17 NOT CLOSED - no installer procedure reaches 9004 with the frozen R1 chain: " + json.dumps(brief)[:1800])
-    return "a non-superuser installer procedure reaches 9004 with 0 violations: " + json.dumps(brief)[:1500]
+    with psycopg.connect(h.dsn(server, "postgres", "postgres"), autocommit=True) as cx:
+        cx.execute(f"drop database if exists {db} with (force)")
+    h.drop_all(server)              # later tests bootstrap with the postgres installer
+    return (f"without the option B001 fails ({out['default']['B001_bootstrap.sql']['error'][-60:]}); documented procedure: "
+            f"B001+B002 by non-superuser '{inst}', 0002..9004 applied incl. amended 0108, 0 violations, 9 ADMIN-only installer "
+            f"memberships (no SET/INHERIT); installer can still toggle LOGIN; an added SET membership is reported (INSTALLER_MEMBERSHIP)")
+
+
+@test("AT-MIG-11c", "F-C1-01 option a (consequence: R1 0108 checksum changed)")
+def t_original_0108(server, ev):
+    """A database built with the R1-original 0108 is refused by the amended chain (checksum mismatch, exit 5) before
+    anything is applied. Documented consequence of option (a); no real R1 database exists."""
+    db = "bnx_s4mig11c"
+    d = r1_dir()
+    shutil.copy(os.path.join(ROOT, "db/history/r1/0108_grants_and_privilege_audit.R1-original.sql"),
+                os.path.join(d, "0108_grants_and_privilege_audit.sql"))
+    h.bootstrap(server, db)
+    h.migrate(server, db, mdir=d)
+    r = h.migrate(server, db, check=False, log=os.path.join(ev, "AT-MIG-11c_original_0108.log"))
+    with migrator(server, db) as cx:
+        head = cx.execute("select max(version) from bnx.schema_migrations").fetchone()[0]
+    check(r.returncode == 5 and "0108_grants_and_privilege_audit.sql" in r.stdout and "apply " not in r.stdout and head == "9001", r.stdout[-500:])
+    return "database built with R1-original 0108 -> amended chain refuses with exit 5 (migrations are immutable), nothing applied, head 9001"
 
 
 # ------------------------------------------------------------------------------------------------ upgrade of an R1 household

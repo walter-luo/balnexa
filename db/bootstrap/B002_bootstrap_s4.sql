@@ -32,3 +32,18 @@ alter default privileges for role bnx_definer in schema bnx_doc, bnx_intake, bnx
 alter default privileges for role bnx_definer in schema bnx_doc, bnx_intake, bnx_tax, bnx_fed grant select on sequences to bnx_backup;
 
 insert into bnx.schema_bootstrap(version) values ('B002') on conflict (version) do nothing;
+
+-- Non-superuser CREATEROLE installer (Neon project owner; S4B-F17, F-C1-01): B001/B002 are run with
+-- PGOPTIONS='-c createrole_self_grant=set,inherit' so the installer can create schemas owned by bnx_definer. Its own
+-- SET/INHERIT self-grants are removed here; the ADMIN-only membership PostgreSQL keeps (granted by the bootstrap
+-- superuser) is the only installer membership audit_privileges() accepts. No-op for a superuser installer.
+do $$
+declare r record;
+begin
+  for r in select g.rolname from pg_auth_members am join pg_roles g on g.oid = am.roleid
+            where am.member = (select oid from pg_roles where rolname = current_user)
+              and am.grantor = (select oid from pg_roles where rolname = current_user) and g.rolname like 'bnx\_%' loop
+    execute format('revoke %I from %I', r.rolname, current_user);
+  end loop;
+end $$;
+

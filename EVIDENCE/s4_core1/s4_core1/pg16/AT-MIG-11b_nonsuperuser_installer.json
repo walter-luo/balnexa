@@ -11,7 +11,7 @@
    "error": "psql:/home/claude/balnexa-dev/repo/db/bootstrap/B001_bootstrap.sql:44: ERROR:  permission denied for schema bnx"
   }
  },
- "createrole_self_grant=set,inherit": {
+ "documented (createrole_self_grant=set,inherit)": {
   "B001_bootstrap.sql": {
    "exit": 0,
    "error": ""
@@ -20,39 +20,71 @@
    "exit": 0,
    "error": ""
   },
-  "migrate": {
-   "exit": 6,
-   "last": "FAIL 0108_grants_and_privilege_audit.sql: RuntimeError: privilege audit: [{\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_definer\", \"member\": \"installer_s4\"}, {\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_definer\", \"member\": \"installer_s4\"}, {\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_app\", \"m"
-  },
-  "installer_memberships": [
-   18,
-   true,
-   true,
-   true
-  ]
- },
- "set,inherit + self-revoke after bootstrap": {
-  "B001_bootstrap.sql": {
-   "exit": 0,
-   "error": ""
-  },
-  "B002_bootstrap_s4.sql": {
-   "exit": 0,
-   "error": ""
-  },
-  "self_revoke": {
-   "exit": 0,
-   "error": ""
-  },
-  "migrate": {
-   "exit": 6,
-   "last": "FAIL 0108_grants_and_privilege_audit.sql: RuntimeError: privilege audit: [{\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_stager\", \"member\": \"installer_s4\"}, {\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_definer\", \"member\": \"installer_s4\"}, {\"rule\": \"UNEXPECTED_MEMBERSHIP\", \"group\": \"bnx_app\", \"me"
-  },
-  "installer_memberships": [
-   9,
-   true,
-   false,
-   false
-  ]
+  "memberships": [
+   [
+    "bnx_app",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_auth",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_authn",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_backup",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_definer",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_fed_reader",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_migrator",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_stager",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_worker",
+    true,
+    false,
+    false,
+    "postgres"
+   ]
+  ],
+  "migrate": "OK migrations=18 head=9004 privilege_violations=0"
  }
 }

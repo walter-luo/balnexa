@@ -1,6 +1,10 @@
 -- 0108 Worker revalidation step (AUD-053/INV-43), prefix-based EXECUTE grants, and the machine-checked privilege
 -- audit (AUD-049/AUD-050). bnx.apply_grants() and bnx.audit_privileges() are re-run by the migration runner after
 -- every migration; any violation aborts the run.
+-- AMENDMENT S4-CORE1 (Owner decision F-C1-01 option a, 2026-11-05): the membership rule also accepts the ADMIN-only
+-- membership (no INHERIT, no SET) that PostgreSQL 16+ gives a non-superuser CREATEROLE installer in every role it creates
+-- (the Neon project-owner case, S4B-F17). The installer is the session recorded for B001 in bnx.schema_bootstrap.
+-- This changes the R1 checksum of this file; the R1 original is kept unchanged in db/history/r1/.
 set role bnx_definer;
 
 -- after a fail-closed activation refusal: stale (new approval required) or suspended (approver lost authority)
@@ -52,7 +56,9 @@ begin
   for r in select g.rolname grp, u.rolname mem, am.inherit_option, am.set_option, am.admin_option
              from pg_auth_members am join pg_roles g on g.oid = am.roleid join pg_roles u on u.oid = am.member
             where g.rolname like 'bnx\_%' or u.rolname like 'bnx\_%' loop
-    if not (r.grp = 'bnx_definer' and r.mem = 'bnx_migrator' and not r.inherit_option and r.set_option and not r.admin_option) then
+    if not (r.grp = 'bnx_definer' and r.mem = 'bnx_migrator' and not r.inherit_option and r.set_option and not r.admin_option)
+       and not (r.mem = (select b.applied_by_session from bnx.schema_bootstrap b where b.version = 'B001') and r.mem not like 'bnx\_%'
+                and r.admin_option and not r.inherit_option and not r.set_option) then
       v := v || jsonb_build_object('rule', 'UNEXPECTED_MEMBERSHIP', 'group', r.grp, 'member', r.mem); end if;
   end loop;
   -- schemas: nobody but the owner may CREATE; runtime roles never own anything

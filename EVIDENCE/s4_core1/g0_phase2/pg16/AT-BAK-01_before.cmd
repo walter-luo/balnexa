@@ -1,4 +1,4 @@
-/usr/lib/postgresql/16/bin/pg_dump --dbname host=/var/lib/postgresql/bnx16 port=55416 user=bnx_backup dbname=<db> --snapshot=00000006-00001140-1 --format=custom --data-only --schema=bnx --schema=auth -f /home/claude/balnexa-dev/evidence/g0_phase2/pg16/AT-BAK-01_before.dump
+/usr/lib/postgresql/16/bin/pg_dump --dbname host=/var/lib/postgresql/bnx16 port=55416 user=bnx_backup dbname=<db> --snapshot=00000006-00000361-1 --format=custom --data-only --schema=bnx --schema=auth -f /home/claude/balnexa-dev/evidence2/g0_phase2/pg16/AT-BAK-01_before.dump
 exit=0 schema_only_exit=0 pg_restore_to_sql_exit=0
 pg_dump: warning: there are circular foreign-key constraints on this table:
 pg_dump: detail: account

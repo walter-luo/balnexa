@@ -97,13 +97,14 @@ begin
     if r.rolname = 'bnx_migrator' and r.rolinherit then v := v || jsonb_build_object('rule', 'MIGRATOR_INHERITS'); end if;
   end loop;
   -- memberships: the documented definer->migrator SET-only grant; and (S4B-F17) the installer's automatic ADMIN
-  -- membership in the roles it created when the installer is a non-superuser CREATEROLE role (Neon project owner).
+  -- ADMIN-only membership (no INHERIT, no SET) in the roles it created when the installer is a non-superuser CREATEROLE
+  -- role (Neon project owner); same rule as amended 0108. B002 removes the installer's own SET/INHERIT self-grants.
   for r in select g.rolname grp, u.rolname mem, am.inherit_option, am.set_option, am.admin_option
              from pg_auth_members am join pg_roles g on g.oid = am.roleid join pg_roles u on u.oid = am.member
             where g.rolname like 'bnx\_%' or u.rolname like 'bnx\_%' loop
     if r.grp = 'bnx_definer' and r.mem = 'bnx_migrator' and not r.inherit_option and r.set_option and not r.admin_option then
       null;
-    elsif r.grp = any(nine) and r.mem = installer and r.mem not like 'bnx\_%' and r.admin_option and not r.inherit_option then
+    elsif r.grp = any(nine) and r.mem = installer and r.mem not like 'bnx\_%' and r.admin_option and not r.inherit_option and not r.set_option then
       null;  -- INSTALLER_MEMBERSHIP accepted
     elsif r.grp = any(nine) and r.mem not like 'bnx\_%' then
       v := v || jsonb_build_object('rule', 'INSTALLER_MEMBERSHIP', 'group', r.grp, 'member', r.mem, 'inherit', r.inherit_option,
