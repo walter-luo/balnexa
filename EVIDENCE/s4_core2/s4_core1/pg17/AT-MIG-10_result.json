@@ -1,0 +1,23 @@
+{
+ "fingerprint": "953a890ae154732ff324358808ee8f59d76e8572c8ddccab3d0538fda57b1d6f",
+ "config_status": {
+  "active": {
+   "flags": {
+    "CRA": "YES",
+    "Canada": "YES",
+    "International": "NO"
+   },
+   "activated_at": "2026-11-05T19:24:33.414626-05:00",
+   "config_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "config_version": 1,
+   "deployment_mode": null
+  },
+  "pending": null,
+  "identity": {
+   "origin": "adopt",
+   "project_id": "synthetic-upgrade-01",
+   "instance_uid": "254ed0ce-9345-4dfa-a934-7868315b76e0"
+  },
+  "schema_head": "9007"
+ }
+}

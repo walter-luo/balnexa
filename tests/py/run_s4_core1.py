@@ -288,6 +288,11 @@ def t_upgrade_r1_head(server, ev):
     installer_sql(server, db, "select bnx.install_activate_config(%s, %s, %s::jsonb)",
                   (cv, DIGEST, json.dumps({"project_id": "synthetic-upgrade-01", "instance_uid": uid, "modules": MODULES})))
     st2 = H.q(H.owner, "config_status")
+    # 9006/9007: the R1 free-text institution is PENDING_VERIFICATION and the account's region UNKNOWN (fail closed) until the
+    # Owner verifies the institution; balances are hidden meanwhile (scope warning), never altered
+    hidden = H.q(H.owner, "balances", as_of="2026-12-31")
+    pend = installer_sql(server, db, "select id from bnx.institution where status = 'PENDING_VERIFICATION'")[0][0]
+    H.cmd(H.owner, "verify_institution", institution_id=str(pend), evidence_ref="synthetic-statement-header", jurisdiction="CA")
     with migrator(server, db) as cx:
         fp_post = cx.execute(FP_SQL).fetchone()[0]
         fp_fn = cx.execute("select bnx.ledger_fingerprint()").fetchone()[0]
@@ -298,13 +303,18 @@ def t_upgrade_r1_head(server, ev):
     check(st2["active"]["config_version"] == cv and st2["active"]["flags"] == MODULES and st2["active"]["config_sha256"] == DIGEST,
           f"after activation: {st2}")
     check(fp_pre == fp_post == fp_fn and ev_row == [("ADOPT", True, fp_pre)], f"fingerprints {fp_pre} {fp_post} {fp_fn} {ev_row}")
-    check(bal_pre == bal_post and av == 0 and audit_post == audit_pre + 2, f"balances equal={bal_pre == bal_post} audit={av} {audit_pre}->{audit_post}")
+    bal_pre_rows = {k: v for k, v in bal_pre.items() if k != "scope_warnings"} if "scope_warnings" not in bal_pre else bal_pre
+    bal_post_rows = {k: v for k, v in bal_post.items() if k != "scope_warnings"}
+    check(hidden["balances"] == [] and hidden["scope_warnings"] == ["EXCLUDED_SCOPE:UNKNOWN"], f"before verification: {hidden}")
+    check(bal_pre_rows == bal_post_rows and bal_post["scope_warnings"] == [] and av == 0 and audit_post == audit_pre + 3,
+          f"balances equal={bal_pre_rows == bal_post_rows} audit={av} {audit_pre}->{audit_post}")
     H.expense(H.owner, "1.00", date="2026-04-01")                 # R1 posting path still works after the upgrade
     H.close()
     json.dump({"fingerprint": fp_pre, "config_status": st2}, open(os.path.join(ev, "AT-MIG-10_result.json"), "w"), indent=1, default=str)
     return (f"R1 head (15 migrations) with data -> B002 -> 9002..9004 (0 violations) -> adopt (PENDING_DEPLOY, not active) -> "
             f"install_activate_config -> ACTIVE v{cv}; ledger fingerprint pre = post = bnx.ledger_fingerprint() ({fp_pre[:12]}…); "
-            f"q_balances identical; audit chain intact (+2 installer events); R1 posting works afterwards")
+            f"account fail-closed (region UNKNOWN, balances hidden with EXCLUDED_SCOPE:UNKNOWN) until the Owner verifies the R1 free-text "
+            f"institution; then q_balances identical to R1; audit chain intact (+2 installer events, +1 verification); R1 posting works afterwards")
 
 
 # ------------------------------------------------------------------------------------------------ identity and lifecycle
@@ -498,21 +508,52 @@ def t_settings(server, ev):
     return f"{len(good)} keys accepted with per-key validation; {len(refused)} invalid values/keys refused; member -> {r}"
 
 
-@test("AT-FLG-10", "S4B-F06 (requires 9007 enforcement)")
-def t_flag_failclosed(server, ev):
-    return "SKIP:NOT_EXECUTED - fail-closed enforcement (pol_require_module, t_scope_flag_*) is migration 9007, which depends on 9006 (CORE-2); not part of this increment"
+# AT-FLG-10 is implemented in run_s4_core2.py (9007).
 
 
 # ------------------------------------------------------------------------------------------------ inventory
 KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequence", "extension"}
-IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004"}
+IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
-    "bnx.schema_registry", "bnx.check_constraint_of", "bnx.config_transition", "bnx.config_create", "bnx.config_modules_valid",
-    "bnx.ledger_fingerprint", "bnx.require_t3_fresh", "bnx.trg_config_anchor_projection", "bnx.trg_config_flags_complete"}
+    "bnx.audit_canonical_v2",
+    "bnx.audit_head",
+    "bnx.brand_issuer_at",
+    "bnx.check_constraint_of",
+    "bnx.config_create",
+    "bnx.config_modules_valid",
+    "bnx.config_transition",
+    "bnx.envelope_value",
+    "bnx.financial_policy_current",
+    "bnx.financial_policy_from_installer",
+    "bnx.flag_enforcement_matrix",
+    "bnx.flag_enforcement_point",
+    "bnx.institution_code_for",
+    "bnx.institution_eligible",
+    "bnx.ledger_fingerprint",
+    "bnx.normalize_institution_name",
+    "bnx.pol_active_config",
+    "bnx.pol_enabled_acs",
+    "bnx.pol_excluded_scopes",
+    "bnx.pol_flag",
+    "bnx.pol_region_flag",
+    "bnx.pol_require_module_for_account",
+    "bnx.pol_require_region",
+    "bnx.q_registry_review",
+    "bnx.region_of_jurisdiction",
+    "bnx.require_t3_fresh",
+    "bnx.schema_registry",
+    "bnx.trg_account_institution_eligible",
+    "bnx.trg_account_institution_guard",
+    "bnx.trg_account_institution_projection",
+    "bnx.trg_audit_chain_version",
+    "bnx.trg_config_anchor_projection",
+    "bnx.trg_config_flags_complete",
+    "bnx.trg_scope_flag",
+}
 
 
-@test("AT-INV-01", "S4B-F02 (CORE-1 scope)")
+@test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9007)")
 def t_inventory(server, ev):
     db = "bnx_s4inv01"
     h.bootstrap(server, db); h.migrate(server, db)
@@ -562,7 +603,7 @@ def t_inventory(server, ev):
               open(os.path.join(ev, "AT-INV-01_inventory.json"), "w"), indent=1)
     check(not missing, f"disposition objects absent from the catalog: {missing}")
     check(set(new_unlisted) == HELPERS_NOT_IN_DISPOSITION, f"unlisted S4 objects differ from the declared helper list: {new_unlisted}")
-    return (f"{len(checked)} disposition rows in CORE-1 scope present in the catalog, 0 missing ({skipped} rows out of scope); "
+    return (f"{len(checked)} disposition rows in scope (B002..9007) present in the catalog, 0 missing ({skipped} rows out of scope); "
             f"{len(new_unlisted)} S4 helper objects not yet in the disposition (declared): {new_unlisted}")
 
 
