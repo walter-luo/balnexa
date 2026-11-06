@@ -1,0 +1,3 @@
+FAIL
+psql:<stdin>:16: ERROR:  permission denied to alter role
+DETAIL:  Only roles with the CREATEROLE attribute and the ADMIN option on role "bnx_app" may alter this role.

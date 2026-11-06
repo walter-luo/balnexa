@@ -552,23 +552,28 @@ def t_cmd_mcp(server, ev):
     with H.definer() as cx:
         cx.execute("insert into bnx.oauth_client values ('chatgpt-test', 'Synthetic AI host', array['https://host.example/cb']) on conflict do nothing")
         cx.commit()
-    r = H.cmd(H.owner, "approve_ai_connection", client_id="chatgpt-test", redirect_uri="https://host.example/cb",
-              code_challenge=challenge, scopes=["read", "propose"], account_currency_ids=[H.cad["account_currency_id"]])
+    # S4 re-baseline (9009): catalog scopes (legacy read/propose are not granted to new consents); a replayed code revokes the
+    # connection's tokens and is returned as {"error": "invalid_grant"} so the revocation commits (RFC 6749 §4.1.2)
+    consent = lambda: H.cmd(H.owner, "approve_ai_connection", client_id="chatgpt-test", redirect_uri="https://host.example/cb",
+              code_challenge=challenge, scopes=["finance.read", "finance.draft", "reports.read"], account_currency_ids=[H.cad["account_currency_id"]])
+    r = consent()
     expect_err(H.authn.call, "INVALID_GRANT", "authn_oauth_token", {"code": r["code"], "client_id": "chatgpt-test",
                "redirect_uri": "https://host.example/cb", "code_verifier": "A" * 43})
     tok = H.authn.call("authn_oauth_token", {"code": r["code"], "client_id": "chatgpt-test", "redirect_uri": "https://host.example/cb", "code_verifier": verifier})
-    expect_err(H.authn.call, "INVALID_GRANT", "authn_oauth_token", {"code": r["code"], "client_id": "chatgpt-test",
-               "redirect_uri": "https://host.example/cb", "code_verifier": verifier})
+    rep = H.authn.call("authn_oauth_token", {"code": r["code"], "client_id": "chatgpt-test", "redirect_uri": "https://host.example/cb", "code_verifier": verifier})
+    check(rep.get("error") == "invalid_grant", f"replay: {rep}")
+    expect_err(H.q, "UNAUTHENTICATED", {"kind": "bearer", "secret": tok["access_token"]}, "balances")
+    r = consent()
+    tok = H.authn.call("authn_oauth_token", {"code": r["code"], "client_id": "chatgpt-test", "redirect_uri": "https://host.example/cb", "code_verifier": verifier})
     bearer = {"kind": "bearer", "secret": tok["access_token"]}
     bal = H.q(bearer, "balances")["balances"]
     check([b["account_currency_id"] for b in bal] == [H.cad["account_currency_id"]], "connection scope not applied")
     expect_err(H.expense, "FORBIDDEN_CHANNEL", bearer, "1.00")
     expect_err(H.cmd, "FORBIDDEN_CHANNEL", bearer, "approve_plan", plan_id=str(uuid.uuid4()), plan_hash="x", scope_digest="y")
-    ea = H.q(bearer, "evidence_access", evidence_file_id=str(uuid.uuid4()))
-    check(ea["decision"] == "denied", "MCP must not obtain evidence URLs")
+    expect_err(H.q, "SCOPE_NOT_CONSENTED", bearer, "evidence_access", evidence_file_id=str(uuid.uuid4()))   # S4: no documents.read
     H.cmd(H.owner, "revoke_ai_connection", connection_id=r["connection_id"])
     expect_err(H.q, "UNAUTHENTICATED", bearer, "balances")
-    return "PKCE wrong verifier and code replay -> INVALID_GRANT; bearer limited to approved account-currency; MCP post/approve -> FORBIDDEN_CHANNEL; evidence denied; revoked connection -> UNAUTHENTICATED"
+    return "PKCE wrong verifier -> INVALID_GRANT; code replay -> invalid_grant with the earlier token revoked; bearer limited to approved account-currency; MCP post/approve -> FORBIDDEN_CHANNEL; evidence denied; revoked connection -> UNAUTHENTICATED"
 
 
 @test("AT-CMD-05", "AUD-053")
@@ -819,7 +824,7 @@ def t_snap_connections(server, ev):
         v = base64.urlsafe_b64encode(os.urandom(40)).rstrip(b"=").decode()
         ch = base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).rstrip(b"=").decode()
         cb = f"https://{client[-1]}.example/cb"
-        r = H.cmd(H.owner, "approve_ai_connection", client_id=client, redirect_uri=cb, code_challenge=ch, scopes=["read"], account_currency_ids=acs)
+        r = H.cmd(H.owner, "approve_ai_connection", client_id=client, redirect_uri=cb, code_challenge=ch, scopes=["finance.read", "reports.read"], account_currency_ids=acs)
         t = H.authn.call("authn_oauth_token", {"code": r["code"], "client_id": client, "redirect_uri": cb, "code_verifier": v})
         return {"kind": "bearer", "secret": t["access_token"]}, r["connection_id"]
     both = [H.cad["account_currency_id"], H.usd["account_currency_id"]]
@@ -830,11 +835,9 @@ def t_snap_connections(server, ev):
     check(H.q(H.owner, "replay_snapshot", snapshot_id=s1["snapshot_id"])["projection_digest_verified"], "member PWA replay")
     s_pwa = H.cmd(H.owner, "create_report_snapshot", report_code="R-BAL", account_currency_ids=both)
     expect_err(H.q, "ACCESS_REVOKED", c2, "replay_snapshot", snapshot_id=s_pwa["snapshot_id"])  # narrower AI consent
-    c3, _ = connect("host-a", [])
-    s_empty = H.cmd(c3, "create_report_snapshot", report_code="R-BAL")
-    check(s_empty["rows"] == [], "zero-scope connection")
-    expect_err(H.q, "NOT_AVAILABLE", c1, "replay_snapshot", snapshot_id=s_empty["snapshot_id"])
-    return "other AI connection of same member -> NOT_AVAILABLE; narrower AI consent on PWA snapshot -> ACCESS_REVOKED; zero-scope connection snapshot bound to its connection"
+    # S4 re-baseline (9009, CROSS-02): a consent without an account-currency subset is refused (missing subset => deny)
+    expect_err(connect, "SUBSET_REQUIRED", "host-a", [])
+    return "other AI connection of same member -> NOT_AVAILABLE; narrower AI consent on PWA snapshot -> ACCESS_REVOKED; zero-scope consent refused (SUBSET_REQUIRED)"
 
 
 @test("AT-SNAP-05", "AUD-051 (negative control on Draft-04 baseline)")
@@ -1163,7 +1166,7 @@ def t_backup(server, ev):
     open(os.path.join(ev, "AT-BAK-01_restore_preamble.sql"), "w").write(pre)
     rr = subprocess.run([h.PSQL, h.dsn(server, "bnx_migrator", rdb), "-X", "-q", "-v", "ON_ERROR_STOP=1"],
                         input=pre + "\n".join(bnx_part) + "\ncommit;\n", capture_output=True, text=True)
-    check(rr.returncode == 0, "restore (bnx as migrator/definer): " + rr.stderr[:1500])
+    check(rr.returncode == 0, "restore (bnx as migrator/definer): " + "\n".join(l for l in rr.stderr.splitlines() if not l.startswith("NOTICE"))[:1500])
     ra = subprocess.run([h.PSQL, h.dsn(server, "bnx_auth", rdb), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1"],
                         input="truncate auth.future_identity_link;\n" + "\n".join(auth_part) + "\n", capture_output=True, text=True)
     check(ra.returncode == 0, "restore (auth as bnx_auth): " + ra.stderr[:1500])

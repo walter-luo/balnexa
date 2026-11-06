@@ -101,12 +101,19 @@ export default {
       }
       if (req.method === 'POST' && p === '/oauth/token') {
         const f = new URLSearchParams(await req.text());
-        if (f.get('grant_type') !== 'authorization_code') return json(400, { error: 'unsupported_grant_type' });
+        const gt = f.get('grant_type');
+        if (gt !== 'authorization_code' && gt !== 'refresh_token') return json(400, { error: 'unsupported_grant_type' });
         try {
-          const r = await env.db.one('bnx_authn', 'select bnx.authn_oauth_token($1::jsonb) r', [JSON.stringify({
-            code: f.get('code'), client_id: f.get('client_id'), redirect_uri: f.get('redirect_uri'), code_verifier: f.get('code_verifier') })]);
+          // S4 9009: replay / refresh-reuse detection revokes tokens and is RETURNED as {error} so the revocation commits
+          const r = gt === 'authorization_code'
+            ? await env.db.one('bnx_authn', 'select bnx.authn_oauth_token($1::jsonb) r', [JSON.stringify({
+                code: f.get('code'), client_id: f.get('client_id'), redirect_uri: f.get('redirect_uri'), code_verifier: f.get('code_verifier'),
+                ...(f.get('resource') ? { resource: f.get('resource') } : {}) })])
+            : await env.db.one('bnx_authn', 'select bnx.authn_oauth_refresh($1::jsonb) r', [JSON.stringify({
+                refresh_token: f.get('refresh_token'), client_id: f.get('client_id') })]);
+          if (r && r.error) return json(400, { error: r.error });
           return json(200, r);
-        } catch (e) { if (e.code === 'P0401') return json(400, { error: 'invalid_grant' }); throw e; }
+        } catch (e) { if (e.code === 'P0401') return json(400, { error: e.message === 'INVALID_TARGET' ? 'invalid_target' : 'invalid_grant' }); throw e; }
       }
       if (req.method === 'POST' && p === '/mcp') {
         const cred = credential(req);

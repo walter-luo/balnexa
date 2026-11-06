@@ -115,19 +115,27 @@ test('BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope', as
   const verifier = crypto.randomBytes(40).toString('base64url');
   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
   const plain = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
-    code_challenge_method: 'plain', scopes: ['read'], account_currency_ids: [S.ac.account_currency_id] }, cookie: S.owner, headers: { origin: ORIGIN } });
+    code_challenge_method: 'plain', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id] }, cookie: S.owner, headers: { origin: ORIGIN } });
   assert.equal(plain.status, 400);
-  const az = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
-    code_challenge_method: 'S256', scopes: ['read', 'propose'], account_currency_ids: [S.ac.account_currency_id], state: 'xyz' }, cookie: S.owner, headers: { origin: ORIGIN } });
+  // S4 re-baseline (9009): catalog scopes; a replayed code revokes the connection's tokens, so a fresh consent follows
+  const authorize = () => call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
+    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft', 'reports.read'], account_currency_ids: [S.ac.account_currency_id], state: 'xyz' }, cookie: S.owner, headers: { origin: ORIGIN } });
+  let az = await authorize();
   assert.equal(az.status, 200, az.text);
-  const code = new URL(az.json.redirect).searchParams.get('code');
+  let code = new URL(az.json.redirect).searchParams.get('code');
   const tokenReq = (v) => call('/oauth/token', { form: { grant_type: 'authorization_code', code, client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_verifier: v } });
   const wrong = await tokenReq(crypto.randomBytes(40).toString('base64url'));
   assert.deepEqual([wrong.status, wrong.json.error], [400, 'invalid_grant']);
+  const tok0 = await tokenReq(verifier);
+  assert.equal(tok0.status, 200, tok0.text);
+  const replay = await tokenReq(verifier);
+  assert.deepEqual([replay.status, replay.json.error], [400, 'invalid_grant']);
+  const revoked = await call('/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_balances', arguments: {} } }, bearer: tok0.json.access_token });
+  assert.ok(revoked.json.result.isError, 'token issued before the replay must be revoked');
+  az = await authorize();
+  code = new URL(az.json.redirect).searchParams.get('code');
   const tok = await tokenReq(verifier);
   assert.equal(tok.status, 200, tok.text);
-  const replay = await tokenReq(verifier);
-  assert.equal(replay.status, 400);
   S.bearer = tok.json.access_token;
   const rpc = (method, params) => call('/mcp', { body: { jsonrpc: '2.0', id: 1, method, params }, bearer: S.bearer });
   const list = await rpc('tools/list');

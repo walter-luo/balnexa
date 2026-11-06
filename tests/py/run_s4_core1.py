@@ -513,25 +513,34 @@ def t_settings(server, ev):
 
 # ------------------------------------------------------------------------------------------------ inventory
 KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequence", "extension"}
-IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007"}
+IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
+    "bnx.calling_function",
     "bnx.check_constraint_of",
     "bnx.config_create",
     "bnx.config_modules_valid",
     "bnx.config_transition",
+    "bnx.economic_type_check",
+    "bnx.economic_type_violation",
     "bnx.envelope_value",
     "bnx.financial_policy_current",
     "bnx.financial_policy_from_installer",
     "bnx.flag_enforcement_matrix",
     "bnx.flag_enforcement_point",
+    "bnx.function_scope",
+    "bnx.host_profile_redirect",
     "bnx.institution_code_for",
     "bnx.institution_eligible",
     "bnx.ledger_fingerprint",
+    "bnx.line_kind",
     "bnx.normalize_institution_name",
+    "bnx.oauth_issue",
+    "bnx.oauth_revoke_connection",
+    "bnx.plan_item_type",
     "bnx.pol_active_config",
     "bnx.pol_enabled_acs",
     "bnx.pol_excluded_scopes",
@@ -539,6 +548,7 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.pol_region_flag",
     "bnx.pol_require_module_for_account",
     "bnx.pol_require_region",
+    "bnx.posting_batch_chunk",
     "bnx.q_registry_review",
     "bnx.region_of_jurisdiction",
     "bnx.require_t3_fresh",
@@ -549,11 +559,12 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.trg_audit_chain_version",
     "bnx.trg_config_anchor_projection",
     "bnx.trg_config_flags_complete",
+    "bnx.trg_economic_type_rule",
     "bnx.trg_scope_flag",
 }
 
 
-@test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9007)")
+@test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9009)")
 def t_inventory(server, ev):
     db = "bnx_s4inv01"
     h.bootstrap(server, db); h.migrate(server, db)
@@ -603,7 +614,7 @@ def t_inventory(server, ev):
               open(os.path.join(ev, "AT-INV-01_inventory.json"), "w"), indent=1)
     check(not missing, f"disposition objects absent from the catalog: {missing}")
     check(set(new_unlisted) == HELPERS_NOT_IN_DISPOSITION, f"unlisted S4 objects differ from the declared helper list: {new_unlisted}")
-    return (f"{len(checked)} disposition rows in scope (B002..9007) present in the catalog, 0 missing ({skipped} rows out of scope); "
+    return (f"{len(checked)} disposition rows in scope (B002..9009) present in the catalog, 0 missing ({skipped} rows out of scope); "
             f"{len(new_unlisted)} S4 helper objects not yet in the disposition (declared): {new_unlisted}")
 
 
