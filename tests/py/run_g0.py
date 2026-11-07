@@ -440,7 +440,10 @@ def t_cmd_signin(server, ev):
     expect_err(H.authn.call, "UNAUTHENTICATED", "authn_begin_session", {**F.claims("g-owner"), "email_verified": False})
     expect_err(H.authn.call, "UNAUTHENTICATED", "authn_begin_session", {**F.claims("g-owner"), "iss": "https://evil.example"})
     expect_err(H.app.call, "UNAUTHENTICATED", "q_balances", {"kind": "session", "secret": "x" * 40}, {})
-    expect_err(H.app.call, "UNAUTHENTICATED", "q_balances", {"kind": "session", "secret": H.owner["secret"][:-1] + "A"}, {})
+    # forged token: last character changed. R1 used a fixed "A", which equals the real secret ~1/16 of the time (the last
+    # base64 character of a 32-byte secret is one of 16 values) and then the call rightly succeeds (S4 fix, F-C3-12)
+    sec = H.owner["secret"]
+    expect_err(H.app.call, "UNAUTHENTICATED", "q_balances", {"kind": "session", "secret": sec[:-1] + ("B" if sec[-1] == "A" else "A")}, {})
     expect_err(H.app.call, "permission denied", "authn_begin_session", F.claims("g-owner"))   # app cannot mint sessions
     with H.definer() as cx:
         raw = cx.execute("select count(*) from bnx.member_session where encode(token_sha256,'escape') like %s",
