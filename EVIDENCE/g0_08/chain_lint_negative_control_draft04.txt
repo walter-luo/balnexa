@@ -1,0 +1,1 @@
+87 [{"rule": "PRIVILEGED_DDL", "file": "0001_roles_schemas_extensions.sql"}, {"rule": "RESET_ROLE", "file": "0007_grants.sql"}]

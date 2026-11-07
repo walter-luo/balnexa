@@ -1,0 +1,35 @@
+== clean-database migration (empty PostgreSQL)
+apply 0001_roles_schemas_extensions.sql sha256=ee18dcbccac4
+apply 0002_reference_and_accounts.sql sha256=705660726d0a
+apply 0003_ledger.sql sha256=0da834f92271
+apply 0004_evidence.sql sha256=f0fe79fa984d
+apply 0005_matching.sql sha256=b69a31fe480c
+apply 0006_version_aware_readers.sql sha256=f4626897b7cf
+apply 0007_grants.sql sha256=0f3aed7cfdb9
+apply 9001_import_draft02_logical_state.sql sha256=48ef95fc6967
+OK
+== re-run (must skip all)
+OK
+== 010_append_only_and_catalog.sql: OK
+PASS 010 append-only, class registry, privileges
+== 020_temporal.sql: OK
+PASS AT-TMP-01: Mar-31 at V2 = 940, at V3 = 1000; Apr-30 = 940
+PASS AT-TMP-02: BEFORE_OPENING at V4, 3200 at V5, 2024 delta = bridge -35
+PASS AT-TMP-03: 1000 at V5, 1100 at V6
+PASS AT-TMP-04: invisible before V7, visible from V7; void after activation rejected
+== 030_scope_claims.sql: OK
+PASS 030 INV-40: overlap rejected (exclusion_violation); adjacent/other-account/after-release accepted
+== 040_ownership.sql: OK
+PASS 040 AT-OWN-01..04: transfer, 60/40->50/50, reversion, >100% rejected, grants distinct, scope versioned
+== 050_evidence_and_snapshots.sql: OK
+PASS AT-EVP-09/10: grant revocation, T3 expiry/revocation and suspension take effect on the next decision
+PASS AT-ARC-01: sha256 write-once; archive_state single_copy -> archive_pending -> dual_verified
+PASS AT-SNAP-01/02: content digest stable at V2 after a back-dated posting; revoked actor -> ACCESS_REVOKED
+== Draft-02 logical state -> migration 9001: OK
+apply 9001_import_draft02_logical_state.sql sha256=48ef95fc6967
+PASS 060 Draft-02 -> Draft-04 conversion: 2 anchor versions (5000 then 5200), 2 versioned confirmations, 2 decision events, 1 current
+ALL DATABASE TESTS PASS
+== mutation check: effective_posting_date without the version filter (Draft-02 behaviour) -> 020_temporal.sql: AT-TMP-01 FAIL v_post 1000.0000 (the test detects the AUD-028 defect)
+== sqllint, architecture Draft-04: DUPLICATES: none ALTER on relations not created in any block: [] 
+== sqllint, architecture Draft-03 (control): DUPLICATES: {('relation', 'bnx.opening_anchor'): [784, 784]} ALTER on relations not created in any block: ['bnx.fx_selection_log', 'bnx.notification_target', 'bnx.posting_date_confirmation', 'bnx.valuation'] 
+== excerpt check (all not-yet-migrated DDL executed on top of 0001-0007 in FK order, one Draft-01 stub): statements: 29 | result: OK, bnx tables now 77
