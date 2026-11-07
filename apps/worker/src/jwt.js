@@ -37,3 +37,12 @@ export async function verifyGoogleIdToken(token, { jwks, audience, now = Date.no
   if (payload.email_verified !== true || !payload.sub) throw new AuthError('email');
   return payload;
 }
+
+// Executor lease authentication (UA §9.2; S4B-F12): a Google ID token of the job's service account, pinned to the
+// configured identity: sub and email of the job service account, azp of the job's client id (AT-EXEC-01).
+export async function verifyJobToken(token, { jwks, audience, pin, now = Date.now() }) {
+  if (!pin || !pin.sub || !pin.email || !pin.azp) throw new AuthError('pin');
+  const c = await verifyGoogleIdToken(token, { jwks, audience, now });
+  if (c.sub !== pin.sub || c.email !== pin.email || c.azp !== pin.azp) throw new AuthError('pin');
+  return c;
+}

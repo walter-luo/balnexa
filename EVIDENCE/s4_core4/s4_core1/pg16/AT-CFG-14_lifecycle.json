@@ -1,0 +1,44 @@
+{
+ "states": [
+  [
+   1,
+   "SUPERSEDED"
+  ],
+  [
+   2,
+   "ACTIVE"
+  ]
+ ],
+ "events": [
+  [
+   1,
+   "NONE",
+   "PENDING_DEPLOY"
+  ],
+  [
+   1,
+   "PENDING_DEPLOY",
+   "ACTIVE"
+  ],
+  [
+   1,
+   "ACTIVE",
+   "SUPERSEDED"
+  ],
+  [
+   2,
+   "NONE",
+   "PENDING_OWNER_ACCEPTANCE"
+  ],
+  [
+   2,
+   "PENDING_OWNER_ACCEPTANCE",
+   "PENDING_DEPLOY"
+  ],
+  [
+   2,
+   "PENDING_DEPLOY",
+   "ACTIVE"
+  ]
+ ]
+}
