@@ -268,17 +268,30 @@ def t_dcr(server, ev):
     ok = H.authn.call("authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"], "client_name": "Claude"})
     cimd = H.authn.call("authn_register_client", {"host_profile": "chatgpt_plugin_mcp", "registration_kind": "CIMD", "client_id": "https://chatgpt.com/oauth/abc123/client.json",
                                                   "redirect_uris": ["https://chatgpt.com/connector/oauth/abc123"]})
-    dev = H.authn.call("authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["http://localhost:8080/cb"], "environment": "development"})
+    # the environment is the instance's (data_class), never the caller's (same-family review finding 9)
     bad = [expect_err(H.authn.call, "INVALID_REDIRECT_URI", "authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["https://evil.example/cb"]}),
            expect_err(H.authn.call, "INVALID_REDIRECT_URI", "authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["http://localhost:8080/cb"]}),
+           expect_err(H.authn.call, "INVALID_REDIRECT_URI", "authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["http://localhost:8080/cb"],
+                      "environment": "development"}),
+           # an existing CIMD client cannot be re-pointed by an unauthenticated registration
+           expect_err(H.authn.call, "INVALID_CLIENT_METADATA", "authn_register_client", {"host_profile": "chatgpt_plugin_mcp", "registration_kind": "CIMD",
+                      "client_id": "https://chatgpt.com/oauth/abc123/client.json", "redirect_uris": ["https://chatgpt.com/connector_platform_oauth_redirect"]}),
            expect_err(H.authn.call, "INVALID_REDIRECT_URI", "authn_register_client", {"host_profile": "chatgpt_plugin_mcp", "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"]}),
            expect_err(H.authn.call, "INVALID_CLIENT_METADATA", "authn_register_client", {"host_profile": "chatgpt_plugin_mcp", "registration_kind": "CIMD",
                       "client_id": "https://evil.example/client.json", "redirect_uris": ["https://chatgpt.com/connector_platform_oauth_redirect"]}),
            expect_err(H.authn.call, "INVALID_CLIENT_METADATA", "authn_register_client", {"host_profile": "unknown", "redirect_uris": ["https://x.example"]})]
+    same = H.authn.call("authn_register_client", {"host_profile": "chatgpt_plugin_mcp", "registration_kind": "CIMD", "client_id": "https://chatgpt.com/oauth/abc123/client.json",
+                                                  "redirect_uris": ["https://chatgpt.com/connector/oauth/abc123"]})
+    redirect = C2.one(H, "select redirect_uris from bnx.oauth_client where client_id = 'https://chatgpt.com/oauth/abc123/client.json'")[0]
+    H.cmd(H.owner, "set_household_setting", setting="data_class", value="synthetic")
+    dev = H.authn.call("authn_register_client", {"host_profile": "claude_remote_mcp", "redirect_uris": ["http://localhost:8080/cb"]})
     kinds = dict(C2.sql(H, "select client_id, registration_kind || '/' || host_profile from bnx.oauth_client where registration_kind <> 'PREREGISTERED'"))
     H.close()
-    check(ok["client_id"].startswith("dcr-") and cimd["client_id"] == "https://chatgpt.com/oauth/abc123/client.json" and len(kinds) == 3, f"{ok} {cimd} {kinds}")
-    return f"DCR (Claude callback), CIMD (ChatGPT client.json) and non-production loopback accepted; refused: {bad}"
+    check(ok["client_id"].startswith("dcr-") and cimd["client_id"] == "https://chatgpt.com/oauth/abc123/client.json" and len(kinds) == 3
+          and same["client_id"] == cimd["client_id"] and redirect == ["https://chatgpt.com/connector/oauth/abc123"] and dev["client_id"].startswith("dcr-"),
+          f"{ok} {cimd} {kinds} {same} {redirect}")
+    return (f"DCR (Claude callback) and CIMD (ChatGPT client.json) accepted; identical CIMD re-registration idempotent, re-pointing refused; "
+            f"loopback refused on a production instance even when the caller claims development, accepted once data_class = synthetic; refused: {bad}")
 
 
 @test("AT-AIH-13-15", "CROSS-02; UA §7.2.3 (legacy R1 connections after the upgrade)")
