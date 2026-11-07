@@ -6,6 +6,7 @@
 // outage, and never forever. The bound is checked by tests/sim/dispatch_sim.mjs and the live counter by M0-D.
 export const TICK_MINUTES = 5;
 export const BACKSTOP_HOURS = 3;
+export const MAX_CHUNKS_PER_ITEM = 4;              // bounded per item and tick (Workers CPU budget; M0-A)
 
 export function isBackstopTick(nowMs) {
   const d = new Date(nowMs);
@@ -22,6 +23,11 @@ export async function handleItem(db, it) {
   if (it.kind !== 'plan.execute') return true;           // unknown kinds complete as no-ops (future milestones)
   const plan = it.payload.plan_id;
   let st = await db.one('bnx_worker', 'select bnx.wrk_post_plan_chunk($1::uuid) r', [plan]);
+  // S4 9008: a plan larger than one chunk returns 'executing'; continue within this tick up to MAX_CHUNKS_PER_ITEM, then the
+  // item is re-queued (not completed) and the next tick continues; activation stays all-or-nothing.
+  for (let n = 1; st === 'executing' && n < MAX_CHUNKS_PER_ITEM; n++) {
+    st = await db.one('bnx_worker', 'select bnx.wrk_post_plan_chunk($1::uuid) r', [plan]);
+  }
   if (st === 'sealed') st = await db.one('bnx_worker', 'select bnx.wrk_activate_plan($1::uuid) r', [plan]);
   if (st === 'revalidation_required') st = await db.one('bnx_worker', 'select bnx.wrk_revalidate_plan($1::uuid) r', [plan]);
   return ['activated', 'stale', 'suspended', 'void', 'not_found'].includes(st);
