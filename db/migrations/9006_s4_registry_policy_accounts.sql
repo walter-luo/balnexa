@@ -283,6 +283,11 @@ begin
                                ('legal','en', s.legal_en, coalesce(s.legal_verification, 'AUTHOR_CANDIDATE_SOURCE_REQUIRED')),
                                ('legal','zh-CN', s.legal_zh, coalesce(s.legal_verification, 'AUTHOR_CANDIDATE_SOURCE_REQUIRED'))) x(kind, lang, val, ver)
    where x.val is not null and bnx.normalize_institution_name(x.val) is not null;
+  -- Owner decision 2026-11-06 (F-C2-05): jurisdictions of the payment providers, which the seed does not carry
+  update bnx.institution i set jurisdiction = d.j, country = d.j,
+         verification_provenance = i.verification_provenance || jsonb_build_object('jurisdiction', 'Owner decision 2026-11-06 (F-C2-05)')
+    from (values ('ALIPAY','CN'), ('WECHAT_PAY','CN'), ('UNIONPAY','CN'), ('PAYPAL','CA'), ('APPLE_PAY','CA')) d(code, j)
+   where i.code = d.code and i.jurisdiction is null;
   insert into bnx.retired_code values ('PSBC', null, 'reserved: known_not_seeded (Amendment 02); assigned only to a verified discovery');
   insert into bnx.brand(brand_code, brand_kind, display_en, display_zh, successor_brand)
   select brand_code, brand_kind, display_en, display_zh, successor_brand from seed_brand;

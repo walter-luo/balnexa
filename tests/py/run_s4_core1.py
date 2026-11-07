@@ -77,6 +77,7 @@ def v2_household(server, db=None, project="synthetic-family-01"):
     H.server, H.db = server, db
     H.app, H.authn, H.worker = h.Role(server, db, "bnx_app"), h.Role(server, db, "bnx_authn"), h.Role(server, db, "bnx_worker")
     H.owner = H.login("g-owner")
+    H.owner_id = str(installer_sql(server, db, "select id from bnx.member where role = 'owner'")[0][0])
     H.member_id = H.cmd(H.owner, "invite_member", display_name="Member B", role="member", google_sub="g-member")["member_id"]
     H.member = H.login("g-member")
     H.project, H.uid = project, uid

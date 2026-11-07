@@ -116,6 +116,16 @@ begin
     when 'account' then
       if tg_op = 'INSERT' or new.region_scope is distinct from old.region_scope then perform bnx.pol_require_region(new.region_scope); end if;
     when 'account_id' then perform bnx.pol_require_module_for_account(new.account_id);
+    when 'account_grant' then
+      -- Owner decision 2026-11-06 (F-C2-13): while a region is disabled a grant on it may be reduced (revoked), never added
+      -- or widened. cmd_set_grant upserts, so a BEFORE INSERT compares against the existing grant.
+      if tg_op = 'UPDATE' then
+        if (new.can_view and not old.can_view) or (new.can_post and not old.can_post) then
+          perform bnx.pol_require_module_for_account(new.account_id); end if;
+      elsif not exists (select 1 from bnx.account_grant g where g.member_id = new.member_id and g.account_id = new.account_id
+                         and (g.can_view or not new.can_view) and (g.can_post or not new.can_post)) then
+        perform bnx.pol_require_module_for_account(new.account_id);
+      end if;
     when 'card_account_id' then perform bnx.pol_require_module_for_account(new.card_account_id);
                                 perform bnx.pol_require_module_for_account(new.linked_account_id);
     when 'account_currency_id' then perform bnx.pol_require_module_for_ac(new.account_currency_id);
@@ -149,7 +159,7 @@ insert into bnx.flag_enforcement_point values
  ('posting_date_confirmation','posting_date_confirmation','INSERT','9007'),
  ('account_ownership_event','account_id','INSERT','9007'),
  ('account_scope_event','account_id','INSERT','9007'),
- ('account_grant','account_id','INSERT, UPDATE','9007'),
+ ('account_grant','account_grant','INSERT, UPDATE','9007'),
  ('account_holder_event','account_id','INSERT','9007'),
  ('card_link_event','card_account_id','INSERT','9007'),
  ('evidence_file','evidence_file','INSERT, UPDATE OF assigned_account_currency_id','9007'),
