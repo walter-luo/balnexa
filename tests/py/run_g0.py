@@ -1076,12 +1076,17 @@ def t_queue(server, ev):
     return f"enqueue during an open claim serializes on queue_state; generation {stat['generation']} > drained {stat['drained_generation']} with 1 queued (no lost wakeup at the authority); drained only after claim; failed item re-queued"
 
 
+def pg_tool(server, name):
+    """Client tool of the server's own major version (S4B-F19: pg_dump/pg_restore 16 for PG16, 17 for PG17)."""
+    return f"/usr/lib/postgresql/{server[2:]}/bin/{name}"
+
+
 # --------------------------------------------------------------------------------------------- backup AUD-050
 @test("AT-BAK-01", "AUD-050")
 def t_backup(server, ev):
-    if server != "pg16":
-        return "SKIP:pg_dump for PostgreSQL 17 is not available in this environment (embedded-postgres ships initdb/pg_ctl/postgres only)"
-    pg_dump = "/usr/lib/postgresql/16/bin/pg_dump"
+    pg_dump, pg_restore = pg_tool(server, "pg_dump"), pg_tool(server, "pg_restore")
+    if not (os.path.exists(pg_dump) and os.path.exists(pg_restore)):
+        return f"SKIP:pg_dump/pg_restore for {server} not available in this environment (embedded-postgres ships initdb/pg_ctl/postgres only)"
     H = household(server)
     def dump(tag):
         bk = psycopg.connect(h.dsn(server, "bnx_backup", H.db))
@@ -1096,7 +1101,7 @@ def t_backup(server, ev):
         sch = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--schema-only",
                               "--schema=bnx", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
         bk.rollback(); bk.close()
-        conv = subprocess.run(["/usr/lib/postgresql/16/bin/pg_restore", "--data-only", "-f", out, cust], capture_output=True, text=True)
+        conv = subprocess.run([pg_restore, "--data-only", "-f", out, cust], capture_output=True, text=True)
         open(os.path.join(ev, f"AT-BAK-01_{tag}.cmd"), "w").write(" ".join(cmd).replace(H.db, "<db>") +
             f"\nexit={r.returncode} schema_only_exit={sch.returncode} pg_restore_to_sql_exit={conv.returncode}\n{r.stderr}{sch.stderr}{conv.stderr}")
         if r.returncode == 0 and (sch.returncode or conv.returncode):
@@ -1209,14 +1214,14 @@ def t_backup(server, ev):
 
 @test("AT-BAK-02", "AUD-050 (negative control on Draft-04 baseline)")
 def t_backup_baseline(server, ev):
-    if server != "pg16":
-        return "SKIP:pg_dump for PostgreSQL 17 not available"
+    if not os.path.exists(pg_tool(server, "pg_dump")):
+        return f"SKIP:pg_dump for {server} not available"
     db = "bnx_d04base"
     with psycopg.connect(h.dsn(server, "postgres", db)) as cx:
         cx.execute("set role bnx_definer")
         cx.execute("create table bnx.m1_future_fact(id bigint generated always as identity primary key)")
         cx.commit()
-    r = subprocess.run(["/usr/lib/postgresql/16/bin/pg_dump", "--dbname", h.dsn(server, "bnx_backup", db), "--data-only", "--schema=bnx",
+    r = subprocess.run([pg_tool(server, "pg_dump"), "--dbname", h.dsn(server, "bnx_backup", db), "--data-only", "--schema=bnx",
                         "-f", "/dev/null"], capture_output=True, text=True)
     open(os.path.join(ev, "AT-BAK-02_draft04_dump.log"), "w").write(f"exit={r.returncode}\n{r.stderr}")
     check(r.returncode != 0 and "permission denied" in r.stderr, r.stderr)
