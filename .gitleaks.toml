@@ -1,0 +1,13 @@
+# gitleaks configuration (CI secret scan). Default rules plus two reviewed false positives:
+# - manifest_sha256.json files list SHA-256 digests of repository files; file paths containing words such as
+#   "secret", "api" or "authz" make the generic-api-key rule fire on the digest
+# - the unsigned alg=none JWT in the black-box test is a negative test vector ({"sub":"g-owner"}, no signature)
+title = "balnexa"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "reviewed false positives (2026-11-07)"
+paths = ['''(^|/)EVIDENCE/.*manifest_sha256\.json$''']
+regexes = ['''^eyJhbGciOiJub25lIn0\.eyJzdWIiOiJnLW93bmVyIn0\.$''']
