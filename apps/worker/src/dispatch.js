@@ -20,6 +20,10 @@ export async function shouldReadNeon(kv, nowMs) {
 }
 
 export async function handleItem(db, it) {
+  if (it.kind === 'staging.promote') {                   // S4 9010: Executor results staged through the lease API
+    const st = await db.one('bnx_worker', 'select bnx.wrk_promote_staged($1::uuid) r', [it.payload.staging_id]);
+    return ['promoted', 'rejected', 'blocked', 'awaiting_promoter', 'not_found'].includes(st);
+  }
   if (it.kind !== 'plan.execute') return true;           // unknown kinds complete as no-ops (future milestones)
   const plan = it.payload.plan_id;
   let st = await db.one('bnx_worker', 'select bnx.wrk_post_plan_chunk($1::uuid) r', [plan]);

@@ -36,6 +36,10 @@ async function call(p, { method = 'POST', body, headers = {}, cookie, bearer, fo
 const cmd = (name, body, cookie, extra = {}) => call(`/api/v1/commands/${name}`, { body, cookie, headers: { origin: ORIGIN, ...extra } });
 
 let INST = null;
+const EXEC_AUD = 'https://exec.balnexa.test';
+const JOB = { sub: '108000000000000000001', email: 'bnx-executor@synthetic-project.iam.gserviceaccount.com', azp: '108000000000000000001' };
+const CONTRACT = ['File ID', 'Original Name', 'Current Name', 'Document Date', 'Processed Date', 'Domain', 'Type', 'Tags', 'Source',
+  'Sensitivity', 'Status', 'Summary', 'Record Path', 'Related Open Item', 'Notes'];
 before(async () => {
   const info = JSON.parse(execFileSync(PY, [path.join(here, 'prepare_db.py'), SERVER]).toString());
   INST = info.institution_id ? { institution_id: info.institution_id } : { institution: 'Synthetic Bank' };   // S4 re-baseline (9006)
@@ -43,7 +47,8 @@ before(async () => {
   kp2 = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   const jwk = kp.publicKey.export({ format: 'jwk' });
   env = { db: makeDb({ host: info.host, port: info.port, database: info.db }), KV: makeKv(), APP_ORIGIN: ORIGIN,
-          GOOGLE_CLIENT_ID: 'test-client', GOOGLE_JWKS: { keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] } };
+          GOOGLE_CLIENT_ID: 'test-client', GOOGLE_JWKS: { keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] },
+          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB } };
   srv = await serve(env);
   base = `http://127.0.0.1:${srv.address().port}`;
 });
@@ -181,6 +186,49 @@ test('BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop
   assert.equal(r.neon, true); assert.equal(r.processed, 1); assert.equal(r.backstop, true);
   const q = await call('/api/v1/queries/balances', { body: { as_of: '2026-12-31' }, cookie: S.owner });
   assert.equal(q.json.balances[0].amount, '440.0000');
+});
+
+test('BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)', async () => {
+  const reg = await cmd('register_index_source', { source_id: 'idx-bb-01', adapter: 'GSHEET', location_secret_ref: 'sm://synthetic/bb-index', enabled: true },
+    S.owner, { 'idempotency-key': 'bb-idx-0001' });
+  if (reg.status === 404) return;                                         // chain without 9010
+  assert.equal(reg.status, 200, reg.text);
+  const jt = (claims, key = kp) => idToken({ aud: EXEC_AUD, sub: JOB.sub, email: JOB.email, azp: JOB.azp, ...claims }, key);
+  const lease = (token, kind = 'INDEX_CONSUME') => call('/exec/v1/lease', { body: { job_kind: kind }, bearer: token });
+  const refused = [
+    await lease(jt({ sub: '108000000000000000999', email: 'other-job@synthetic-project.iam.gserviceaccount.com' })),  // another service account
+    await lease(jt({ azp: '108000000000000000777' })),                                                             // other client id
+    await lease(jt({ aud: 'test-client' })),                                                                       // PWA audience
+    await lease(jt({}), 'BACKUP'),                                                                                 // job kind not configured
+    await lease(jt({}, kp2)),
+    await call('/exec/v1/lease', { body: { job_kind: 'INDEX_CONSUME' } }),
+  ];
+  assert.deepEqual(refused.map(r => r.status), [401, 401, 401, 401, 401, 401]);
+  const l = await lease(jt({}));
+  assert.equal(l.status, 200, l.text);
+  assert.ok(l.json.nonce && l.json.lease_id);
+  const rec = Object.fromEntries(CONTRACT.map(k => [k, '']));
+  Object.assign(rec, { 'File ID': 'f-bb-cra', 'Original Name': 'NOA 2025', 'Domain': 'Banking_Tax', 'Type': 'CRA Notice', 'Tags': 'CRA',
+    'Source': 'notify@cra-arc.gc.ca', 'Document Date': '2026-03-31', 'Processed Date': '2026-04-01' });
+  const payload = { source_id: 'idx-bb-01', header: CONTRACT, records: [rec] };
+  const complete = (nonce, stg_kind = 'index_consumed', body = payload) =>
+    call('/exec/v1/complete', { body: { job_kind: 'INDEX_CONSUME', nonce, stg_kind, payload: body }, bearer: jt({}) });
+  const c1 = await complete(l.json.nonce);
+  assert.deepEqual([c1.status, c1.json.state], [200, 'STAGED'], c1.text);
+  const c2 = await complete(l.json.nonce);
+  assert.deepEqual([c2.status, c2.json.error], [409, 'LEASE_USED']);
+  const l2 = await lease(jt({}));
+  const c3 = await complete(l2.json.nonce, 'doc_rows', { rows: [] });
+  assert.deepEqual([c3.status, c3.json.error], [403, 'LEASE_KIND_MISMATCH']);
+  const big = await call('/exec/v1/complete', { body: { job_kind: 'INDEX_CONSUME', nonce: l2.json.nonce, stg_kind: 'index_consumed',
+    payload: { source_id: 'x'.repeat(320000) } }, bearer: jt({}) });
+  assert.equal(big.status, 413);
+  const quiet = new Date('2026-10-30T16:20:00Z').getTime();
+  const r = await worker.scheduled({ scheduledTime: quiet }, env, null);
+  assert.equal(r.neon, true); assert.equal(r.processed, 1);
+  const n = await call('/api/v1/queries/notifications', { body: {}, cookie: S.owner });
+  assert.equal(n.status, 200, n.text);
+  assert.deepEqual(n.json.notifications.map(x => x.kind), ['CRA_CORRESPONDENCE']);
 });
 
 test('BB-AUTH-02 logout revokes the session server-side', async () => {

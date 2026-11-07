@@ -1,0 +1,2436 @@
+{
+ "roles": [
+  [
+   "bnx_app",
+   false,
+   true,
+   true,
+   false,
+   false
+  ],
+  [
+   "bnx_auth",
+   false,
+   true,
+   true,
+   false,
+   false
+  ],
+  [
+   "bnx_authn",
+   false,
+   true,
+   true,
+   false,
+   false
+  ],
+  [
+   "bnx_backup",
+   false,
+   true,
+   true,
+   false,
+   false
+  ],
+  [
+   "bnx_definer",
+   false,
+   true,
+   false,
+   false,
+   false
+  ],
+  [
+   "bnx_fed_reader",
+   false,
+   true,
+   false,
+   false,
+   false
+  ],
+  [
+   "bnx_migrator",
+   false,
+   false,
+   true,
+   false,
+   false
+  ],
+  [
+   "bnx_stager",
+   false,
+   true,
+   false,
+   false,
+   false
+  ],
+  [
+   "bnx_worker",
+   false,
+   true,
+   true,
+   false,
+   false
+  ]
+ ],
+ "memberships": [
+  [
+   "bnx_definer",
+   "bnx_migrator",
+   false,
+   true,
+   false
+  ]
+ ],
+ "functions": [
+  [
+   "account_scope_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "actor_can_post",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "actor_visible_acs",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "adopt_existing_household",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "anchor_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "apply_grants",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "assert_journal_complete",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "assert_scale",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "audit",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "audit_canonical_v2",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "audit_head",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "audit_privileges",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "audit_verify",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "authn_begin_session",
+   false,
+   false,
+   true,
+   true
+  ],
+  [
+   "authn_oauth_refresh",
+   false,
+   false,
+   true,
+   true
+  ],
+  [
+   "authn_oauth_revoke",
+   false,
+   false,
+   true,
+   true
+  ],
+  [
+   "authn_oauth_token",
+   false,
+   false,
+   true,
+   true
+  ],
+  [
+   "authn_register_client",
+   false,
+   false,
+   true,
+   true
+  ],
+  [
+   "balance_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "balance_rows",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "brand_issuer_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "calling_function",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "can_read_evidence",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "check_constraint_of",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "cmd_accept_instance_config",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_approve_ai_connection",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_approve_plan",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_assign_evidence",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_audit_replay_snapshot",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_confirm_posting_date",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_correct_transaction",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_create_account",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_create_category",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_create_import_plan",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_create_party",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_create_report_snapshot",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_declare_financial_policy",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_draft_create_transaction",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_draft_create_transfer",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_draft_revise",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_draft_validate",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_draft_withdraw",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_handoff_import",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_handoff_mark_sent",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_handoff_prepare",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_invite_member",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_notification_read",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_post_transaction",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_prepare_config_draft",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_propose_account",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_propose_institution_candidate",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_reassign_account_institution",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_record_ownership",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_register_evidence",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_register_index_source",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_register_mail_source",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_resolve_account_proposal",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_revoke_ai_connection",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_revoke_session",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_set_account_scope",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_set_grant",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_set_household_setting",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_set_member_state",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_set_opening",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_validate_plan",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_verify_institution",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "cmd_withdraw_plan",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "config_create",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "config_modules_valid",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "config_transition",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "dec",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "draft_kind",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "draft_owned",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "economic_type_check",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "economic_type_violation",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "economic_type_violation_lines",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "effective_posting_date",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "enqueue",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "envelope_value",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "fail",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "financial_policy_current",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "financial_policy_from_installer",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "flag_enforcement_matrix",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "h",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "handoff_text_ok",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "idem_begin",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "idem_end",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "index_ack",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "insert_journal",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "install_activate_config",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "install_household",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "install_household_v2",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "institution_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "institution_code_for",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "institution_eligible",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "intake_exception_new",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "intake_item_new",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "intake_validate",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "ledger_fingerprint",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "line_kind",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "new_secret",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "next_version",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "normalize_institution_name",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "notify",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "oauth_issue",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "oauth_revoke_connection",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "ownership_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "plan_create",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "plan_evidence_pending",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "plan_item_economic_type",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "plan_item_lines",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "plan_item_type",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "plan_revalidate",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "plan_scope",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "plan_terminate",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "plan_withdraw",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_active_config",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_enabled_acs",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_excluded_scopes",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_flag",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_region_flag",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "pol_require_module",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_require_module_for_ac",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_require_module_for_account",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_require_region",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "pol_scope_filter",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_account_proposals",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_balances",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_config_status",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_draft_get_for_confirmation",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_evidence_access",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_handoff_status",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_health",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_institutions_search",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_intake_coverage",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_intake_exceptions",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_notifications",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_registry_review",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_replay_snapshot",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_review_queue",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "q_whoami",
+   true,
+   false,
+   false,
+   true
+  ],
+  [
+   "region_of_jurisdiction",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "require",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "require_t3_fresh",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "resolve_actor",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "restore_mode",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "scope_delta_exists",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "scope_digest",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "sender_institution",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "snapshot_decision",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "snapshot_replay_access",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stage_jobs",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "stage_write",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_backup_recorded",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_doc_archived",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_doc_discovered",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_doc_rows",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_doc_validated",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_index_consumed",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_mail_fetched",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_render_done",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_restore_drill_recorded",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "stg_tax_artifact",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "system_ledger_account",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_account_institution_eligible",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_account_institution_guard",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_account_institution_projection",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_append_only",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_archive_state_guard",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_audit_chain_version",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_config_anchor_projection",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_config_flags_complete",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_economic_type_rule",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_evidence_object_write_once",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_journal_complete",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_line_same_txn",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_ownership_share_total",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_plan_item_clearing_open",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_retired",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_scale",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "trg_scope_flag",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "trg_source_link_transition",
+   false,
+   false,
+   false,
+   false
+  ],
+  [
+   "visible_account_currency_ids",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "visible_at",
+   false,
+   false,
+   false,
+   true
+  ],
+  [
+   "wrk_ack_index_record",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_activate_plan",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_claim",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_complete",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_consume_shared_index",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_intake_housekeeping",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_issue_exec_lease",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_mail_evidence_registered",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_mail_move_result",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_post_plan_chunk",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_promote_staged",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_queue_status",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_record_archive_event",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_record_identity_signal",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_revalidate_plan",
+   false,
+   true,
+   false,
+   true
+  ],
+  [
+   "wrk_stage_completion",
+   false,
+   true,
+   false,
+   true
+  ]
+ ],
+ "audit": {
+  "matrix": [
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_currency",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_grant",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_holder_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.account_holder_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_institution_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.account_institution_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_ownership_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.account_ownership_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.account_scope_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.account_scope_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.ai_connection",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.ai_connection_subset",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.ai_connection_token",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.audit_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.balance_checkpoint",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.brand",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.brand_issuer_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.brand_issuer_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.bridge_acceptance",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.card_link_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.card_link_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.category_version",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.clearing_item",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.clearing_item_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.config_state_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.config_version_anchor",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.currency",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.document",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.economic_type_rule",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_access_grant",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_access_log",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_access_log_id_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_archive_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_file",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.evidence_object",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.exec_lease",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.financial_policy",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.flag_enforcement_point",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.function_scope",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.fx_override_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.fx_selection_log",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.host_profile_redirect",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.household_setting",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.idempotency",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.instance_identity",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.instance_module_flag",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.institution",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.institution_discovery_candidate",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.institution_identifier",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.institution_name",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.institution_relationship_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.institution_relationship_event_event_seq_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.journal_correction",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.journal_entry",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.journal_entry_entry_no_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.journal_line",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.journal_source",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.ledger_account",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.ledger_state",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.match_decision_current",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.match_decision_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.member",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.member_identity",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.member_session",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.migration_seeded_table",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.oauth_client",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.oauth_code",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "v",
+    "owner": "bnx_definer",
+    "object": "bnx.opening_anchor",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.opening_anchor_version",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.outbox",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.outbox_id_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.party",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.plan_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_batch",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_batch_chunk",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_batch_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_date_confirmation",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_plan",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_plan_item",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.posting_scope_claim",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.queue_state",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.release_install_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.release_install_event_id_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.report_snapshot",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.retired_code",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.rule_activation_version",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.schema_bootstrap",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.schema_migrations",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.schema_registry",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.source_link_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.source_link_event_event_id_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.source_txn",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.source_txn_current_link",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.source_txn_link_event_d04_retired",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.source_txn_work",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.statement",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.statement_event",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.table_class",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.valuation",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx.work_item",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "S",
+    "owner": "bnx_definer",
+    "object": "bnx.work_item_id_seq",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.account_identity_signal",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.account_proposal",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.external_index_record",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.external_index_source",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.index_consumer_cursor",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.index_record_ack",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.intake_exception",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.intake_item",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.mail_folder_route",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.mail_item",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.mail_route_rule",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.mail_source",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.notification",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.project_handoff_message",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   },
+   {
+    "kind": "r",
+    "owner": "bnx_definer",
+    "object": "bnx_intake.staging_payload",
+    "app_any": false,
+    "worker_any": false,
+    "backup_select": true
+   }
+  ],
+  "violations": []
+ }
+}
