@@ -37,10 +37,17 @@ returns bytea language sql immutable set search_path = pg_catalog, pg_temp as $$
 $$;
 
 -- envelope fields (host profile, tool, trace) travel as transaction-local GUCs set by resolve_actor
+-- the same rule as resolve_actor (<= 100 printable characters) is enforced at the point of use, because Worker and authn
+-- sessions audit without resolve_actor and can set the GUCs themselves (same-family review finding 6)
 create function bnx.envelope_value(p_name text) returns text
-language sql stable set search_path = pg_catalog, pg_temp as $$
-  select nullif(current_setting('bnx.' || p_name, true), '')
-$$;
+language plpgsql stable set search_path = pg_catalog, pg_temp as $$
+declare v text := nullif(current_setting('bnx.' || p_name, true), '');
+begin
+  if v is not null and (length(v) > 100 or v !~ '^[[:print:]]+$') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'envelope.' || p_name);
+  end if;
+  return v;
+end $$;
 
 create or replace function bnx.audit(a bnx.actor, p_command text, p_subject jsonb, p_payload jsonb, p_version bigint) returns bigint
 language plpgsql set search_path = pg_catalog, pg_temp as $$

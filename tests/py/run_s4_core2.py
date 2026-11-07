@@ -106,12 +106,24 @@ def t_audit_v2(server, ev):
             check("AUDIT_CHAIN_VERSION" in str(e), str(e)); late = "AUDIT_CHAIN_VERSION"
             cx.rollback()
     bad_env = expect_err(H.app.call, "VALIDATION_FAILED", "q_whoami", {**H.owner, "envelope": {"trace_id": "x" * 101}}, {})
+    # sessions that audit without resolve_actor (Worker, authn) cannot inject an envelope either (same-family review finding 6)
+    direct = []
+    for name, val in (("host_profile", "bad\nprofile"), ("tool_name", "t" * 5000)):
+        with psycopg.connect(h.dsn(server, "postgres", db)) as cx:
+            cx.execute("set role bnx_definer")
+            cx.execute("select set_config(%s, %s, false)", ("bnx." + name, val))
+            try:
+                cx.execute("select bnx.audit(row(null, null, 'worker', null, null)::bnx.actor, 'probe', '{}', '{}', null)")
+                raise Fail(f"audit accepted envelope {name}")
+            except psycopg.Error as e:
+                check(e.diag.message_primary == "VALIDATION_FAILED", str(e)); direct.append(e.diag.message_detail)
     head = one(H, "select bnx.audit_head()")[0]
     H.close()
     check(tz_ok == 0 and swap is False and amb == (True, False) and forged[0] == forged[1], f"tz={tz_ok} swap={swap} amb={amb} forged={forged}")
     return (f"{n_v1} R1 v1 events verify unchanged; first v2 seq {first_v2} (boundary); verify=0 also under TimeZone Asia/Shanghai; "
             f"envelope recorded and hashed; member/connection swap changes the v2 hash; v1 concat_ws ambiguity reproduced, v2 unambiguous; "
-            f"forged v2 row detected at seq {forged[0]}; v1-after-v2 refused ({late}); oversized envelope -> {bad_env}; head {head['seq']}")
+            f"forged v2 row detected at seq {forged[0]}; v1-after-v2 refused ({late}); oversized envelope -> {bad_env}; envelope GUCs set "
+            f"directly in a session are refused at audit() too {direct}; head {head['seq']}")
 
 
 # ------------------------------------------------------------------------------------------------ 9006 registry

@@ -281,8 +281,12 @@ end $$;
 -- RFC 7591 DCR and CIMD: redirect URIs (and a CIMD client id) must match the claimed host profile's allowlist
 create function bnx.authn_register_client(req jsonb) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare prof text := req->>'host_profile'; kind text := coalesce(req->>'registration_kind', 'DCR'); cid text; u text; envr text := coalesce(req->>'environment', 'production');
+declare prof text := req->>'host_profile'; kind text := coalesce(req->>'registration_kind', 'DCR'); cid text; u text; envr text; ex record;
 begin
+  -- the environment comes from the instance, never from the caller (same-family review finding 9): loopback/dev redirect
+  -- patterns only on a synthetic-data instance
+  envr := case when (select value #>> '{}' from bnx.household_setting where key = 'data_class') = 'synthetic' then 'non_production'
+               else 'production' end;
   if prof is null or not exists (select 1 from bnx.host_profile_redirect where host_profile = prof) then
     perform bnx.fail('INVALID_CLIENT_METADATA', 'P0422', 'host_profile'); end if;
   if kind not in ('DCR','CIMD') or jsonb_typeof(req->'redirect_uris') <> 'array' or jsonb_array_length(req->'redirect_uris') = 0 then
@@ -299,11 +303,19 @@ begin
   else
     cid := 'dcr-' || replace(gen_random_uuid()::text, '-', '');
   end if;
+  -- an existing client is never overwritten by an unauthenticated registration: an identical CIMD re-registration is
+  -- idempotent, anything else is refused (metadata is fetched from the client_id URL by the Gateway when CIMD is routed)
+  select * into ex from bnx.oauth_client where client_id = cid;
+  if ex.client_id is not null then
+    if ex.registration_kind = 'CIMD' and ex.host_profile = prof
+       and ex.redirect_uris = array(select jsonb_array_elements_text(req->'redirect_uris')) then
+      return jsonb_build_object('client_id', cid, 'token_endpoint_auth_method', 'none', 'grant_types', jsonb_build_array('authorization_code','refresh_token'));
+    end if;
+    perform bnx.fail('INVALID_CLIENT_METADATA', 'P0422', 'client_id already registered');
+  end if;
   insert into bnx.oauth_client(client_id, display_name, redirect_uris, registration_kind, host_profile, metadata_digest)
   values (cid, coalesce(left(req->>'client_name', 100), prof), array(select jsonb_array_elements_text(req->'redirect_uris')), kind, prof,
-          encode(bnx.h(req::text), 'hex'))
-  on conflict (client_id) do update set redirect_uris = excluded.redirect_uris, metadata_digest = excluded.metadata_digest
-    where bnx.oauth_client.registration_kind = 'CIMD' and bnx.oauth_client.host_profile = prof;
+          encode(bnx.h(req::text), 'hex'));
   return jsonb_build_object('client_id', cid, 'token_endpoint_auth_method', 'none', 'grant_types', jsonb_build_array('authorization_code','refresh_token'));
 end $$;
 

@@ -199,6 +199,13 @@ begin
   acid := (pl.scope->>'account_currency_id')::uuid;
   ap := row(pl.approved_by, null, 'pwa', null, array['post'])::bnx.actor;
   if not bnx.actor_can_post(ap, acid) then perform bnx.plan_terminate(p_plan, 'suspended', 'approver no longer authorized'); return 'suspended'; end if;
+  -- every household account a typed line touches, not only the plan account (same-family review finding 4)
+  if exists (select 1 from bnx.posting_plan_item i
+               cross join lateral jsonb_array_elements(case when i.payload ? 'lines' then i.payload->'lines' else '[]'::jsonb end) l
+               join bnx.account_currency x on x.ledger_account_id = (l->>'ledger_account_id')::uuid
+              where i.plan_id = p_plan and i.posted_journal_id is null and not bnx.actor_can_post(ap, x.id)) then
+    perform bnx.plan_terminate(p_plan, 'suspended', 'approver no longer authorized on a line account'); return 'suspended';
+  end if;
   if bnx.scope_delta_exists(p_plan, pl.last_validated_version) then
     perform bnx.plan_terminate(p_plan, 'stale', 'scope changed after approval; new approval required'); return 'stale';
   end if;
@@ -225,6 +232,9 @@ begin
                                  jsonb_build_object('ledger_account_id', it.payload->>'counter_ledger_account_id', 'currency', ac.currency,
                                                     'amount', (-(it.payload->>'amount')::numeric)::text));
     end if;
+    -- types the direct path refuses never post through a plan (same-family review finding 1; refused at plan creation too)
+    if et in ('opening_balance','correction_reversal','correction_replacement','interledger_transfer','clearing_resolution') then
+      perform bnx.fail('PLAN_ITEM_TYPE_FORBIDDEN', 'P0422', 'seq ' || it.seq || ': ' || et); end if;
     j := bnx.insert_journal(ap, null, b, et, (it.payload->>'transaction_date')::date, null, it.payload->>'description', lines,
                             null, null, null, p_plan);
     update bnx.posting_plan_item set posted_journal_id = j where plan_id = p_plan and seq = it.seq;
