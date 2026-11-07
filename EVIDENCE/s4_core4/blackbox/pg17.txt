@@ -2,49 +2,49 @@ TAP version 13
 # Subtest: BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
 ok 1 - BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
   ---
-  duration_ms: 101.805474
+  duration_ms: 98.720457
   type: 'test'
   ...
 # Subtest: BB-API-01 account, category, opening and posting through /api/v1 with idempotency
 ok 2 - BB-API-01 account, category, opening and posting through /api/v1 with idempotency
   ---
-  duration_ms: 109.446201
+  duration_ms: 87.490897
   type: 'test'
   ...
 # Subtest: BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
 ok 3 - BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
   ---
-  duration_ms: 33.394097
+  duration_ms: 25.572079
   type: 'test'
   ...
 # Subtest: BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
 ok 4 - BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
   ---
-  duration_ms: 86.108119
+  duration_ms: 62.545917
   type: 'test'
   ...
 # Subtest: BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
 ok 5 - BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
   ---
-  duration_ms: 86.858375
+  duration_ms: 70.593547
   type: 'test'
   ...
 # Subtest: BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
 ok 6 - BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
   ---
-  duration_ms: 46.081171
+  duration_ms: 33.498937
   type: 'test'
   ...
 # Subtest: BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
 ok 7 - BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
   ---
-  duration_ms: 87.959832
+  duration_ms: 66.224215
   type: 'test'
   ...
 # Subtest: BB-AUTH-02 logout revokes the session server-side
 ok 8 - BB-AUTH-02 logout revokes the session server-side
   ---
-  duration_ms: 11.808796
+  duration_ms: 8.203461
   type: 'test'
   ...
 1..8
@@ -55,4 +55,4 @@ ok 8 - BB-AUTH-02 logout revokes the session server-side
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 2007.396518
+# duration_ms 1764.596704

@@ -1,5 +1,5 @@
 {
- "fingerprint": "33d09d1d296e104f7d9d92c5ee94187b20f20c3d81de01468ede1ae8c135adf1",
+ "fingerprint": "b38affa0494e2805684e0215ca64f25428bd80fea28f038a8feae9d97f8523a8",
  "config_status": {
   "active": {
    "flags": {
@@ -7,7 +7,7 @@
     "Canada": "YES",
     "International": "NO"
    },
-   "activated_at": "2026-11-07T09:38:26.088117-05:00",
+   "activated_at": "2026-11-07T13:49:23.612596-05:00",
    "config_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
    "config_version": 1,
    "deployment_mode": null
@@ -16,7 +16,7 @@
   "identity": {
    "origin": "adopt",
    "project_id": "synthetic-upgrade-01",
-   "instance_uid": "41361c46-7413-475b-8ac0-44df5f5cff3b"
+   "instance_uid": "5b9d0263-35b5-4790-a9ca-90d379889c21"
   },
   "schema_head": "9010"
  }

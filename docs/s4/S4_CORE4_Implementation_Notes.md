@@ -54,7 +54,7 @@ Increment-4 tests: AT-PLAN-04 (member_draft, ai_draft and onboarding pass valida
 
 ### 2.1 After the same-family review (2026-11-07)
 
-The Fable review of PR #1–#4 found 3 P1 and 6 P2 defects (no P0); all fixed and tested, see `S4_Same_Family_Review_2026-11-07.md`. Changes in this increment:
+The Fable review of PR #1–#4 found 3 P1 and 6 P2 defects (no P0), see `S4_Same_Family_Review_2026-11-07.md`. Finding 4 was first fixed only at the chunk stage. It is complete since F-C4-21 (§2.2), whose test passes. Changes in this increment:
 
 - `plan_create` rebuilds every item from an allowlist and requires a description;
 - reserved economic types are refused;
@@ -65,6 +65,38 @@ The Fable review of PR #1–#4 found 3 P1 and 6 P2 defects (no P0); all fixed an
 - `cmd_withdraw_plan` also accepts `approved`.
 
 New test AT-REV-01-07. AT-PLAN-05 reaches the CURRENCY hold through an R1 item, because typed lines with a wrong currency are now refused at creation. CI (`.github/workflows/ci.yml`) runs every suite on PGDG PostgreSQL 16 and 17; with `pg_dump` 17 available, AT-BAK-01/02 now pass on PG17 in CI (locally they still skip on the embedded PG17 build).
+
+### 2.2 F-C4-21: authority re-check at activation (Owner decision 2026-11-07, Option A)
+
+`wrk_activate_plan` (R1 0106) is redefined in 9010. The effective R1 body is kept line for line (all 24 R1 lines present, in order). Added before activation:
+
+1. The approver's member row and every involved `account_grant` row are locked `FOR SHARE`. The involved rows are the plan account plus every household account on any typed line of any item, posted or not.
+2. The R1 plan-account check stays as it was (`revalidation_required`, after which `wrk_revalidate_plan` suspends).
+3. The approver's current `can_post` is checked on every household account of every typed item. A failure calls `plan_terminate(…, 'suspended', …)`: the batch is voided, so its journals stay in the ledger tables but never become visible; plan_event `suspended`, audit `plan_suspended` and outbox `plan.suspended` are written.
+
+Transaction and concurrency semantics (READ COMMITTED):
+
+- A revocation (`cmd_set_grant` UPDATE/DELETE, `cmd_set_member_state` UPDATE) that has **committed** before the activation reads the grants is seen, and the plan is suspended.
+- A revocation that is **in flight** (row lock held, not committed) makes the activation wait. When the revocation commits, the activation re-reads the new row version and suspends.
+- A revocation that arrives while the **activation holds its locks** waits until the activation commits. It then applies to later plans only; this plan was activated while the approver was still authorised.
+- An activation that **rolls back** leaves the plan and batch `sealed`, nothing visible, and no audit row.
+- No new deadlock path: the worker takes the ledger advisory lock and the plan row first, then the grant rows; `cmd_set_grant` takes only grant rows.
+
+Regression (AT-REV-01-07, part 4b; `AUTHOR_RUNTIME_EVIDENCE`):
+
+| Case | Result |
+|---|---|
+| control (no revocation) | `activated`; batch `active`; journals visible; events frozen → approved → activated; audit `activate_plan`; outbox `plan.activated` |
+| revocation after sealing, before activation | `suspended`; batch `void`; 1 journal kept, 0 visible; audit `plan_suspended`; outbox `plan.suspended`; a second activation call returns `suspended` |
+| activation rolled back | plan and batch stay `sealed`; 0 visible; 0 new audit rows |
+| race, revocation first (uncommitted) | the activation waits, then `suspended`, batch `void`, 0 visible |
+| race, activation first (uncommitted) | the revocation is blocked (`lock_timeout`); after the activation commits it applies; plan `activated` |
+| R1 plan-account path (approver suspended) | `revalidation_required`, then `wrk_revalidate_plan` → `suspended`, batch `void` (R1 behaviour) |
+| audit chain | `audit_verify()` = 0 |
+
+Before the change, the same "after sealing" case activated the plan and made the journal visible: a throwaway reproduction on 2026-11-07 against PR #4 head `7cb7d37` gave `sealed → activated`, 1 visible journal.
+
+**Checksum and compatibility.** 9010 changed from `7dcacb0ec358b55e555362ecae1f2c3d5a4589aaa60cce93e9275e7bd9121289` (PR #4 head `7cb7d37`) to `eecc2e0a19dbf112a68db65dc913af5258fa04180379fa735ae9f624ec575c7e`. Any database that applied an earlier 9010 is refused by the runner with exit 5 and has no in-place upgrade path. Only disposable test databases ever applied 9010; no deployment exists. `bnx.schema_migrations` is never edited. The R1 object disposition (test fixture copy) records `wrk_activate_plan` as MODIFY in 9010 (OBJ-207); the frozen V1.2 design CSV is not changed.
 
 ## 3. Findings and decisions
 
@@ -92,6 +124,7 @@ Severity: **O** = Owner should confirm; **D** = design text incomplete or incons
 | F-C4-18 | N | Dispatcher | `staging.promote` added to the known kinds. The S4B-F13 rule (unknown kinds stay queued with backoff) is still pending; until it lands, a Worker older than 9010 would complete `staging.promote` items as no-ops — the staging rows stay `STAGED` and can be promoted later (deploy rule: Worker before migration) |
 | F-C4-19 | D | `intake_item` terminal states | `DONE`, `SKIPPED`, `DEAD_LETTER`; `BLOCKED` and `EXCEPTION` need a resolution and become `STALE_NON_TERMINAL` exceptions after 14 days |
 | F-C4-20 | N | Notification channels | Only C1 (PWA inbox), enforced by CHECK; C2/C3 need the separate Owner approval (SI §7.2, OR-EML-06-CH) |
+| F-C4-21 | D (Owner decision 2026-11-07, Option A) | Same-family finding 4: at activation the approver's authority was re-checked only on the plan account (R1 `wrk_activate_plan`), so a revocation between sealing and activation was not honoured for typed multi-account items | `wrk_activate_plan` MODIFY in 9010 (§2.2): every account of every typed item re-checked under `FOR SHARE` locks; revocation → `suspended`, batch void. Disposition OBJ-207 REUSE → MODIFY. AT-REV-01-07 part 4b |
 
 ## 4. Re-baselined tests
 

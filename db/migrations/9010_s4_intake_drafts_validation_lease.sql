@@ -355,6 +355,61 @@ begin
          'queue_generation', (select generation from bnx.queue_state)));
 end $$;
 
+-- wrk_activate_plan MODIFY (R1 0106; F-C4-21, same-family review finding 4). The effective R1 body is kept verbatim; added:
+-- before activation the approver's current can_post is re-checked on EVERY household account that ANY typed item of the
+-- plan touches (posted or not), not only on the plan account. A revocation suspends the plan; plan_terminate voids the
+-- batch, so its journals never become visible (plan_event 'suspended', audit 'plan_suspended', outbox 'plan.suspended').
+-- Concurrency (READ COMMITTED): the approver's member row and every involved grant row are locked FOR SHARE before the
+-- checks, so a concurrent revocation (cmd_set_grant UPDATE/DELETE, cmd_set_member_state UPDATE) is serialised with the
+-- activation: a revocation committed first is seen and suspends the plan; a revocation that arrives while the activation
+-- holds the locks waits until it commits and then applies to later plans only. The plan-account branch keeps R1's
+-- 'revalidation_required' (wrk_revalidate_plan then suspends), so R1 behaviour is unchanged for R1 items.
+create or replace function bnx.wrk_activate_plan(p_plan uuid) returns text
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare pl record; b uuid; v bigint; s int; ap bnx.actor;
+begin
+  if session_user <> 'bnx_worker' then perform bnx.fail('FORBIDDEN', 'P0403'); end if;
+  perform pg_advisory_xact_lock(hashtext('bnx.ledger'));
+  select * into pl from bnx.posting_plan where id = p_plan for update;
+  if not found or pl.state <> 'sealed' then return coalesce(pl.state, 'not_found'); end if;
+  -- fail closed (INV-43): any unvalidated fact in scope → no writes at all
+  if bnx.scope_delta_exists(p_plan, pl.last_validated_version) then return 'revalidation_required'; end if;
+  ap := row(pl.approved_by, null, 'pwa', null, array['post'])::bnx.actor;
+  -- F-C4-21: serialise with concurrent revocations of the approver's authority
+  perform 1 from bnx.member m where m.id = pl.approved_by for share;
+  perform 1 from bnx.account_grant g
+   where g.member_id = pl.approved_by
+     and g.account_id in (select ac.account_id from bnx.account_currency ac
+                           where ac.id = (pl.scope->>'account_currency_id')::uuid
+                              or ac.ledger_account_id in (select (l->>'ledger_account_id')::uuid
+                                                            from bnx.posting_plan_item i
+                                                            cross join lateral jsonb_array_elements(case when i.payload ? 'lines'
+                                                                             then i.payload->'lines' else '[]'::jsonb end) l
+                                                           where i.plan_id = p_plan))
+   order by g.account_id for share of g;
+  if not bnx.actor_can_post(ap, (pl.scope->>'account_currency_id')::uuid) then return 'revalidation_required'; end if;
+  if exists (select 1 from bnx.posting_plan_item i
+               cross join lateral jsonb_array_elements(case when i.payload ? 'lines' then i.payload->'lines' else '[]'::jsonb end) l
+               join bnx.account_currency x on x.ledger_account_id = (l->>'ledger_account_id')::uuid
+              where i.plan_id = p_plan and not bnx.actor_can_post(ap, x.id)) then
+    perform bnx.plan_terminate(p_plan, 'suspended', 'approver no longer authorized on a line account at activation');
+    return 'suspended';
+  end if;
+  select id into b from bnx.posting_batch where plan_id = p_plan and state = 'sealed';
+  if (select count(*) from bnx.posting_plan_item where plan_id = p_plan and posted_journal_id is not null) <> pl.item_count then
+    perform bnx.fail('BATCH_INCOMPLETE', 'P0409'); end if;
+  v := bnx.next_version();
+  insert into bnx.posting_batch_event(batch_id, event, recorded_version) values (b, 'activated', v);
+  update bnx.posting_batch set state = 'active', activated_version = v, activated_at = now(), activated_by = pl.approved_by where id = b;
+  update bnx.posting_plan set state = 'activated' where id = p_plan;
+  update bnx.posting_scope_claim set claim_state = 'released', released_version = v where plan_id = p_plan;
+  select coalesce(max(seq),0)+1 into s from bnx.plan_event where plan_id = p_plan;
+  insert into bnx.plan_event values (p_plan, s, 'activated', null, v, null, null, null, now());
+  perform bnx.audit(row(pl.approved_by, null, 'plan', null, null)::bnx.actor, 'activate_plan', jsonb_build_object('plan_id', p_plan), '{}', v);
+  insert into bnx.outbox(topic, payload, created_version) values ('plan.activated', jsonb_build_object('plan_id', p_plan), v);
+  return 'activated';
+end $$;
+
 -- ---------- drafts (RC-DRAFT: AI connections with finance.draft, members without can_post; never post) ----------
 create function bnx.draft_kind(a bnx.actor, p_acid uuid) returns text
 language sql stable security definer set search_path = pg_catalog, pg_temp as $$

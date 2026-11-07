@@ -23,5 +23,5 @@ skip  9006_s4_registry_policy_accounts.sql sha256=baab56222f1699c3 (applied, ver
 skip  9007_s4_module_flag_enforcement.sql sha256=db50e24f8d8a4b1a (applied, verified)
 skip  9008_s4_economic_type_rule.sql sha256=0f7abec7fbd318be (applied, verified)
 skip  9009_s4_oauth.sql sha256=c4230cfa8d9a2ace (applied, verified)
-skip  9010_s4_intake_drafts_validation_lease.sql sha256=7dcacb0ec358b55e (applied, verified)
+skip  9010_s4_intake_drafts_validation_lease.sql sha256=eecc2e0a19dbf112 (applied, verified)
 OK migrations=24 head=9010 privilege_violations=0

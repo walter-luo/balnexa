@@ -2,7 +2,7 @@
 """S4 V1.2 increment 4 tests: 9010 intake, drafts, validations and approval holds, Executor lease and staging, shared index
 consumer, exact mail retrieval results, project handoff, account proposals, notifications. Conventions as run_g0.py.
 Usage: run_s4_core4.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""
-import argparse, hashlib, json, os, sys, time, traceback, uuid
+import argparse, hashlib, json, os, sys, threading, time, traceback, uuid
 import psycopg
 import harness as h
 import fixture as F
@@ -256,6 +256,8 @@ def t_review_fixes(server, ev):
     approve(H, H.member, tr)
     H.cmd(H.owner, "set_grant", member_id=H.member_id, account_id=acc2["account_id"], can_view=True, can_post=False)
     worker_after_revoke = H.worker.call("wrk_post_plan_chunk", tr["plan_id"])
+    # 4b. F-C4-21: revocation after sealing, before activation (all items posted, batch sealed, not yet visible)
+    act = activation_cases(H, ac2, acc2["account_id"])
     # 5. an AI draft cannot reference an account outside its consent subset
     B = bearer(H, ["finance.read", "finance.draft"], acs=[cad])
     out["AI line outside consent"] = expect_err(H.cmd, "NOT_AVAILABLE", B, "draft_create_transaction", account_currency_id=cad,
@@ -270,7 +272,109 @@ def t_review_fixes(server, ev):
     H.close()
     check(stored_amt == "-1.00" and worker_after_revoke == "suspended" and worker_after_withdraw == "void", f"{stored_amt} {worker_after_revoke} {worker_after_withdraw} {out}")
     return (f"refused: {out}; a typed item stores the plan-account amount ({stored_amt}), never the caller's 999999.00; approver lost "
-            f"can_post on the second account -> worker {worker_after_revoke}; approved plan withdrawn -> worker {worker_after_withdraw}")
+            f"can_post on the second account before the chunk -> worker {worker_after_revoke}; approved plan withdrawn -> worker "
+            f"{worker_after_withdraw}; activation (F-C4-21): {act}")
+
+
+def activation_cases(H, ac2, acc2_id):
+    """F-C4-21: the approver's can_post is re-checked at activation on every account of every typed item (posted or not);
+    a revocation suspends the plan and voids the batch; races with a concurrent revocation are serialised by row locks."""
+    bank, server, db = H.cad["ledger_account_id"], H.server, H.db
+    month = iter(range(1, 13, 2))
+
+    def grant(post):
+        H.cmd(H.owner, "set_grant", member_id=H.member_id, account_id=acc2_id, can_view=True, can_post=post)
+
+    def sealed_transfer():
+        grant(True)
+        m = next(month)
+        p = imp(H, H.member, [{"transaction_date": f"2027-{m:02d}-03", "economic_type": "internal_transfer", "description": "to savings",
+                               "lines": [{"ledger_account_id": bank, "currency": "CAD", "amount": "-20.00"},
+                                         {"ledger_account_id": ac2["ledger_account_id"], "currency": "CAD", "amount": "20.00"}]}],
+                f"2027-{m:02d}-01", f"2027-{m:02d}-28")
+        approve(H, H.member, p)
+        st = H.worker.call("wrk_post_plan_chunk", p["plan_id"])
+        check(st == "sealed", f"expected sealed, got {st}")
+        return p["plan_id"]
+
+    def state(pid):
+        return one(H, "select p.state, b.state, (select count(*) from bnx.posting_plan_item i join bnx.journal_entry je on je.id = i.posted_journal_id "
+                      " where i.plan_id = p.id) journals, (select count(*) from bnx.posting_plan_item i join bnx.journal_entry je on je.id = i.posted_journal_id "
+                      " join bnx.posting_batch pb on pb.id = je.posting_batch_id where i.plan_id = p.id and pb.state = 'active') visible, "
+                      "(select array_agg(event order by seq) from bnx.plan_event e where e.plan_id = p.id) events, "
+                      "(select array_agg(command order by seq) from bnx.audit_event a where a.subject->>'plan_id' = p.id::text "
+                      "  and command in ('activate_plan','plan_suspended')) audit, "
+                      "(select array_agg(topic order by id) from bnx.outbox o where o.payload->>'plan_id' = p.id::text "
+                      "  and topic in ('plan.activated','plan.suspended')) outbox "
+                      "from bnx.posting_plan p join bnx.posting_batch b on b.plan_id = p.id where p.id = %s", (pid,))
+
+    def app_tx():
+        return psycopg.connect(h.dsn(server, "bnx_app", db))
+
+    def revoke_sql(cx):
+        cx.execute("select bnx.cmd_set_grant(%s::jsonb, %s::jsonb)", (json.dumps(H.owner), json.dumps({
+            "member_id": H.member_id, "account_id": acc2_id, "can_view": True, "can_post": False, "idempotency_key": "k-" + uuid.uuid4().hex})))
+
+    res = {}
+    # control: no revocation -> activated, journals visible, 'activated' events
+    p = sealed_transfer(); a = H.worker.call("wrk_activate_plan", p); res["control"] = (a,) + tuple(state(p))
+    # revocation after sealing, before activation -> suspended, batch void, journals kept but never visible
+    p = sealed_transfer(); grant(False); a = H.worker.call("wrk_activate_plan", p); res["revoked_after_seal"] = (a,) + tuple(state(p))
+    again = H.worker.call("wrk_activate_plan", p)
+    # rollback: an activation rolled back leaves the plan sealed, the batch invisible and no audit row
+    p = sealed_transfer()
+    n_audit = one(H, "select count(*) from bnx.audit_event")[0]
+    with psycopg.connect(h.dsn(server, "bnx_worker", db)) as w:
+        r = w.execute("select bnx.wrk_activate_plan(%s)", (p,)).fetchone()[0]
+        w.rollback()
+    res["rolled_back"] = (r,) + tuple(state(p)) + (one(H, "select count(*) from bnx.audit_event")[0] - n_audit,)
+    H.worker.call("wrk_activate_plan", p)                                   # leaves it activated for the record
+    # race 1: the revocation is in flight (row locked, not committed) when activation starts -> activation waits,
+    # sees the committed revocation and suspends
+    p = sealed_transfer(); out = {}
+    with app_tx() as t2:
+        revoke_sql(t2)                                                      # holds the grant row lock
+        th = threading.Thread(target=lambda: out.setdefault("r", psycopg.connect(h.dsn(server, "bnx_worker", db), autocommit=True)
+                                                             .execute("select bnx.wrk_activate_plan(%s)", (p,)).fetchone()[0]))
+        th.start(); time.sleep(1.0)
+        waited = th.is_alive()
+        t2.commit()
+        th.join(10)
+    res["race_revocation_first"] = (out.get("r"), "waited" if waited else "did not wait") + tuple(state(p))
+    # race 2: the activation holds its locks (not committed) when the revocation arrives -> the revocation waits
+    # (lock_timeout proves it), the activation commits, the revocation then applies to later plans only
+    p = sealed_transfer()
+    with psycopg.connect(h.dsn(server, "bnx_worker", db)) as w:
+        r = w.execute("select bnx.wrk_activate_plan(%s)", (p,)).fetchone()[0]
+        with app_tx() as t2:
+            t2.execute("set lock_timeout = '500ms'")
+            try:
+                revoke_sql(t2); blocked = "not blocked"
+            except psycopg.errors.LockNotAvailable:
+                blocked = "blocked (lock_timeout)"
+            t2.rollback()
+        w.commit()
+    grant(False)
+    can_after = one(H, "select can_post from bnx.account_grant where member_id = %s and account_id = %s", (H.member_id, acc2_id))[0]
+    res["race_activation_first"] = (r, blocked, can_after) + tuple(state(p))
+    # R1 behaviour kept for the plan account: approver deactivated after sealing -> 'revalidation_required', then
+    # wrk_revalidate_plan suspends (R1)
+    p = sealed_transfer()
+    H.cmd(H.owner, "set_member_state", member_id=H.member_id, state="suspended")
+    r1 = H.worker.call("wrk_activate_plan", p); r2 = H.worker.call("wrk_revalidate_plan", p)
+    H.cmd(H.owner, "set_member_state", member_id=H.member_id, state="active")
+    res["r1_plan_account"] = (r1, r2) + tuple(state(p))[:2]
+    chain = one(H, "select bnx.audit_verify()")[0]
+    c, rv, rb, f1, f2, r1p = (res[k] for k in ("control", "revoked_after_seal", "rolled_back", "race_revocation_first",
+                                                "race_activation_first", "r1_plan_account"))
+    check(c[0] == "activated" and c[1:5] == ("activated", "active", 1, 1) and c[6] == ["activate_plan"] and c[7] == ["plan.activated"]
+          and rv[0] == "suspended" and rv[1:5] == ("suspended", "void", 1, 0) and rv[5][-1] == "suspended" and rv[6] == ["plan_suspended"]
+          and rv[7] == ["plan.suspended"] and again == "suspended"
+          and rb[0] == "activated" and rb[1:5] == ("sealed", "sealed", 1, 0) and rb[-1] == 0
+          and f1[0] == "suspended" and f1[1] == "waited" and f1[2:6] == ("suspended", "void", 1, 0)
+          and f2[0] == "activated" and f2[1] == "blocked (lock_timeout)" and f2[2] is False and f2[3:7] == ("activated", "active", 1, 1)
+          and r1p[:4] == ("revalidation_required", "suspended", "suspended", "void") and chain == 0, f"{res} again={again} chain={chain}")
+    return {k: v[:6] for k, v in res.items()} | {"re-activation of a suspended plan": again, "audit_verify": chain}
 
 
 # ------------------------------------------------------------------------------------------------ Executor lease / staging
