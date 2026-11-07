@@ -19,3 +19,7 @@ Original slips and notices (T4, T5, NOA) carry the SIN in print. Balnexa keeps t
 - (b) The Owner redacts the SIN before any document reaches Balnexa. The stored "original" is then the redacted copy, so it differs from the bytes the CRA or the employer issued.
 
 The Owner should choose before 9011 (evidence pipeline) and 9014 (tax).
+
+---
+
+**Pointer (added 2026-11-07, the text above is unchanged):** the open point above was decided on 2026-11-07 at 12:09 America/Toronto as **option (b): the Owner redacts the SIN before upload**. See `docs/s4/OWNER_DECISIONS_2026-11-07_SIN.md` and S4 V1.2 Addendum A1 (branch `s4/design-addendum-a1`). It is a design record only; nothing is implemented.
