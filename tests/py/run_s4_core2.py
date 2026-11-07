@@ -131,10 +131,12 @@ def t_seed(server, ev):
         except psycopg.errors.CheckViolation:
             cx.rollback(); cx.execute("set role bnx_definer")
         cur = sorted(x[0] for x in cx.execute("select code from bnx.currency"))
+        prov = dict(cx.execute("select code, jurisdiction from bnx.institution where kind like 'payment%%' order by code").fetchall())
     check(r[0] == 5 and r[1] == 12 and r[3] == r[4] == r[2] and psbc == (False, True) and hsbc == ["HSBC_CN:CN", "HSBC_HK:HK"]
-          and {"HKD", "GBP", "AUD", "SGD", "CHF"} <= set(cur), f"{r} {psbc} {hsbc} {cur}")
+          and {"HKD", "GBP", "AUD", "SGD", "CHF"} <= set(cur)
+          and prov == {"ALIPAY": "CN", "APPLE_PAY": "CA", "PAYPAL": "CA", "UNIONPAY": "CN", "WECHAT_PAY": "CN"}, f"{r} {psbc} {hsbc} {cur} {prov}")
     return (f"5 traditional + 12 joint-stock CN banks; {r[2]} seed institutions with {r[3]} unique codes; PSBC not seeded, code reserved, "
-            f"never joint-stock (CHECK); HSBC_HK/HSBC_CN separate jurisdictions; currencies {cur}")
+            f"never joint-stock (CHECK); HSBC_HK/HSBC_CN separate jurisdictions; currencies {cur}; provider jurisdictions (F-C2-05) {prov}")
 
 
 @test("AT-REG-07,08", "Amendment 02 tests 7-8 (brand issuer history)")
@@ -162,10 +164,10 @@ def t_account_eligibility(server, ev):
     out = [expect_err(H.cmd, "VALIDATION_FAILED", H.owner, "create_account", kind="bank_deposit", institution="Synthetic Bank", label="x", currencies=["CAD"]),
            expect_err(H.cmd, "INSTITUTION_NOT_ELIGIBLE", H.owner, "create_account", kind="bank_deposit", institution_code="PSBC", label="x", currencies=["CAD"]),
            expect_err(H.cmd, "INSTITUTION_NOT_ELIGIBLE", H.owner, "create_account", kind="bank_deposit", institution_id=c["candidate_id"], label="x", currencies=["CAD"]),
-           expect_err(H.cmd, "JURISDICTION_REQUIRED", H.owner, "create_account", kind="e_wallet", institution_code="PAYPAL", label="x", currencies=["USD"]),
            expect_err(H.cmd, "JURISDICTION_REQUIRED", H.owner, "create_account", kind="cash", label="x", currencies=["CAD"], region_scope="UNKNOWN")]
     ok = [H.cmd(H.owner, "create_account", kind="bank_deposit", institution_code="CMB", label="CMB", currencies=["CNY"])["region_scope"],
           H.cmd(H.owner, "create_account", kind="e_wallet", institution_code="PAYPAL", label="PayPal", currencies=["USD"], region_scope="OTHER:US")["region_scope"],
+          H.cmd(H.owner, "create_account", kind="e_wallet", institution_code="ALIPAY", label="Alipay", currencies=["CNY"])["region_scope"],
           H.cmd(H.owner, "create_account", kind="cash", label="Wallet", currencies=["CAD"])["region_scope"],
           H.cmd(H.owner, "create_account", kind="bank_deposit", institution_code="CTB", label="HKD", currencies=["HKD"])["region_scope"]]
     pend = one(H, "select id from bnx.institution where status = 'ACTIVE_SEED' limit 1")[0]
@@ -181,8 +183,9 @@ def t_account_eligibility(server, ev):
             cx.rollback()
     tz = one(H, "select distinct timezone from bnx.account")[0]
     H.close()
-    check(ok == ["CN", "OTHER:US", "NONE", "CA"] and tz == "America/Toronto", f"{ok} {tz}")
-    return f"refused: {out}; accepted regions {ok} (CMB, PayPal declared, cash, CTB in HKD); timezone from financial_policy = {tz}"
+    check(ok == ["CN", "CA", "CN", "NONE", "CA"] and tz == "America/Toronto", f"{ok} {tz}")
+    return (f"refused: {out}; accepted regions {ok} (CMB; PayPal CA by Owner decision F-C2-05, declared region ignored; Alipay CN; cash; "
+            f"CTB in HKD); timezone from financial_policy = {tz}")
 
 
 @test("AT-REG-04-06", "Amendment 02 §3 steps 2-5, 8 (discovery candidates)")
@@ -338,7 +341,13 @@ def t_flags(server, ev):
     out = {}
     out["create CN account"] = expect_err(H.cmd, "SCOPE_DISABLED", H.owner, "create_account", kind="bank_deposit", institution_code="BOC", label="x", currencies=["CNY"])
     out["post on CN"] = expect_err(H.expense, "SCOPE_DISABLED", H.owner, "1.00", ac=acs(cn), cat=eq_cn)
-    out["grant on CN"] = expect_err(H.cmd, "SCOPE_DISABLED", H.owner, "set_grant", member_id=H.member_id, account_id=cn["account_id"], can_view=True, can_post=True)
+    out["widen grant on CN"] = expect_err(H.cmd, "SCOPE_DISABLED", H.owner, "set_grant", member_id=H.member_id, account_id=cn["account_id"], can_view=True, can_post=True)
+    # F-C2-13 (Owner 2026-11-06): reductions are allowed while the region is off. Full revocation is a DELETE in R1
+    # cmd_set_grant (never gated); a partial reduction (keep view, drop post) is an upsert and is now allowed too.
+    H.cmd(H.owner, "set_grant", member_id=H.owner_id, account_id=cn["account_id"], can_view=True, can_post=False)
+    H.cmd(H.owner, "set_grant", member_id=H.member_id, account_id=cn["account_id"], can_view=False, can_post=False)
+    g = dict((str(r[0]), r[1:]) for r in sql(H, "select member_id, can_view, can_post from bnx.account_grant where account_id = %s", (cn["account_id"],)))
+    revoked = g.get(str(H.owner_id)) == (True, False) and str(H.member_id) not in g
     H.expense(H.owner, "1.00", ac=acs(ca), cat=eq_ca)                # CA still works
     H.expense(H.owner, "2.00", ac=acs(cash), cat=eq_ca)              # NONE is never gated
     b = H.q(H.owner, "balances")
@@ -359,12 +368,13 @@ def t_flags(server, ev):
                    "values (gen_random_uuid(), %s, 'joint', '2026-01-01', 1, gen_random_uuid())", (ca["account_id"],))
         cx.rollback()
     H.close()
+    check(revoked is True, f"reductions on a disabled region must succeed (F-C2-13): {g}")
     check(acs(cn)["account_currency_id"] not in vis and acs(ca)["account_currency_id"] in vis
           and b["scope_warnings"] == ["EXCLUDED_SCOPE:International"] and rep == "ACCESS_REVOKED", f"{b} {rep}")
     check(n_rows2 == n_rows + 4 and acs(cn)["account_currency_id"] in {x["account_currency_id"] for x in b2["balances"]} and b2["scope_warnings"] == []
           and rep2 == "ok" and b3["scope_warnings"] == ["EXCLUDED_SCOPE:Canada", "EXCLUDED_SCOPE:International"]
           and {x["account_currency_id"] for x in b3["balances"]} == {acs(cash)["account_currency_id"]}, f"{n_rows} {n_rows2} {b2} {rep2} {b3}")
-    return (f"International=NO: refused {list(out)} -> SCOPE_DISABLED; CA and cash (NONE) post; balances exclude CN with "
+    return (f"International=NO: refused {list(out)} -> SCOPE_DISABLED; partial reduction (owner post removed) and full revocation (member) allowed (F-C2-13); CA and cash (NONE) post; balances exclude CN with "
             f"scope_warnings {b['scope_warnings']}; snapshot made under YES replays ACCESS_REVOKED, verifies again after re-enabling (digest "
             f"untouched); nothing deleted; NO/NO/NO: only the NONE cash account is reachable ({b3['scope_warnings']}); restore mode bypasses")
 
