@@ -1,0 +1,90 @@
+{
+ "default": {
+  "B001_bootstrap.sql": {
+   "exit": 3,
+   "error": "psql:/home/claude/balnexa-dev/repo/db/bootstrap/B001_bootstrap.sql:39: ERROR:  must be able to SET ROLE \"bnx_definer\""
+  }
+ },
+ "createrole_self_grant=set": {
+  "B001_bootstrap.sql": {
+   "exit": 3,
+   "error": "psql:/home/claude/balnexa-dev/repo/db/bootstrap/B001_bootstrap.sql:44: ERROR:  permission denied for schema bnx"
+  }
+ },
+ "documented (createrole_self_grant=set,inherit)": {
+  "B001_bootstrap.sql": {
+   "exit": 0,
+   "error": ""
+  },
+  "B002_bootstrap_s4.sql": {
+   "exit": 0,
+   "error": ""
+  },
+  "memberships": [
+   [
+    "bnx_app",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_auth",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_authn",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_backup",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_definer",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_fed_reader",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_migrator",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_stager",
+    true,
+    false,
+    false,
+    "postgres"
+   ],
+   [
+    "bnx_worker",
+    true,
+    false,
+    false,
+    "postgres"
+   ]
+  ],
+  "migrate": "OK migrations=24 head=9010 privilege_violations=0"
+ }
+}

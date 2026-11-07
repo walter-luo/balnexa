@@ -514,7 +514,7 @@ def t_settings(server, ev):
 
 # ------------------------------------------------------------------------------------------------ inventory
 KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequence", "extension"}
-IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009"}
+IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009", "9010"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
     "bnx.audit_canonical_v2",
@@ -562,10 +562,42 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.trg_config_flags_complete",
     "bnx.trg_economic_type_rule",
     "bnx.trg_scope_flag",
+    # 9010
+    "bnx.cmd_handoff_mark_sent",
+    "bnx.cmd_handoff_prepare",
+    "bnx.cmd_notification_read",
+    "bnx.cmd_register_index_source",
+    "bnx.draft_kind",
+    "bnx.draft_owned",
+    "bnx.economic_type_violation_lines",
+    "bnx.handoff_text_ok",
+    "bnx.index_ack",
+    "bnx.intake_exception_new",
+    "bnx.intake_item_new",
+    "bnx.notify",
+    "bnx.plan_create",
+    "bnx.plan_item_economic_type",
+    "bnx.plan_item_lines",
+    "bnx.q_account_proposals",
+    "bnx.q_intake_exceptions",
+    "bnx.q_notifications",
+    "bnx.sender_institution",
+    "bnx.stage_jobs",
+    "bnx.stage_write",
+    "bnx.trg_plan_item_clearing_open",
+    "bnx.wrk_intake_housekeeping",
+    "bnx.wrk_issue_exec_lease",
+    "bnx.wrk_promote_staged",
+    "bnx.wrk_record_identity_signal",
+    "bnx.wrk_stage_completion",
+    "bnx.plan_revalidate",
+    "bnx.plan_withdraw",
+    "bnx.cmd_validate_plan",
+    "bnx.cmd_withdraw_plan",
 }
 
 
-@test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9009)")
+@test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9010)")
 def t_inventory(server, ev):
     db = "bnx_s4inv01"
     h.bootstrap(server, db); h.migrate(server, db)
@@ -615,7 +647,7 @@ def t_inventory(server, ev):
               open(os.path.join(ev, "AT-INV-01_inventory.json"), "w"), indent=1)
     check(not missing, f"disposition objects absent from the catalog: {missing}")
     check(set(new_unlisted) == HELPERS_NOT_IN_DISPOSITION, f"unlisted S4 objects differ from the declared helper list: {new_unlisted}")
-    return (f"{len(checked)} disposition rows in scope (B002..9009) present in the catalog, 0 missing ({skipped} rows out of scope); "
+    return (f"{len(checked)} disposition rows in scope (B002..9010) present in the catalog, 0 missing ({skipped} rows out of scope); "
             f"{len(new_unlisted)} S4 helper objects not yet in the disposition (declared): {new_unlisted}")
 
 

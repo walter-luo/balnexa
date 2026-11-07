@@ -1,8 +1,9 @@
 // Balnexa Worker — M0 vertical slice. Thin transport: every financial and authorization decision is made inside
 // PostgreSQL by bnx.cmd_* / bnx.q_* / bnx.authn_* / bnx.wrk_* (SECURITY DEFINER) under the matching login role.
 // Routes: POST /auth/google/callback, POST /auth/logout, POST /api/v1/commands/:name, POST /api/v1/queries/:name,
-//         POST /oauth/authorize (PWA consent), POST /oauth/token, POST /mcp (JSON-RPC 2.0, read tools only).
-import { verifyGoogleIdToken, AuthError } from './jwt.js';
+//         POST /oauth/authorize (PWA consent), POST /oauth/token, POST /mcp (JSON-RPC 2.0, read tools only),
+//         POST /exec/v1/lease, POST /exec/v1/complete (Executor lease model, S4 9010; the Executor holds no DB credential).
+import { verifyGoogleIdToken, verifyJobToken, AuthError } from './jwt.js';
 import { dispatch } from './dispatch.js';
 
 const NAME = /^[a-z][a-z_]{2,40}$/;
@@ -114,6 +115,28 @@ export default {
           if (r && r.error) return json(400, { error: r.error });
           return json(200, r);
         } catch (e) { if (e.code === 'P0401') return json(400, { error: e.message === 'INVALID_TARGET' ? 'invalid_target' : 'invalid_grant' }); throw e; }
+      }
+      if (req.method === 'POST' && (p === '/exec/v1/lease' || p === '/exec/v1/complete')) {
+        const raw = await req.text();
+        if (raw.length > 300000) return json(413, { error: 'PAYLOAD_TOO_LARGE' });
+        let b = null; try { b = JSON.parse(raw); } catch { b = null; }
+        if (!b || typeof b.job_kind !== 'string') return json(400, { error: 'VALIDATION_FAILED' });
+        const pin = (env.EXEC_JOBS || {})[b.job_kind];                    // configured job identity per job kind
+        const auth = req.headers.get('authorization') || '';
+        let claims;
+        try {
+          claims = await verifyJobToken(auth.startsWith('Bearer ') ? auth.slice(7) : null, { jwks: env.GOOGLE_JWKS, audience: env.EXEC_AUDIENCE, pin });
+        } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
+        if (p === '/exec/v1/lease') {
+          const r = await env.db.one('bnx_worker', 'select bnx.wrk_issue_exec_lease($1::jsonb) r', [JSON.stringify({
+            job_kind: b.job_kind, item_id: b.item_id ?? null, sub: claims.sub, email: claims.email, azp: claims.azp })]);
+          return json(200, r);
+        }
+        // completion: the Gateway writes the staging row as bnx_worker (lease_completions = gateway); never a posting call
+        const r = await env.db.one('bnx_worker', 'select bnx.wrk_stage_completion($1::text, $2::text, $3::jsonb) r',
+          [String(b.nonce || ''), String(b.stg_kind || ''), JSON.stringify(b.payload ?? null)]);
+        if (r && r.queue_generation !== undefined) await env.KV.put('bnx:hint', String(r.queue_generation));
+        return json(200, { staging_id: r.staging_id, state: r.state });
       }
       if (req.method === 'POST' && p === '/mcp') {
         const cred = credential(req);

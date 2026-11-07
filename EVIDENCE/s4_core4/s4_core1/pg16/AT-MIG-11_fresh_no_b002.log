@@ -1,0 +1,3 @@
+session_user=bnx_migrator current_user=bnx_migrator rolsuper=False rolinherit=False
+server=PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+FAIL BOOTSTRAP_MISSING: B002 row=False, S4 schemas owned by bnx_definer with backup USAGE=0/4; run db/bootstrap/B002_bootstrap_s4.sql as the installer first

@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
+ok 1 - BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
+  ---
+  duration_ms: 116.173727
+  type: 'test'
+  ...
+# Subtest: BB-API-01 account, category, opening and posting through /api/v1 with idempotency
+ok 2 - BB-API-01 account, category, opening and posting through /api/v1 with idempotency
+  ---
+  duration_ms: 97.49204
+  type: 'test'
+  ...
+# Subtest: BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
+ok 3 - BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
+  ---
+  duration_ms: 29.734536
+  type: 'test'
+  ...
+# Subtest: BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
+ok 4 - BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
+  ---
+  duration_ms: 68.288451
+  type: 'test'
+  ...
+# Subtest: BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
+ok 5 - BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
+  ---
+  duration_ms: 74.716492
+  type: 'test'
+  ...
+# Subtest: BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
+ok 6 - BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
+  ---
+  duration_ms: 34.075236
+  type: 'test'
+  ...
+# Subtest: BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
+ok 7 - BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
+  ---
+  duration_ms: 84.249345
+  type: 'test'
+  ...
+# Subtest: BB-AUTH-02 logout revokes the session server-side
+ok 8 - BB-AUTH-02 logout revokes the session server-side
+  ---
+  duration_ms: 6.064793
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1736.84046

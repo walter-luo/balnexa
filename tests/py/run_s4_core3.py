@@ -44,6 +44,11 @@ def journal(H, et, lines, commit=True):
     return jid
 
 
+def has_9010(H):
+    with H.definer() as cx:
+        return cx.execute("select to_regprocedure('bnx.intake_validate(uuid)') is not null").fetchone()[0]
+
+
 def household(server, db):
     """Phase-2 fixture household (R1 fixture + adopt/activate + registry) with a credit card and an investment account."""
     H = F.Household(server, h.fresh(server, db))
@@ -144,7 +149,14 @@ def t_chunks(server, ev):
     # untyped item that cannot be classified (income counter with an outflow) fails closed; nothing of the chunk posts
     bad = [{"transaction_date": "2026-05-02", "amount": "-1.00", "counter_ledger_account_id": H.salary, "description": "?"}]
     p2 = H.cmd(H.owner, "create_import_plan", account_currency_id=H.cad["account_currency_id"], date_from="2026-05-01", date_to="2026-05-31", items=bad)
-    H.cmd(H.owner, "approve_plan", plan_id=p2["plan_id"], plan_hash=p2["plan_hash"], scope_digest=p2["scope_digest"])
+    if has_9010(H):
+        # 9010 re-baseline: V-07 holds the plan at approval; the worker check stays as defence in depth (hold bypassed directly)
+        held = expect_err(H.cmd, "PLAN_HELD", H.owner, "approve_plan", plan_id=p2["plan_id"], plan_hash=p2["plan_hash"], scope_digest=p2["scope_digest"])
+        with H.definer() as cx:
+            cx.execute("update bnx.posting_plan set state = 'approved', approved_by = %s where id = %s", (H.owner_id, p2["plan_id"]))
+    else:
+        held = None
+        H.cmd(H.owner, "approve_plan", plan_id=p2["plan_id"], plan_hash=p2["plan_hash"], scope_digest=p2["scope_digest"])
     u = expect_err(H.worker.call, "PLAN_ITEM_UNTYPED", "wrk_post_plan_chunk", p2["plan_id"])
     n2 = one(H, "select count(*) from bnx.journal_entry where approval_plan_id = %s", (p2["plan_id"],))[0]
     H.close()
@@ -152,7 +164,7 @@ def t_chunks(server, ev):
           and chunks == [(1, 2, 3), (2, 2, 1), (3, 1, 0)] and types == ["consumption_expense", "consumption_expense", "refund", "consumption_expense", "income"]
           and n2 == 0, f"{states} {b0} {mid} {b1} {chunks} {types} {n2}")
     return (f"5 items with chunk size 2 -> {states}, chunk log {chunks}; nothing visible before activation, all 5 at once after (+45.00); "
-            f"untyped items typed from the counter kind and sign {types}; an unclassifiable item -> {u}, chunk rolled back")
+            f"untyped items typed from the counter kind and sign {types}; an unclassifiable item -> approval {held or 'n/a'}, worker {u}, chunk rolled back")
 
 
 @test("AT-MUT-03", "S4B-F15 (mutation: removal of t_economic_type_rule is detected)")
