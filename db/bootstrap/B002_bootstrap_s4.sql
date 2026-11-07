@@ -1,9 +1,20 @@
 -- B002 Privileged bootstrap supplement for S4 (Balnexa V1.2 IL §3; OBJ-002). Run by the installer identity after B001
--- and before migration 9002. Idempotent: every statement can be repeated; the schema_bootstrap row is written once.
+-- and before any migration on a fresh database (before 9002 on an upgraded R1 database). Re-runnable: a repeat run
+-- is a no-op (guard below); the schema_bootstrap row is written once.
 -- Creates the four S4 schemas and the two S4 roles (NOLOGIN; LOGIN is granted later only under the AI-ENTRY
 -- database.neon.role_login conditions). Grants USAGE only (no table privileges) and the backup default privileges.
 -- Migration 9002 (and run_migrations.py) refuse to continue unless this file has been applied.
 \set ON_ERROR_STOP 1
+-- Re-run guard: B002 is applied in one transaction, so all four schemas and both roles exist only after a complete run.
+-- A repeat run is then a no-op; this matters for the non-superuser installer, which after the self-revoke below can
+-- no longer create objects owned by bnx_definer, even with IF NOT EXISTS (same-family review finding 8).
+-- Order of a fresh install: B001 -> B002 -> migrations (the amended 0108 audit expects the self-revoke to have run).
+select (select count(*) from pg_namespace where nspname in ('bnx_doc','bnx_intake','bnx_tax','bnx_fed')) = 4
+   and (select count(*) from pg_roles where rolname in ('bnx_fed_reader','bnx_stager')) = 2 as b002_applied \gset
+\if :b002_applied
+\echo 'B002 already applied: no change'
+\quit
+\endif
 do $$
 declare r record;
 begin

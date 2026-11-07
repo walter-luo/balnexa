@@ -167,7 +167,21 @@ begin
         v := v || jsonb_build_object('rule', 'RUNTIME_TABLE_PRIVILEGE', 'object', r.nspname || '.' || r.relname, 'role', role_); end if;
       if r.relkind = 'S' and has_sequence_privilege(role_, r.oid, 'USAGE,SELECT,UPDATE') then
         v := v || jsonb_build_object('rule', 'RUNTIME_SEQUENCE_PRIVILEGE', 'object', r.relname, 'role', role_); end if;
+      -- column-level grants are invisible to has_table_privilege (same-family review finding 7)
+      if r.relkind <> 'S' and has_any_column_privilege(role_, r.oid, 'SELECT,INSERT,UPDATE,REFERENCES') then
+        v := v || jsonb_build_object('rule', 'RUNTIME_COLUMN_PRIVILEGE', 'object', r.nspname || '.' || r.relname, 'role', role_); end if;
     end loop;
+    if r.relkind <> 'S' and has_any_column_privilege('bnx_backup', r.oid, 'INSERT,UPDATE,REFERENCES') then
+      v := v || jsonb_build_object('rule', 'BACKUP_WRITE', 'object', r.relname, 'priv', 'COLUMN'); end if;
+  end loop;
+  -- nothing owned by a bnx_* role may live in schema public (excluded from the schema loop because extensions live there):
+  -- a SECURITY DEFINER function there would run with bnx privileges outside every rule above
+  for r in select 'function' k, p.proname nm, pg_get_userbyid(p.proowner) owner from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and pg_get_userbyid(p.proowner) like 'bnx\_%'
+           union all
+           select 'relation', c.relname, pg_get_userbyid(c.relowner) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and pg_get_userbyid(c.relowner) like 'bnx\_%' loop
+    v := v || jsonb_build_object('rule', 'PUBLIC_SCHEMA_OBJECT', 'kind', r.k, 'object', 'public.' || r.nm, 'owner', r.owner);
   end loop;
   -- functions in every registered schema except auth (auth functions are owned by bnx_auth and never granted)
   for r in select n.nspname, p.oid, p.proname, p.prosecdef, p.proconfig, pg_get_userbyid(p.proowner) owner,
