@@ -1,0 +1,86 @@
+{
+ "pause_threshold_gib": 0.8,
+ "assumptions": [
+  "Inputs from the Draft-04 Cost Model (P-02 Cloud Run outbound: 1 GiB/month free NA, pause at 0.8 GiB; other egress",
+  "~50 MB/month, ~0.6 GB in a drill month) and Architecture C2.8. egress_factor = Cloud Run outbound bytes per evidence",
+  "byte: 2.0 (Draft-04 assumption: upload + verification download), 1.0 (upload only; verification re-hash downloads are",
+  "ingress), 0.0 (alternative ARC-ALT-1: the PWA writes the Drive copy at acquisition and the executor only re-hashes it).",
+  "Which factor applies on the real account is M0-B-08 / M0-F (PROVIDER_DOC_VERIFIED is NOT claimed here).",
+  "Result: months until the last object is dual_verified, and the worst single-copy exposure, when onboarding starts on"
+ ],
+ "cases": {
+  "load_1GB_factor_2.0_normal_month": {
+   "egress_needed_gib": 1.86,
+   "admitted_per_month_gib": 0.75,
+   "days_to_all_dual_verified": 74.2,
+   "worst_single_copy_days": 74.2,
+   "meets_24h_target": false
+  },
+  "load_1GB_factor_2.0_drill_month": {
+   "egress_needed_gib": 1.86,
+   "admitted_per_month_gib": 0.24,
+   "days_to_all_dual_verified": 231.7,
+   "worst_single_copy_days": 231.7,
+   "meets_24h_target": false
+  },
+  "load_1GB_factor_1.0_normal_month": {
+   "egress_needed_gib": 0.93,
+   "admitted_per_month_gib": 0.75,
+   "days_to_all_dual_verified": 37.1,
+   "worst_single_copy_days": 37.1,
+   "meets_24h_target": false
+  },
+  "load_1GB_factor_1.0_drill_month": {
+   "egress_needed_gib": 0.93,
+   "admitted_per_month_gib": 0.24,
+   "days_to_all_dual_verified": 115.8,
+   "worst_single_copy_days": 115.8,
+   "meets_24h_target": false
+  },
+  "load_1GB_factor_0.0_normal_month": {
+   "days_to_all_dual_verified": "bounded by executor latency (no egress)",
+   "worst_single_copy_days": "<1 (M0-B-08)"
+  },
+  "load_1GB_factor_0.0_drill_month": {
+   "days_to_all_dual_verified": "bounded by executor latency (no egress)",
+   "worst_single_copy_days": "<1 (M0-B-08)"
+  },
+  "load_4GB_factor_2.0_normal_month": {
+   "egress_needed_gib": 7.45,
+   "admitted_per_month_gib": 0.75,
+   "days_to_all_dual_verified": 296.7,
+   "worst_single_copy_days": 296.7,
+   "meets_24h_target": false
+  },
+  "load_4GB_factor_2.0_drill_month": {
+   "egress_needed_gib": 7.45,
+   "admitted_per_month_gib": 0.24,
+   "days_to_all_dual_verified": 926.7,
+   "worst_single_copy_days": 926.7,
+   "meets_24h_target": false
+  },
+  "load_4GB_factor_1.0_normal_month": {
+   "egress_needed_gib": 3.73,
+   "admitted_per_month_gib": 0.75,
+   "days_to_all_dual_verified": 148.3,
+   "worst_single_copy_days": 148.3,
+   "meets_24h_target": false
+  },
+  "load_4GB_factor_1.0_drill_month": {
+   "egress_needed_gib": 3.73,
+   "admitted_per_month_gib": 0.24,
+   "days_to_all_dual_verified": 463.3,
+   "worst_single_copy_days": 463.3,
+   "meets_24h_target": false
+  },
+  "load_4GB_factor_0.0_normal_month": {
+   "days_to_all_dual_verified": "bounded by executor latency (no egress)",
+   "worst_single_copy_days": "<1 (M0-B-08)"
+  },
+  "load_4GB_factor_0.0_drill_month": {
+   "days_to_all_dual_verified": "bounded by executor latency (no egress)",
+   "worst_single_copy_days": "<1 (M0-B-08)"
+  }
+ },
+ "conclusion": "Under the egress meter (0.75 GiB/month admitted in a normal month, 0.24 GiB in a drill month) a 1 GB onboarding needs 37-74 days and a 4 GB onboarding 148-297 days (egress factor 1-2, normal months) until every object is dual_verified; drill months stretch this further. The 24 h target is NOT met for onboarding volumes. Meanwhile objects are single_copy/archive_pending (visible, INV-48) and NOT independently recoverable if R2 is lost. Options: (1) accept and disclose (default), (2) require_dual_copy_before_approval (implemented in 0109; delays approval by the same period), (3) ARC-ALT-1 (factor 0; engineering change pending reviewer and M0-B-08), (4) paid egress (Owner decision CAP-UP; not authorized)."
+}

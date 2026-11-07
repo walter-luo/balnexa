@@ -1,0 +1,15 @@
+date_utc: 2026-10-31T00:22:47Z
+os: Linux 6.18.44-fc-v185 x86_64
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+python(tests): Python 3.13.18
+psycopg 3.2.3 libpq 160015
+node: v22.23.4 npm: 10.9.9
+psql: psql (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+pg_dump: pg_dump (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+pg_dump17: NOT AVAILABLE (embedded-postgres package ships initdb/pg_ctl/postgres only)
+server16: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+server17: PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+pg17 binaries: /opt/bnx-tools/pg17/node_modules/@embedded-postgres/linux-x64   "version": "17.11.0-beta.19",
+age: 1.1.1
+docker: not used (no container image digests apply)
+auth: local trust over unix sockets for synthetic test roles; no passwords exist
