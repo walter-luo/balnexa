@@ -35,8 +35,10 @@ async function call(p, { method = 'POST', body, headers = {}, cookie, bearer, fo
 }
 const cmd = (name, body, cookie, extra = {}) => call(`/api/v1/commands/${name}`, { body, cookie, headers: { origin: ORIGIN, ...extra } });
 
+let INST = null;
 before(async () => {
   const info = JSON.parse(execFileSync(PY, [path.join(here, 'prepare_db.py'), SERVER]).toString());
+  INST = info.institution_id ? { institution_id: info.institution_id } : { institution: 'Synthetic Bank' };   // S4 re-baseline (9006)
   kp = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   kp2 = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   const jwk = kp.publicKey.export({ format: 'jwk' });
@@ -72,7 +74,7 @@ test('BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-sub
 });
 
 test('BB-API-01 account, category, opening and posting through /api/v1 with idempotency', async () => {
-  let r = await cmd('create_account', { kind: 'bank_deposit', institution: 'Synthetic Bank', label: 'Chequing', currencies: ['CAD'] }, S.owner, { 'idempotency-key': 'bb-acc-0001' });
+  let r = await cmd('create_account', { kind: 'bank_deposit', ...INST, label: 'Chequing', currencies: ['CAD'] }, S.owner, { 'idempotency-key': 'bb-acc-0001' });
   assert.equal(r.status, 200, r.text);
   S.ac = r.json.account_currencies[0];
   r = await cmd('create_category', { kind: 'expense', currency: 'CAD', name_en: 'Groceries' }, S.owner, { 'idempotency-key': 'bb-cat-0001' });

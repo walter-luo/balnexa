@@ -361,7 +361,7 @@ def t_cur_linked(server, ev):
     for name, sql, p, code in probes:
         if name == "JPY fraction":
             # create a JPY account through the command path, then probe
-            r = H.cmd(H.owner, "create_account", kind="bank_deposit", institution="Synthetic Bank", label="Yen", currencies=["JPY"])
+            r = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Yen", currencies=["JPY"])
             p = (r["account_currencies"][0]["account_currency_id"],)
             sql = sql.replace("'CAD'", "'JPY'")
         def go():
@@ -514,7 +514,7 @@ def t_conc_posts(server, ev):
 def t_cmd_authz(server, ev):
     H = household(server)
     expect_err(H.expense, "FORBIDDEN_ROLE", H.viewer, "1.00")
-    r = H.cmd(H.member, "create_account", kind="e_wallet", institution="Synthetic Pay", label="Member private", currencies=["CAD"], visibility="private")
+    r = H.cmd(H.member, "create_account", kind="e_wallet", **H.inst("Synthetic Pay", kind="payment_wallet"), label="Member private", currencies=["CAD"], visibility="private")
     priv = r["account_currencies"][0]
     vis_owner = [b["account_currency_id"] for b in H.q(H.owner, "balances")["balances"]]
     check(priv["account_currency_id"] not in vis_owner, "owner sees member's private account without a grant")
@@ -745,8 +745,9 @@ def t_cmd_audit(server, ev):
         except psycopg.Error:
             cx.rollback()
         cx.execute("set role bnx_definer")
-        cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash) "
-                   "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00' from bnx.audit_event")
+        # S4 re-baseline (9005): a forged row must carry at_hashed (chain v2 CHECK); verification must still detect it
+        cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
+                   "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', now() from bnx.audit_event")
         bad = cx.execute("select bnx.audit_verify()").fetchone()[0]
         cx.rollback()
         cx.execute("set role bnx_definer")
@@ -786,7 +787,7 @@ def t_snap(server, ev):
     H.expense(H.owner, "3.00", date="2026-02-02")
     check(H.q(H.member, "replay_snapshot", snapshot_id=s_member["snapshot_id"])["projection_digest_verified"], "back-dated replay")
     # private account of the member; owner cannot replay member's snapshot; owner T3 audit replay works and is audited
-    pr = H.cmd(H.member, "create_account", kind="e_wallet", institution="Synthetic Pay", label="Private", currencies=["CAD"], visibility="private")
+    pr = H.cmd(H.member, "create_account", kind="e_wallet", **H.inst("Synthetic Pay", kind="payment_wallet"), label="Private", currencies=["CAD"], visibility="private")
     s_priv = H.cmd(H.member, "create_report_snapshot", report_code="R-BAL", as_of="2026-12-31",
                    account_currency_ids=[pr["account_currencies"][0]["account_currency_id"]])
     expect_err(H.q, "NOT_AVAILABLE", H.owner, "replay_snapshot", snapshot_id=s_priv["snapshot_id"])
