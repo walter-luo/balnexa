@@ -115,11 +115,18 @@ def t_b002_and_unregistered(server, ev):
         cx.execute("create schema rogue authorization bnx_definer")
         cx.execute("create schema rogue2; grant usage on schema rogue2 to bnx_app")
         cx.execute("create role bnx_extra nologin")
+        # same-family review finding 7: column-level grants and bnx-owned objects in schema public
+        cx.execute("grant select (id) on bnx.member to bnx_app")
+        cx.execute("grant update (display_name) on bnx.member to bnx_backup")
+        cx.execute("create function public.rogue_definer() returns int language sql security definer "
+                   "set search_path = pg_catalog, pg_temp as 'select 1'")
+        cx.execute("alter function public.rogue_definer() owner to bnx_definer")
     with migrator(server, db) as cx:
         v = cx.execute("select bnx.audit_privileges()").fetchone()[0]["violations"]
-    rules = sorted({(x["rule"], x.get("schema") or x.get("extra")) for x in v})
+    rules = sorted({(x["rule"], x.get("schema") or x.get("extra") or x.get("object")) for x in v})
     check(("NEW_SCHEMA_UNREGISTERED", "rogue") in rules and ("NEW_SCHEMA_UNREGISTERED", "rogue2") in rules
-          and ("ROLE_INVENTORY", "bnx_extra") in rules, str(rules))
+          and ("ROLE_INVENTORY", "bnx_extra") in rules and ("RUNTIME_COLUMN_PRIVILEGE", "bnx.member") in rules
+          and ("BACKUP_WRITE", "member") in rules and ("PUBLIC_SCHEMA_OBJECT", "public.rogue_definer") in rules, str(rules))
     d = tempfile.mkdtemp()
     for f in os.listdir(MIG):
         shutil.copy(os.path.join(MIG, f), d)
@@ -127,9 +134,11 @@ def t_b002_and_unregistered(server, ev):
     r = h.migrate(server, db, check=False, mdir=d, log=os.path.join(ev, "AT-MIG-09_violation_blocks_runner.log"))
     check(r.returncode == 6 and "privilege audit" in r.stdout, r.stdout[-600:])
     with psycopg.connect(h.dsn(server, "postgres", db), autocommit=True) as cx:
-        cx.execute("drop schema rogue; drop schema rogue2; drop role bnx_extra")
+        cx.execute("drop schema rogue; drop schema rogue2; drop role bnx_extra; drop function public.rogue_definer()")
+        cx.execute("revoke select (id) on bnx.member from bnx_app; revoke update (display_name) on bnx.member from bnx_backup")
     return (f"B002 applied twice -> 1 schema_bootstrap row; 9 roles (bnx_fed_reader, bnx_stager NOLOGIN); 0 violations; "
-            f"unregistered schemas and extra role detected {rules}; next migration refused while violations exist (exit 6)")
+            f"unregistered schemas, extra role, column grants and a bnx-owned definer function in public detected {rules}; "
+            f"next migration refused while violations exist (exit 6)")
 
 
 @test("AT-MIG-11", "S4B-F01/F17; UA §6.2")
@@ -228,6 +237,12 @@ def t_nonsuper_installer(server, ev):
     check(len(mem) == 9 and all(x[1] and not x[2] and not x[3] for x in mem), f"installer memberships must be ADMIN-only: {mem}")
     res["memberships"] = [list(x) for x in mem]
     res["migrate"] = m.stdout.strip().splitlines()[-1]
+    # B002 is re-runnable by the same installer after its self-revoke (no-op guard)
+    rr = subprocess.run([h.PSQL, h.dsn(server, inst, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f",
+                         os.path.join(ROOT, "db/bootstrap", "B002_bootstrap_s4.sql")], capture_output=True, text=True,
+                        env={**os.environ, "PGOPTIONS": DOC_OPTS})
+    check(rr.returncode == 0 and "already applied" in rr.stdout, f"B002 re-run by the installer: {rr.returncode} {rr.stdout} {rr.stderr}")
+    res["B002_rerun"] = rr.stdout.strip()
     # the installer can still perform its later steps (role LOGIN switches need ADMIN) ...
     with psycopg.connect(h.dsn(server, inst, db), autocommit=True) as cx:
         cx.execute("alter role bnx_stager login"); cx.execute("alter role bnx_stager nologin")
