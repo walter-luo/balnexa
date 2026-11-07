@@ -1,0 +1,87 @@
+# Balnexa CI (S4 INS-1, partial): secret scan + the full database and API test suites on PostgreSQL 16 and 17 (PGDG builds,
+# with pg_dump/pg_restore of the same major). Synthetic data only; no secrets, no cloud resources, no deployment.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main, 's4/**']
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Owner-private sources are never committed
+        run: |
+          if git log --all --name-only --format= | grep -i 'owner_sources'; then
+            echo "::error::a path under owner_sources is in the history"; exit 1
+          fi
+      - name: gitleaks (full history)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 git /repo --redact --no-banner --exit-code 1
+
+  db-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ['16', '17']
+    env:
+      BNX_SERVER: pg${{ matrix.pg }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 16 and 17 from PGDG
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-16 postgresql-17
+          sudo systemctl stop postgresql || true
+      - name: Start the test cluster (socket and port expected by tests/py/harness.py)
+        run: |
+          V=${{ matrix.pg }}; D=/var/lib/postgresql/ci$V; S=/var/lib/postgresql/bnx$V
+          sudo install -d -o postgres -g postgres -m 0755 "$D" "$S"
+          sudo -u postgres /usr/lib/postgresql/$V/bin/initdb -D "$D/data" -U postgres --auth=trust -E UTF8 --locale=C.UTF-8 > /dev/null
+          sudo -u postgres /usr/lib/postgresql/$V/bin/pg_ctl -D "$D/data" -o "-p 554$V -k $S -c listen_addresses=" -l "$D/server.log" -w start
+          psql "host=$S port=554$V user=postgres dbname=postgres" -Atc 'select version()'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "psycopg[binary]==3.2.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+        working-directory: apps/worker
+      - name: R1 suite and S4 suites
+        run: |
+          mkdir -p ci-evidence
+          python tests/py/run_g0.py --server "$BNX_SERVER" --evidence ci-evidence/run_g0 | tee ci-evidence/run_g0.txt
+          for f in tests/py/run_s4_core*.py; do
+            n=$(basename "$f" .py)
+            python "$f" --server "$BNX_SERVER" --evidence "ci-evidence/$n" | tee "ci-evidence/$n.txt"
+          done
+      - name: Black-box API
+        run: BNX_PY="$(which python)" node --test tests/blackbox/api.test.mjs
+      - name: Dispatch simulation
+        if: matrix.pg == '16'
+        run: node tests/sim/dispatch_sim.mjs
+      - name: Server log on failure
+        if: failure()
+        run: sudo tail -n 200 /var/lib/postgresql/ci${{ matrix.pg }}/server.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-pg${{ matrix.pg }}
+          path: |
+            ci-evidence
+            !ci-evidence/**/*.dump
+          retention-days: 30
