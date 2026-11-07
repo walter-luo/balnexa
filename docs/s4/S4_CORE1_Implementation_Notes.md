@@ -26,6 +26,72 @@ R1 migrations `0002`–`0107`, `0109`, `9001` and `B001` are byte-identical to R
 
 Installer procedure for a non-superuser CREATEROLE installer (Neon project owner): run B001 and B002 with `PGOPTIONS='-c createrole_self_grant=set,inherit'`; B002 ends by revoking the installer's own SET/INHERIT self-grants, leaving the ADMIN-only membership PostgreSQL keeps, which is the only installer membership the audits accept (the installer can still switch LOGIN on `bnx_stager`/`bnx_fed_reader`). For a superuser installer (local tests) the option and the revoke are no-ops.
 
+### 1.1 Migration 0108: checksums and compatibility (G1, G2 — documentation correction approved 2026-11-07)
+
+| Version of `0108_grants_and_privilege_audit.sql` | SHA-256 | Where it is |
+|---|---|---|
+| R1 original | `4fc92f2b9b3dda0a14b2863fa3c7e53c2723e8eaa3d295d4997a42da8bc8ce6f` | R1 commit `5e39b6a` (imported as `d0d1365`); kept unchanged in `db/history/r1/0108_grants_and_privilege_audit.R1-original.sql`; listed in the R1 manifest `EVIDENCE/g0_08/manifest_sha256.json` line 134, which describes R1 and is intentionally not rewritten |
+| Amended (F-C1-01 option a) | `4615ba8de2bf8f8fc445cc57efe10c97d677b15788f75e94f356670d735c8b49` | `db/migrations/0108_grants_and_privilege_audit.sql` from commit `00d74c7` on; unchanged on every later commit of `s4/core-1` … `s4/core-4` |
+
+Compatibility:
+
+- The runner compares every applied migration with its file (`bnx.schema_migrations.sha256`). A database that recorded the **R1 original** checksum for `0108` is refused by the amended chain with **exit 5** before anything is applied (AT-MIG-11c). Fail-closed: nothing is changed in that database.
+- **There is no supported in-place upgrade path** from a database that applied the R1-original `0108` to the amended chain. The only routes are a new installation, or a restore-as-new (IL lifecycle) into a database built by the amended chain.
+- **`bnx.schema_migrations.sha256` is never edited** to make the runner accept a file. That would defeat the immutability of applied migrations, which is the point of the checksum rule (R1 AUD-049).
+- The amended file is, conversely, unknown to an R1-head runner. R1 tooling is not used against S4 databases.
+- Known database environments and their `0108` checksums: §1.6. Whether any persistent database with the R1-original checksum exists is an **open Owner attestation**.
+
+### 1.2 Fresh-install order (G3; design erratum F-C1-17)
+
+The required order is **B001 → B002 → migrations (0002 … 0109, 9001, 9002 …)**. This is the order the test harness uses, the order in IL V1.2 §2 step 5, and the order in the B002 header.
+
+UA V1.2 §6.2, row "Fresh-install order", gives B001 → 0002…0109 → 9001 → B002 → 9002…. That is wrong for a non-superuser installer: the amended `0108` audit only accepts the installer's ADMIN-only membership, which exists only after B002's self-revoke. Following UA §6.2, `0108` fails its audit (exit 7, the migration is rolled back) and the database stops at `0107`. This is fail-closed, with no data risk. Recovery by running B002 and then the runner again has **not been tested**.
+
+The runner is deliberately **not** changed to enforce the order (Owner decision 2026-11-07). It enforces only "B002 before the first 9002+ file" (exit 6), as UA §6.2 specifies.
+
+### 1.3 Runner exit codes (`db/tools/run_migrations.py`; G4)
+
+| Exit | Meaning | Source line |
+|---|---|---|
+| 0 | all pending migrations applied; privilege audit reports 0 violations | — |
+| 2 | a refused Draft-04 file (0001 or 0007) is present | 53 |
+| 3 | identity check failed (wrong user, superuser, or INHERIT) | 68 |
+| 4 | applied versions are not a prefix of the lane's files: a removed or renamed file, or **CONVERSION_AFTER_EXTENSION** (9001 pending after a 9002+ file) | 80–82 |
+| 5 | an applied migration's SHA-256 differs from its file (tampered or amended file, e.g. the R1-original `0108`) | 87 |
+| 6 | **two meanings**: (a) `BOOTSTRAP_MISSING` before the first 9002+ file (line 100, as UA §6.2 specifies); (b) a migration failed and was rolled back (line 127, inherited from R1). The log line tells them apart (`FAIL BOOTSTRAP_MISSING: …` vs `FAIL <file>: <error> (rolled back)`) | 100, 127 |
+| 7 | privilege audit reported violations after the last migration (nothing further applied) | 138 |
+
+### 1.4 Changes after the same-family review and CI (G5)
+
+| Change | Files | Evidence |
+|---|---|---|
+| CI: secret scan (gitleaks over the full history, `owner_sources` guard) and every suite on PGDG PostgreSQL 16 and 17 | `.github/workflows/ci.yml`, `.gitleaks.toml` (two reviewed false positives) | §2.1 |
+| `run_g0.py`: AT-BAK-01/02 use `pg_dump`/`pg_restore` of the server's own major and skip only when it is missing | `tests/py/run_g0.py` | AT-BAK-01/02 PASS on PG17 in CI |
+| `audit_privileges()` new rules `RUNTIME_COLUMN_PRIVILEGE`, `BACKUP_WRITE` (column-level), `PUBLIC_SCHEMA_OBJECT` (same-family finding 7) | `db/migrations/9002_…` | AT-MIG-09 (injected column grants and a bnx-owned SECURITY DEFINER function in `public` are reported) |
+| B002 no-op re-run guard for the non-superuser installer; order documented in its header (finding 8 b/c) | `db/bootstrap/B002_bootstrap_s4.sql` | AT-MIG-11b (B002 re-run by the installer after its self-revoke) |
+| Accepted residual (finding 8 a, F-C1-01 option a): the installer keeps the ADMIN-only membership and could grant itself SET again; `audit_privileges()` reports any SET/INHERIT membership whenever it runs | — | AT-MIG-11b (an injected SET membership is reported as `INSTALLER_MEMBERSHIP`) |
+
+All review findings and their handling: `docs/s4/S4_Same_Family_Review_2026-11-07.md` (on `s4/core-4`).
+
+### 1.5 SIN decision pointer (G6)
+
+`docs/s4/OWNER_DECISIONS_2026-11-07.md` keeps its historical text. The open point it records (SIN printed on originals) was decided on 2026-11-07 at 12:09 as **option (b): redact before upload**. The decision is in `docs/s4/OWNER_DECISIONS_2026-11-07_SIN.md` and the design record is S4 V1.2 Addendum A1, both on branch `s4/design-addendum-a1`. They are not part of PR #1–#4 and are not implemented.
+
+### 1.6 Known database environments and the `0108` checksum (open Owner attestation)
+
+| Environment | Kind | Persistent? | `0108` recorded | Basis |
+|---|---|---|---|---|
+| Local PG16 cluster `/var/lib/postgresql/data16` (port 55416) in the development container | test | **disposable**: each test run drops every `bnx_*` database and role first | amended `4615ba8d…` in all 12 databases present on 2026-11-07 | direct query of `bnx.schema_migrations` in every database |
+| Local PG17 cluster `/var/lib/postgresql/data17` (port 55417), embedded-postgres | test | disposable, as above | amended in all 12 databases present on 2026-11-07 | direct query |
+| Same clusters, G0 phase 1 (R1 head, 2026-11-05) | test | dropped by later runs | R1 original at the time | the phase-1 run used the R1 head; none of those databases exists now |
+| Ubuntu default cluster `/var/lib/postgresql/16/main` (not started) | package default | — | none | `base/` holds only the three system databases |
+| Same-family review databases `fab_*` | test | dropped by the reviewer | amended | review report |
+| GitHub Actions runners (PR CI) | CI | ephemeral VM per job | amended (CI was added after the amendment) | workflow runs |
+| Containers of earlier design and R1-build sessions | test | not accessible from this session | unknown (R1 original if R1 was executed there) | **uncertainty** |
+| Any Owner environment (own computers, Neon, Supabase, Render, Cloudflare or other accounts) | unknown | unknown | unknown | not inspected: no access was authorized; O-7, O-8 and M0-AUTH closed; no deployment in this workstream. **Uncertainty: only the Owner can attest** |
+
+The attestation "no persistent database with the R1-original `0108` exists" remains **open** until the Owner confirms it.
+
 ## 2. Results (raw output in `EVIDENCE/s4_core1/`)
 
 | Suite | PG16 16.15 (Ubuntu) | PG17 17.11 (embedded-postgres beta, see §5) |
@@ -35,6 +101,18 @@ Installer procedure for a non-superuser CREATEROLE installer (Neon project owner
 | R1 black-box API (`tests/blackbox/api.test.mjs`) on the extended chain | 7 / 7 | 7 / 7 |
 | R1 dispatch simulation | PASS | — |
 | CORE-1 suite (`run_s4_core1.py`) | 12 PASS / 0 FAIL / 1 SKIP | 12 PASS / 0 FAIL / 1 SKIP |
+
+### 2.1 CI on code commit `a639e06` (GitHub Actions run 42382548713; the documentation commit after it changes no code)
+
+| Check | PG16 16.15 (Ubuntu 16.15-1.pgdg24.04+2) | PG17 17.11 (Ubuntu 17.11-1.pgdg24.04+2) |
+|---|---|---|
+| secret-scan (gitleaks, full history; no leaks found) | success (single job) | — |
+| R1 suite | 40 PASS / 0 FAIL / 0 SKIP | 40 PASS / 0 FAIL / 0 SKIP (AT-BAK-01/02 executed with `pg_dump` 17) |
+| CORE-1 suite | 12 PASS / 0 FAIL / 1 SKIP (AT-FLG-10, needs 9007) | 12 PASS / 0 FAIL / 1 SKIP (same) |
+| R1 black-box API | 7 / 7 | 7 / 7 |
+| R1 dispatch simulation | PASS | — |
+
+All results remain `AUTHOR_RUNTIME_EVIDENCE`.
 
 CORE-1 suite detail:
 
@@ -76,6 +154,7 @@ Severity: **B** = blocks a later gate until the Owner decides; **D** = design te
 | F-C1-14 | D | `NEW_SCHEMA_UNREGISTERED` as literally stated rejected the Draft-02 conversion source schema `d02` (installer-owned, read by `bnx_definer` in 9001; AT-MIG-07). | Rule applies to unregistered schemas owned by, containing objects of, or usable by `bnx_*` runtime roles. | Accept. |
 | F-C1-15 | N | R1 AT-BAK-01 hard-codes the restore truncate list; 9002 seeds new tables, so the restore duplicated rows. | Test re-baselined to the generated list from `migration_seeded_table` (the S4B-F11 mechanism). | Full procedure in 9016. |
 | F-C1-16 | D | 9004 relaxes `r2_key` NOT NULL, but the write-once trigger's `<>` comparison is NULL-unsafe; the design places the trigger MODIFY in 9011. | Trigger MODIFY moved forward into 9004 (NULL-safe, forward-only `storage_kind`); otherwise a database stopped after 9004 would allow `r2_key` to be cleared. | 9011 builds on it. |
+| F-C1-17 | D (design erratum) | UA V1.2 §6.2 "Fresh-install order" puts B002 after 0002…0109 and 9001; with a non-superuser installer the amended `0108` audit then fails (exit 7) | Required order B001 → B002 → migrations, documented in §1.2, the B002 header and IL §2 step 5; runner unchanged (Owner decision 2026-11-07) |
 
 ## 4. Not done in this increment
 
@@ -83,6 +162,7 @@ Severity: **B** = blocks a later gate until the Owner decides; **D** = design te
 
 ## 5. Environment and deviations from the gate definition
 
+- CI (§2.1) runs the PGDG builds 16.15 and 17.11, so AT-BAK-01/02 are executed on PG17 there. The local notes below describe the author's container.
 - PostgreSQL 16.15 (Ubuntu package); PostgreSQL 17.11 from `@embedded-postgres/linux-x64@17.11.0-beta.19` (the same build R1 used). This is **not** the official PGDG build S4B-F19 asks for, and it ships no `pg_dump`, so AT-BAK-01/02 are NOT_EXECUTED on PG17.
 - Python 3.13.18, psycopg 3.2.3; Node 22.23.4, `pg` 8.13.1.
 - The author executed every test; G0 requires an independent reproduction (S4B-F19). The Owner waived S5; the waiver does not convert any result into `VERIFIED_INDEPENDENT`.
