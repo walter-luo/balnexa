@@ -3,7 +3,7 @@
  "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
  "python": "3.13.18",
  "psycopg": "3.2.3",
- "seconds": 11.7,
+ "seconds": 8.8,
  "pass": 9,
  "fail": 0,
  "skip": 0,
@@ -12,64 +12,64 @@
    "id": "AT-ECON-01-04",
    "ref": "S4B-F15; UA \u00a75.3.4; Draft-04 B6.1",
    "status": "PASS",
-   "detail": "26 B6.1 rules seeded; 9 valid journals commit (['card_repayment', 'card_spend', 'consumption_expense', 'fx_conversion', 'income', 'investment_subscription', 'opening_balance', 'refund', 'transfer_to_clearing']); refused at COMMIT: ['consumption_expense', 'card_spend', 'income', 'card_repayment', 'fx_conversion', 'transfer_to_clearing', 'opening_balance', 'internal_transfer']; R1 completeness errors keep precedence ['JOURNAL_INCOMPLETE: journal 7e1044cf-3b24-43c6-8a4f-74d56d0d2307 has 0 line(s) (INV-01)', 'JOURNAL_UNBALANCED: journal d16d377e-8780-4a11-9448-2b978a4e2d36 currency CAD sum 1.0000 debit t credit t (INV-02/03)']",
-   "seconds": 1.46
+   "detail": "26 B6.1 rules seeded; 9 valid journals commit (['card_repayment', 'card_spend', 'consumption_expense', 'fx_conversion', 'income', 'investment_subscription', 'opening_balance', 'refund', 'transfer_to_clearing']); refused at COMMIT: ['consumption_expense', 'card_spend', 'income', 'card_repayment', 'fx_conversion', 'transfer_to_clearing', 'opening_balance', 'internal_transfer']; R1 completeness errors keep precedence ['JOURNAL_INCOMPLETE: journal 29fa062d-7bed-4b90-8efb-cde2f6d46eff has 0 line(s) (INV-01)', 'JOURNAL_UNBALANCED: journal ee8da184-7bff-4e4e-b3db-b4c0c2d536d3 currency CAD sum 1.0000 debit t credit t (INV-02/03)']",
+   "seconds": 1.18
   },
   {
    "id": "AT-ECON-05",
    "ref": "S4B-F15 (historical journals are not re-judged)",
    "status": "PASS",
    "detail": "pre-9008 journal violating B6.1 stays and is reported NOT_APPLICABLE; the same journal after 9008 is refused; a valid new journal -> OK",
-   "seconds": 1.5
+   "seconds": 1.13
   },
   {
    "id": "AT-PLAN-06,07",
    "ref": "S4B-F12/F15; UA \u00a75.5.5 (chunking, typed items)",
    "status": "PASS",
    "detail": "5 items with chunk size 2 -> ['executing', 'executing', 'sealed'], chunk log [(1, 2, 3), (2, 2, 1), (3, 1, 0)]; nothing visible before activation, all 5 at once after (+45.00); untyped items typed from the counter kind and sign ['consumption_expense', 'consumption_expense', 'refund', 'consumption_expense', 'income']; an unclassifiable item -> PLAN_ITEM_UNTYPED, chunk rolled back",
-   "seconds": 1.4
+   "seconds": 0.94
   },
   {
    "id": "AT-MUT-03",
    "ref": "S4B-F15 (mutation: removal of t_economic_type_rule is detected)",
    "status": "PASS",
    "detail": "with the trigger the violating journal is refused; with t_economic_type_rule dropped the same journal passes all constraints (mutant detected); rolled back",
-   "seconds": 1.36
+   "seconds": 0.95
   },
   {
    "id": "BB-OAUTH-01x,04",
    "ref": "S4B-F09; UA \u00a77.2.1 (NULL fail-closed, single-use, concurrent redemption)",
    "status": "PASS",
    "detail": "missing client_id / redirect_uri -> ['INVALID_GRANT', 'INVALID_GRANT']; two concurrent redemptions -> exactly 1 token issued and 1 invalid_grant, and the replay revoked the issued token (RFC 6749 \u00a74.1.2)",
-   "seconds": 1.13
+   "seconds": 0.91
   },
   {
    "id": "AT-CMD-04x",
    "ref": "S4B-F09 (owner-scoped token revoke)",
    "status": "PASS",
    "detail": "another member revoking the owner's connection -> NOT_AVAILABLE; the owner's token stays valid (R1 revoked it: cross-member token revoke)",
-   "seconds": 1.19
+   "seconds": 0.82
   },
   {
    "id": "BB-OAUTH-02",
    "ref": "UA \u00a77.2.2-7.2.3 (refresh rotation; reuse; none for legacy)",
    "status": "PASS",
    "detail": "offline_access -> refresh token; rotation issues a new pair; reuse of the rotated token -> invalid_grant, connection revoked (new access token -> UNAUTHENTICATED); no offline_access -> no refresh token; unknown refresh -> INVALID_GRANT; RFC 7009 revoke -> UNAUTHENTICATED",
-   "seconds": 1.06
+   "seconds": 0.82
   },
   {
    "id": "BB-OAUTH-03",
    "ref": "AIH \u00a74.4 (DCR / CIMD against host-profile allowlists)",
    "status": "PASS",
    "detail": "DCR (Claude callback), CIMD (ChatGPT client.json) and non-production loopback accepted; refused: ['INVALID_REDIRECT_URI', 'INVALID_REDIRECT_URI', 'INVALID_REDIRECT_URI', 'INVALID_CLIENT_METADATA', 'INVALID_CLIENT_METADATA']",
-   "seconds": 1.04
+   "seconds": 0.89
   },
   {
    "id": "AT-AIH-13-15",
    "ref": "CROSS-02; UA \u00a77.2.3 (legacy R1 connections after the upgrade)",
    "status": "PASS",
    "detail": "R1 connections stay legacy (never upgraded in place); the issued R1 access token keeps legacy read: balances and R-BAL snapshot + replay work; refused: {'q_evidence_access': 'SCOPE_NOT_CONSENTED', 'q_institutions_search': 'SCOPE_NOT_CONSENTED', 'cmd_register_evidence (legacy propose)': 'SCOPE_NOT_CONSENTED', 'q_config_status (unlisted)': 'SCOPE_NOT_CONSENTED', 'zero-subset legacy read': 'NOT_AVAILABLE', 'F3 replay (legacy read)': 'NOT_AVAILABLE'}; a code issued under R1 redeems without a refresh token; new consents cannot use legacy scopes (VALIDATION_FAILED); missing subsets -> ['SUBSET_REQUIRED', 'SUBSET_REQUIRED', 'SUBSET_REQUIRED']",
-   "seconds": 1.5
+   "seconds": 1.1
   }
  ]
 }

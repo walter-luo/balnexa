@@ -19,8 +19,8 @@ skip  9002_s4_bootstrap_assert_and_privileges.sql sha256=b7fff8de2245e682 (appli
 skip  9003_s4_identity_config_release.sql sha256=87d451c602c04dfd (applied, verified)
 skip  9004_s4_constraint_replacements.sql sha256=bf22de72ad933d36 (applied, verified)
 skip  9005_s4_audit_chain_v2.sql sha256=d00572f901240570 (applied, verified)
-skip  9006_s4_registry_policy_accounts.sql sha256=f536d1ef1b03632b (applied, verified)
-skip  9007_s4_module_flag_enforcement.sql sha256=24cf0298ffd25ca9 (applied, verified)
+skip  9006_s4_registry_policy_accounts.sql sha256=baab56222f1699c3 (applied, verified)
+skip  9007_s4_module_flag_enforcement.sql sha256=db50e24f8d8a4b1a (applied, verified)
 skip  9008_s4_economic_type_rule.sql sha256=473a0c316a9e6fbb (applied, verified)
 skip  9009_s4_oauth.sql sha256=585c8b240234447b (applied, verified)
 apply 0110_test_core_after_extension.sql sha256=3450637be6f45f25 session_user=bnx_migrator current_user=bnx_definer

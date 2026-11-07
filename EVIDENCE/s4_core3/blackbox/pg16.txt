@@ -2,43 +2,43 @@ TAP version 13
 # Subtest: BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
 ok 1 - BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
   ---
-  duration_ms: 124.191415
+  duration_ms: 93.404403
   type: 'test'
   ...
 # Subtest: BB-API-01 account, category, opening and posting through /api/v1 with idempotency
 ok 2 - BB-API-01 account, category, opening and posting through /api/v1 with idempotency
   ---
-  duration_ms: 118.400356
+  duration_ms: 80.040274
   type: 'test'
   ...
 # Subtest: BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
 ok 3 - BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
   ---
-  duration_ms: 36.242705
+  duration_ms: 26.966063
   type: 'test'
   ...
 # Subtest: BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
 ok 4 - BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
   ---
-  duration_ms: 92.773946
+  duration_ms: 75.513256
   type: 'test'
   ...
 # Subtest: BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
 ok 5 - BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
   ---
-  duration_ms: 72.091775
+  duration_ms: 61.223573
   type: 'test'
   ...
 # Subtest: BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
 ok 6 - BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
   ---
-  duration_ms: 29.247514
+  duration_ms: 26.030602
   type: 'test'
   ...
 # Subtest: BB-AUTH-02 logout revokes the session server-side
 ok 7 - BB-AUTH-02 logout revokes the session server-side
   ---
-  duration_ms: 11.568752
+  duration_ms: 6.105369
   type: 'test'
   ...
 1..7
@@ -49,4 +49,4 @@ ok 7 - BB-AUTH-02 logout revokes the session server-side
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 2047.710972
+# duration_ms 1486.68096
