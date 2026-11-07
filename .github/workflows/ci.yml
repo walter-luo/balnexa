@@ -25,7 +25,7 @@ jobs:
             echo "::error::a path under owner_sources is in the history"; exit 1
           fi
       - name: gitleaks (full history)
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 git /repo --redact --no-banner --verbose --exit-code 1
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose --exit-code 1
 
   db-tests:
     runs-on: ubuntu-24.04
