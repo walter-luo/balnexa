@@ -46,7 +46,7 @@
 | CORE-1 suite | 12 / 0 / 0 | 12 / 0 / 0 |
 | Increment-2 suite | 12 / 0 / 0 | 12 / 0 / 0 |
 | Increment-3 suite | 9 / 0 / 0 | 9 / 0 / 0 |
-| Increment-4 suite (`run_s4_core4.py`) | 10 / 0 / 0 | 10 / 0 / 0 |
+| Increment-4 suite (`run_s4_core4.py`, incl. AT-REV-01-07) | 11 / 0 / 0 | 11 / 0 / 0 |
 | Black-box API (incl. BB-EXEC-01) | 8 / 8 | 8 / 8 |
 | R1 dispatch simulation | PASS | — |
 

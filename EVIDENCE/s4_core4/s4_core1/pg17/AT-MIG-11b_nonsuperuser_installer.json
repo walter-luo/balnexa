@@ -85,6 +85,7 @@
     "postgres"
    ]
   ],
-  "migrate": "OK migrations=24 head=9010 privilege_violations=0"
+  "migrate": "OK migrations=24 head=9010 privilege_violations=0",
+  "B002_rerun": "B002 already applied: no change"
  }
 }
