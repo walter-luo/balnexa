@@ -52,6 +52,20 @@
 
 Increment-4 tests: AT-PLAN-04 (member_draft, ai_draft and onboarding pass validation, approval, chunked posting and activation; the drafter cannot approve, AI approval `FORBIDDEN_CHANNEL`; `manual` refused by the API and by the CHECK; revision supersedes an approved version; withdrawal; another member cannot withdraw); AT-PLAN-05 (each of DUPLICATE, BALANCE_CHAIN, COVERAGE, FINGERPRINT, ECONOMIC_TYPE, TRANSFER_PAIR, REVIEW_QUEUE, CURRENCY, IDENTITY and NOT_VALIDATED blocks approval with `PLAN_HELD` naming the hold; release after fix by withdraw + corrected plan and by re-validation; review queue); AT-PLAN-05b (V-10 at approval after the flag is switched off; released after it is switched on and the plan re-validated); AT-EXEC-01 (one-time nonce stored as a hash, forged/expired/used nonce, job-kind binding, size cap, TTL CHECK, worker-only issue); AT-EXEC-02 (`bnx_stager` stages and can do nothing else; the Worker cannot call `stg_*`; staging never posts; zero privilege-audit violations); AT-EML-01-04 (header contract, stable/weak keys, routing CA/CRA consumed, CN with International off skipped, unknown country and corporate owner blocked, other domain skipped, availability, ack idempotency, dead-letter after 5, edited record re-consumed, open items, digits stripped from the CRA notice, index location never returned); AT-EML-06,COV (NOTICE_BURST, housekeeping dedupe, coverage alert, Owner-only notifications); AT-MAIL-02-04 (credential gate, subject/body refused at staging, verified vs look-alike sender, incomplete attachments → exception, move, address Owner-only); AT-HX-01-08 (prepare, forbidden content, import of one block among injected text, clearing leg posted through the Owner Gate with the clearing item opened, duplicate, replay mismatch, two/no blocks, version 2.0, ACK match/mismatch, STATUS, reversal without original, MCP `handoff.prepare` allowed and MCP import refused); AT-ACP-01-08 (ID rules, full number refused, signal reuse refused, AI proposes but cannot resolve, approval creates the account, merge, reject, no automatic approval); BB-EXEC-01 (Gateway: another service account, other `azp`, PWA audience, unconfigured job kind, wrong key and no token → 401; lease; completion → staged; reuse 409; kind mismatch 403; > 300 kB 413; the scheduled dispatcher promotes the staging row; the CRA notice appears in the PWA inbox).
 
+### 2.1 After the same-family review (2026-11-07)
+
+The Fable review of PR #1–#4 found 3 P1 and 6 P2 defects (no P0); all fixed and tested, see `S4_Same_Family_Review_2026-11-07.md`. Changes in this increment:
+
+- `plan_create` rebuilds every item from an allowlist and requires a description;
+- reserved economic types are refused;
+- a typed item's amount is computed from its plan-account line, and every household line must be visible to the caller;
+- `clearing_open` is accepted only on handoff legs;
+- `cmd_create_import_plan` no longer accepts kind `handoff`;
+- the approval digests are compared with `is distinct from`;
+- `cmd_withdraw_plan` also accepts `approved`.
+
+New test AT-REV-01-07. AT-PLAN-05 reaches the CURRENCY hold through an R1 item, because typed lines with a wrong currency are now refused at creation. CI (`.github/workflows/ci.yml`) runs every suite on PGDG PostgreSQL 16 and 17; with `pg_dump` 17 available, AT-BAK-01/02 now pass on PG17 in CI (locally they still skip on the embedded PG17 build).
+
 ## 3. Findings and decisions
 
 Severity: **O** = Owner should confirm; **D** = design text incomplete or inconsistent, implementation choice as stated; **N** = note.

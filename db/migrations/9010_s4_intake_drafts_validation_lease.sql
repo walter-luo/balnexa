@@ -216,7 +216,7 @@ create function bnx.plan_create(a bnx.actor, p_kind text, cmd jsonb) returns jso
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
 declare p uuid := gen_random_uuid(); acid uuid := (cmd->>'account_currency_id')::uuid; ac record; it jsonb; i int := 0; vnow bigint; rng daterange;
         ph bytea; sd bytea; cla record; ev jsonb := coalesce(cmd->'evidence_file_ids', '[]'); f text; et text; draft boolean := p_kind in ('ai_draft','member_draft','handoff');
-        scope jsonb; v jsonb;
+        scope jsonb; v jsonb; items jsonb := '[]'; l jsonb; lac record; amt numeric; k text;
 begin
   if p_kind not in ('import','ai_draft','handoff','onboarding','member_draft') then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'kind'); end if;
   if jsonb_typeof(cmd->'items') <> 'array' or jsonb_array_length(cmd->'items') = 0 then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'items'); end if;
@@ -230,15 +230,38 @@ begin
   select version into vnow from bnx.ledger_state;
   rng := case when draft then daterange((cmd->>'date_from')::date, (cmd->>'date_to')::date + 1, '[)')
               else daterange((cmd->>'date_from')::date - 10, (cmd->>'date_to')::date + 11, '[)') end;
+  -- every item is rebuilt from an allowlist of keys (same-family review findings 1, 2, 5): the stored payload is exactly
+  -- what validation saw; types the direct path refuses are refused here too; typed items take their amount from the plan
+  -- account line; every household account line must be visible to the caller; clearing_open only on handoff legs
   for it in select * from jsonb_array_elements(cmd->'items') loop
+    if jsonb_typeof(it) <> 'object' then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'item'); end if;
+    for k in select jsonb_object_keys(it) loop
+      if not k = any(array['transaction_date','description','amount','counter_ledger_account_id','economic_type','lines','source_fingerprint',
+                            'evidence_sha256','needs_review','currency','clearing_open']) or (k = 'clearing_open' and p_kind <> 'handoff') then
+        perform bnx.fail('VALIDATION_FAILED', 'P0422', 'item field ' || k); end if;
+    end loop;
+    if coalesce(btrim(it->>'description'), '') = '' or length(it->>'description') > 500 then
+      perform bnx.fail('VALIDATION_FAILED', 'P0422', 'item description'); end if;
+    if it->>'economic_type' in ('opening_balance','correction_reversal','correction_replacement','interledger_transfer','clearing_resolution') then
+      perform bnx.fail('VALIDATION_FAILED', 'P0422', 'economic_type ' || (it->>'economic_type') || ' is not available on the plan path'); end if;
+    if it ? 'economic_type' and not exists (select 1 from bnx.economic_type_rule where economic_type::text = it->>'economic_type') then
+      perform bnx.fail('VALIDATION_FAILED', 'P0422', 'economic_type'); end if;
     if it ? 'lines' then
       et := it->>'economic_type';
-      if et is null or not exists (select 1 from bnx.economic_type_rule where economic_type::text = et) then
-        perform bnx.fail('VALIDATION_FAILED', 'P0422', 'typed item needs a valid economic_type'); end if;
-      if not exists (select 1 from jsonb_array_elements(it->'lines') l
-                      where (l->>'ledger_account_id')::uuid = ac.ledger_account_id) then
+      if et is null or jsonb_typeof(it->'lines') <> 'array' or jsonb_array_length(it->'lines') < 2 or it ? 'counter_ledger_account_id' then
+        perform bnx.fail('VALIDATION_FAILED', 'P0422', 'typed item needs economic_type and two or more lines'); end if;
+      amt := 0;
+      for l in select * from jsonb_array_elements(it->'lines') loop
+        select la.*, x.id acid into lac from bnx.ledger_account la left join bnx.account_currency x on x.ledger_account_id = la.id
+         where la.id = (l->>'ledger_account_id')::uuid;
+        if lac.id is null or lac.currency <> l->>'currency' then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'line ledger account'); end if;
+        if lac.acid is not null and not (lac.acid in (select bnx.actor_visible_acs(a))) then perform bnx.fail('NOT_AVAILABLE', 'P0404'); end if;
+        perform bnx.assert_scale(bnx.dec(l, 'amount'), lac.currency, 'plan line');
+        if lac.id = ac.ledger_account_id then amt := amt + (l->>'amount')::numeric; end if;
+      end loop;
+      if not exists (select 1 from jsonb_array_elements(it->'lines') x where (x->>'ledger_account_id')::uuid = ac.ledger_account_id) then
         perform bnx.fail('VALIDATION_FAILED', 'P0422', 'typed item must touch the plan account'); end if;
-      -- every account line other than categories/system accounts must be postable by the eventual approver: checked at approval
+      it := jsonb_set(it, '{amount}', to_jsonb(amt::text));       -- never the caller's figure
     else
       select * into cla from bnx.ledger_account where id = (it->>'counter_ledger_account_id')::uuid;
       if not found or cla.kind not in ('income','expense','clearing') or cla.currency <> ac.currency then
@@ -247,8 +270,9 @@ begin
     end if;
     if (it->>'transaction_date')::date not between (cmd->>'date_from')::date and (cmd->>'date_to')::date then
       perform bnx.fail('VALIDATION_FAILED', 'P0422', 'item date outside plan range'); end if;
+    items := items || jsonb_build_array(it);
   end loop;
-  ph := bnx.h(acid::text || '|' || rng::text || '|' || (cmd->'items')::text || '|' || ev::text
+  ph := bnx.h(acid::text || '|' || rng::text || '|' || items::text || '|' || ev::text
               || case when p_kind = 'import' then '' else '|' || p_kind end);   -- R1 import hash unchanged
   sd := bnx.scope_digest(ac.ledger_account_id, acid, rng, vnow);
   scope := jsonb_build_object('account_currency_id', acid, 'range', rng::text, 'evidence_file_ids', ev)
@@ -256,10 +280,10 @@ begin
            || case when cmd ? 'require_fingerprints' then jsonb_build_object('require_fingerprints', cmd->'require_fingerprints') else '{}' end;
   insert into bnx.posting_plan(id, kind, scope, item_count, control_totals, plan_hash, state, frozen_at_version, last_validated_version, scope_digest,
                                origin_channel, origin_ai_connection_id, created_by, supersedes_plan_id)
-  values (p, p_kind, scope, jsonb_array_length(cmd->'items'),
-          jsonb_build_object('sum', (select sum(coalesce((x->>'amount')::numeric, 0)) from jsonb_array_elements(cmd->'items') x)::text),
+  values (p, p_kind, scope, jsonb_array_length(items),
+          jsonb_build_object('sum', (select sum(coalesce((x->>'amount')::numeric, 0)) from jsonb_array_elements(items) x)::text),
           ph, 'frozen', vnow, vnow, sd, a.channel, a.connection_id, a.member_id, (cmd->>'supersedes_plan_id')::uuid);
-  for it in select * from jsonb_array_elements(cmd->'items') loop
+  for it in select * from jsonb_array_elements(items) loop
     i := i + 1;
     insert into bnx.posting_plan_item values (p, i, 'new_journal', '{}', it, bnx.h(it::text), 1, null);
   end loop;
@@ -281,7 +305,7 @@ language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
 declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; r jsonb; kind text := coalesce(cmd->>'kind', 'import');
 begin
   perform bnx.require(a, 2);
-  if kind not in ('import','handoff','onboarding') then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'kind'); end if;
+  if kind not in ('import','onboarding') then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'kind'); end if;   -- handoff: cmd_handoff_import only
   if not bnx.actor_can_post(a, (cmd->>'account_currency_id')::uuid) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
   rc := bnx.idem_begin(a, 'create_import_plan', cmd); if rc is not null then return rc; end if;
   r := bnx.plan_create(a, kind, cmd);
@@ -299,7 +323,8 @@ begin
   select * into pl from bnx.posting_plan where id = (cmd->>'plan_id')::uuid for update;
   if not found or pl.state <> 'frozen' then perform bnx.fail('PLAN_NOT_APPROVABLE', 'P0409'); end if;
   if not bnx.actor_can_post(a, (pl.scope->>'account_currency_id')::uuid) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
-  if encode(pl.plan_hash,'hex') <> cmd->>'plan_hash' or encode(pl.scope_digest,'hex') <> cmd->>'scope_digest' then
+  -- is distinct from: an approval without the digests is a mismatch (R1 compared with <>, so missing keys passed as NULL)
+  if encode(pl.plan_hash,'hex') is distinct from cmd->>'plan_hash' or encode(pl.scope_digest,'hex') is distinct from cmd->>'scope_digest' then
     perform bnx.fail('PLAN_DIGEST_MISMATCH', 'P0409'); end if;
   if bnx.scope_delta_exists(pl.id, pl.last_validated_version) then perform bnx.fail('PLAN_REQUIRES_REVALIDATION', 'P0409'); end if;
   if coalesce((select (value)::text::boolean from bnx.household_setting where key = 'require_dual_copy_before_approval'), false) then
@@ -478,7 +503,7 @@ begin
   perform bnx.require(a, 2);
   select * into pl from bnx.posting_plan where id = (cmd->>'plan_id')::uuid for update;
   if not found or not bnx.actor_can_post(a, (pl.scope->>'account_currency_id')::uuid) then perform bnx.fail('NOT_AVAILABLE', 'P0404'); end if;
-  if pl.state <> 'frozen' then perform bnx.fail('PLAN_NOT_REVISABLE', 'P0409', pl.state); end if;
+  if pl.state not in ('frozen','approved') then perform bnx.fail('PLAN_NOT_REVISABLE', 'P0409', pl.state); end if;   -- approved: not yet executing
   return bnx.plan_withdraw(a, pl.id, 'withdraw_plan', cmd);
 end $$;
 

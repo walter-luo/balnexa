@@ -181,9 +181,7 @@ def t_holds(server, ev):
     d0, d1 = rng()
     rq = held(imp(H, H.owner, [item(H, d0, "-1.00", needs_review=True)], d0, d1), "REVIEW_QUEUE")
     d0, d1 = rng()
-    held(imp(H, H.owner, [{"transaction_date": d0, "economic_type": "consumption_expense", "amount": "-1.00",
-                           "lines": [{"ledger_account_id": bank, "currency": "CAD", "amount": "-1.00"},
-                                     {"ledger_account_id": H.fees_usd, "currency": "CAD", "amount": "1.00"}]}], d0, d1), "CURRENCY")
+    held(imp(H, H.owner, [item(H, d0, "-1.00", currency="USD")], d0, d1), "CURRENCY")     # typed lines are checked at creation
     # V-01 identity: the account is closed after freeze; fixed by reopening, released by re-validation
     d0, d1 = rng()
     idp = imp(H, H.owner, [item(H, d0, "-1.00")], d0, d1)
@@ -221,6 +219,58 @@ def t_hold_scope(server, ev):
     H.close()
     check(m[0] in ("PLAN_HELD", "SCOPE_DISABLED") and st == "activated", f"{m} {st}")
     return f"Canada switched off after freeze -> approval refused {m}; switched on again, re-validated -> {st}"
+
+
+@test("AT-REV-01-07", "same-family review 2026-11-07, findings 1-5 (plan path hardening)")
+def t_review_fixes(server, ev):
+    H = household(server, "bnx_s4c4rev")
+    cad, bank = H.cad["account_currency_id"], H.cad["ledger_account_id"]
+    eq = one(H, "select id from bnx.ledger_account where kind = 'equity' and currency = 'CAD' limit 1")[0]
+    out = {}
+    # 1. types the direct path refuses are refused on the plan path (typed and R1-style)
+    out["opening_balance typed"] = expect_err(H.cmd, "VALIDATION_FAILED", H.member, "draft_create_transaction", account_currency_id=cad,
+        transaction_date="2025-12-01", economic_type="opening_balance", description="x",
+        lines=[{"ledger_account_id": bank, "currency": "CAD", "amount": "500.00"}, {"ledger_account_id": str(eq), "currency": "CAD", "amount": "-500.00"}])
+    out["correction_reversal R1"] = expect_err(imp, "VALIDATION_FAILED", H, H.owner, [item(H, "2026-03-02", "-1.00", economic_type="correction_reversal")])
+    # 2. revision items go through the same allowlist: no description, clearing_open, caller amount
+    d = H.cmd(H.member, "draft_create_transaction", account_currency_id=cad, transaction_date="2026-07-02", economic_type="consumption_expense",
+              amount="-2.00", counter_ledger_account_id=H.groceries, description="lunch")
+    out["revise without description"] = expect_err(H.cmd, "VALIDATION_FAILED", H.member, "draft_revise", plan_id=d["plan_id"],
+        item={"transaction_date": "2026-07-02", "amount": "-2.00", "counter_ledger_account_id": H.groceries, "economic_type": "consumption_expense"})
+    out["revise with clearing_open"] = expect_err(H.cmd, "VALIDATION_FAILED", H.member, "draft_revise", plan_id=d["plan_id"],
+        item=item(H, "2026-07-02", "-2.00", economic_type="consumption_expense", clearing_open={"kind": "PROJECT_HANDOFF_LEG", "sender_project": "EVIL"}))
+    out["import kind handoff"] = expect_err(imp, "VALIDATION_FAILED", H, H.owner, [item(H, "2026-03-02", "-1.00")], kind="handoff")
+    rv = H.cmd(H.member, "draft_revise", plan_id=d["plan_id"], item={"transaction_date": "2026-07-02", "economic_type": "consumption_expense",
+        "amount": "999999.00", "description": "lunch", "lines": [{"ledger_account_id": bank, "currency": "CAD", "amount": "-1.00"},
+                                                                 {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "1.00"}]})
+    stored_amt = one(H, "select payload->>'amount' from bnx.posting_plan_item where plan_id = %s", (rv["plan_id"],))[0]
+    # 3. approval without the digests is a mismatch
+    out["approve without digests"] = expect_err(H.cmd, "PLAN_DIGEST_MISMATCH", H.owner, "approve_plan", plan_id=rv["plan_id"])
+    # 4. the worker re-checks the approver on every line account
+    acc2 = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Second Bank"), label="Savings", currencies=["CAD"])
+    ac2 = acc2["account_currencies"][0]
+    H.cmd(H.owner, "set_grant", member_id=H.member_id, account_id=acc2["account_id"], can_view=True, can_post=True)
+    tr = imp(H, H.member, [{"transaction_date": "2026-08-03", "economic_type": "internal_transfer", "description": "to savings",
+                            "lines": [{"ledger_account_id": bank, "currency": "CAD", "amount": "-20.00"},
+                                      {"ledger_account_id": ac2["ledger_account_id"], "currency": "CAD", "amount": "20.00"}]}], "2026-08-01", "2026-08-31")
+    approve(H, H.member, tr)
+    H.cmd(H.owner, "set_grant", member_id=H.member_id, account_id=acc2["account_id"], can_view=True, can_post=False)
+    worker_after_revoke = H.worker.call("wrk_post_plan_chunk", tr["plan_id"])
+    # 5. an AI draft cannot reference an account outside its consent subset
+    B = bearer(H, ["finance.read", "finance.draft"], acs=[cad])
+    out["AI line outside consent"] = expect_err(H.cmd, "NOT_AVAILABLE", B, "draft_create_transaction", account_currency_id=cad,
+        transaction_date="2026-09-02", economic_type="internal_transfer", description="x",
+        lines=[{"ledger_account_id": bank, "currency": "CAD", "amount": "-5.00"},
+               {"ledger_account_id": ac2["ledger_account_id"], "currency": "CAD", "amount": "5.00"}])
+    # an approved plan can still be withdrawn before it executes (stuck-plan escape)
+    w = imp(H, H.owner, [item(H, "2026-10-02", "-1.00")], "2026-10-01", "2026-10-31")
+    approve(H, H.owner, w)
+    H.cmd(H.owner, "withdraw_plan", plan_id=w["plan_id"])
+    worker_after_withdraw = H.worker.call("wrk_post_plan_chunk", w["plan_id"])
+    H.close()
+    check(stored_amt == "-1.00" and worker_after_revoke == "suspended" and worker_after_withdraw == "void", f"{stored_amt} {worker_after_revoke} {worker_after_withdraw} {out}")
+    return (f"refused: {out}; a typed item stores the plan-account amount ({stored_amt}), never the caller's 999999.00; approver lost "
+            f"can_post on the second account -> worker {worker_after_revoke}; approved plan withdrawn -> worker {worker_after_withdraw}")
 
 
 # ------------------------------------------------------------------------------------------------ Executor lease / staging
