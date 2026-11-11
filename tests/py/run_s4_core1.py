@@ -532,6 +532,9 @@ KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequ
 IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009", "9010"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
+    # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
+    "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
+    "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
@@ -662,7 +665,7 @@ def t_inventory(server, ev):
               open(os.path.join(ev, "AT-INV-01_inventory.json"), "w"), indent=1)
     check(not missing, f"disposition objects absent from the catalog: {missing}")
     check(set(new_unlisted) == HELPERS_NOT_IN_DISPOSITION, f"unlisted S4 objects differ from the declared helper list: {new_unlisted}")
-    return (f"{len(checked)} disposition rows in scope (B002..9010) present in the catalog, 0 missing ({skipped} rows out of scope); "
+    return (f"{len(checked)} disposition rows in scope (B002..9010; 9011 partial, its helpers declared) present in the catalog, 0 missing ({skipped} rows out of scope); "
             f"{len(new_unlisted)} S4 helper objects not yet in the disposition (declared): {new_unlisted}")
 
 

@@ -158,7 +158,7 @@ def scan(text, origin="native", confidences=None, force_label=False):
         if origin == "ocr":
             rule = "R_OCR9"
         else:
-            if not near and any(a <= i and j <= b for a, b in hexes):
+            if any(a <= i < b for a, b in hexes):   # starts inside a hash or UUID token: machine data, labels do not apply (D-9011a-1)
                 continue
             if near:
                 rule = "R_LABEL"

@@ -24,6 +24,8 @@ jobs:
           if git log --all --name-only --format= | grep -i 'owner_sources'; then
             echo "::error::a path under owner_sources is in the history"; exit 1
           fi
+      - name: SIN/ITN candidates in tracked files and history (guard C6, Addendum A1 Rev 1)
+        run: python3 tools/s4/sin_repo_scan.py --all-history
       - name: gitleaks (full history)
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose --exit-code 1
 

@@ -111,7 +111,7 @@ export function scan(text, origin = 'native', forceLabel = false) {
     const d = m[0].replace(/[^0-9]/g, '');
     const isNear = forceLabel || near(i, j, spans);
     let rule;
-    if (!isNear && hexes.some(([a, b]) => a <= i && j <= b)) continue;
+    if (hexes.some(([a, b]) => a <= i && i < b)) continue; // starts inside a hash or UUID token: labels do not apply (D-9011a-1)
     if (isNear) rule = 'R_LABEL';
     else if (j - i === 9 && !(i > 0 && isAsciiLetter(n[i - 1])) && (BN15.lastIndex = S.u16(j), BN15.exec(S.str))) continue;
     else if (luhn(d)) rule = 'R_MOD10';
