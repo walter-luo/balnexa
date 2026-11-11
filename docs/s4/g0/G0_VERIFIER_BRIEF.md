@@ -1,5 +1,7 @@
 # Balnexa — Independent G0 verification: brief for the verifier
 
+**Eligibility (decision D1):** the verifier is OpenAI Codex or a qualified human reviewer who did not take part in the implementation. Any agent based on a Claude model (Claude Code, Claude in any product) is the author's model family and is **not eligible**; if you are one, stop before executing anything and tell the Owner.
+
 You are the independent verifier for Balnexa G0. You did not write this code. Your job is to establish, on your own environment, whether the merged baseline behaves as specified, and to report exactly what you observed. You are not asked to fix anything.
 
 ## 1. Inputs
