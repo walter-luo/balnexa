@@ -313,7 +313,7 @@ def activation_cases(H, ac2, acc2_id):
 
     def revoke_sql(cx):
         cx.execute("select bnx.cmd_set_grant(%s::jsonb, %s::jsonb)", (json.dumps(H.owner), json.dumps({
-            "member_id": H.member_id, "account_id": acc2_id, "can_view": True, "can_post": False, "idempotency_key": "k-" + uuid.uuid4().hex})))
+            "member_id": H.member_id, "account_id": acc2_id, "can_view": True, "can_post": False, "idempotency_key": str(uuid.uuid4())})))
 
     res = {}
     # control: no revocation -> activated, journals visible, 'activated' events

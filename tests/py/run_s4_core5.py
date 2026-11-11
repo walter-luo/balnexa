@@ -309,10 +309,13 @@ def t_doc_versions(server, ev):
     # detector version bump (simulated in this test database only): re-scan due, admission refused until re-scanned
     body = C1.installer_sql(server, H.db, "select pg_get_functiondef('bnx.sin_detector_spec()'::regprocedure)")[0][0]
     with C1.migrator(server, H.db) as cx:
-        cx.execute(body.replace('"version":"1.0.0"', '"version":"1.0.1"')); cx.commit()
+        bumped = S.VERSION + ".1"
+        old = f'"version": "{S.VERSION}"'
+        check(old in body, "spec literal layout changed")
+        cx.execute(body.replace(old, f'"version": "{bumped}"')); cx.commit()
     due1 = H.worker.call("wrk_doc_rescan_due")
     out["archive_on_old_scan"] = archive(H, d2, h2, "f-ok-1").get("reason")
-    out["incomplete_retry_after_bump"] = verdict(H, d1, h1, version="1.0.1", cls="BANK_STATEMENT")["state"]
+    out["incomplete_retry_after_bump"] = verdict(H, d1, h1, version=bumped, cls="BANK_STATEMENT")["state"]
     H.close()
     json.dump(out | {"due_before": due0, "due_after": due1}, open(os.path.join(ev, "AT-SIN-16_30.json"), "w"), indent=1, default=str)
     check(out["incomplete"] == "SCAN_INCOMPLETE" and out["retry_same_version"] == "RESCAN_NOT_ALLOWED", f"{out}")
