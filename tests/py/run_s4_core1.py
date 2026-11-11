@@ -552,6 +552,7 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",
     "bnx.sin_ignorable", "bnx.sin_label_spans", "bnx.sin_key_split", "bnx.sin_key_is_hex",  # 9011R detector v1.1
+    "bnx.evidence_status", "bnx.evidence_usable",  # 9011R R-09
     # 9011b document states, declaration and admission (Addendum A1 Rev 1 §5); the disposition names wrk_document_* (OBJ-245),
     # implemented as wrk_doc_*; reconciled in the disposition when 9011 is complete
     "bnx.cmd_doc_declare_redacted", "bnx.cmd_doc_tag_sin_bearing", "bnx.q_doc_redaction_queue", "bnx.doc_class_sin_bearing",

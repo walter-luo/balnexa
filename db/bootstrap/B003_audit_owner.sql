@@ -62,6 +62,40 @@ revoke all on bnx_audit.audit_event from bnx_definer;
 grant select, insert on bnx_audit.audit_event to bnx_definer;   -- bnx.audit() and the verifiers; nothing else
 grant select on bnx_audit.audit_event to bnx_backup;
 
+-- 9011 review R-10: every inserted row must extend the chain exactly (next seq, prev_hash = current head hash, chain version
+-- not decreasing, hash recomputed from the row). The function and the trigger belong to balnexa_audit_owner, so the owner
+-- path (bnx_migrator -> SET ROLE bnx_definer) can neither replace nor disable them: an INSERT that would break the chain
+-- (a wrong hash, a gap, a fork) is refused instead of poisoning bnx.audit_verify() forever. A correctly hashed forged
+-- append stays possible to the definer, as bnx.audit() itself must be (residual R-3, G0R §4).
+set role balnexa_audit_owner;
+create function bnx_audit.trg_chain_append() returns trigger
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $f$
+declare h record; c bytea;
+begin
+  select seq, hash, chain_version into h from bnx_audit.audit_event order by seq desc limit 1;
+  if new.seq is distinct from coalesce(h.seq, 0) + 1 then
+    raise exception 'AUDIT_CHAIN_APPEND' using errcode = 'P0409', detail = 'seq'; end if;
+  if new.prev_hash is distinct from h.hash then
+    raise exception 'AUDIT_CHAIN_APPEND' using errcode = 'P0409', detail = 'prev_hash'; end if;
+  if new.chain_version is null or new.chain_version < coalesce(h.chain_version, 1) then
+    raise exception 'AUDIT_CHAIN_APPEND' using errcode = 'P0409', detail = 'chain_version'; end if;
+  if new.chain_version = 1 then
+    c := convert_to(concat_ws('|', new.seq, new.member_id, new.connection_id, new.channel, new.command, new.subject::text,
+                              encode(new.payload_sha256, 'hex'), new.ledger_version), 'UTF8');
+  else
+    c := convert_to(jsonb_build_array(new.seq, new.member_id, new.connection_id, new.channel, new.command, new.subject,
+                                      encode(new.payload_sha256, 'hex'), new.ledger_version,
+                                      to_char(new.at_hashed at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), new.chain_version,
+                                      new.host_profile, new.tool_name, new.tool_version, new.trace_id)::text, 'UTF8');
+  end if;
+  if new.hash is distinct from sha256(coalesce(new.prev_hash, '\x'::bytea) || c) then
+    raise exception 'AUDIT_CHAIN_APPEND' using errcode = 'P0409', detail = 'hash'; end if;
+  return new;
+end $f$;
+revoke all on function bnx_audit.trg_chain_append() from public;
+create trigger t_chain_append before insert on bnx_audit.audit_event for each row execute function bnx_audit.trg_chain_append();
+reset role;
+
 -- compatibility view, owned by bnx_definer (the definer's default privileges give bnx_backup SELECT on it)
 set role bnx_definer;
 create view bnx.audit_event as select * from bnx_audit.audit_event;

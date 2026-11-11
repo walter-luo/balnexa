@@ -111,7 +111,7 @@ def main():
                 b003, aowner = cur.fetchone()
                 cx.rollback()
                 if not b003 or aowner != "balnexa_audit_owner":
-                    log(fh, f"FAIL BOOTSTRAP_MISSING: B003 row={b003}, bnx.audit_event owner={aowner or 'none'} (expected balnexa_audit_owner); "
+                    log(fh, f"FAIL BOOTSTRAP_MISSING: B003 row={b003}, bnx_audit.audit_event owner={aowner or 'none'} (expected balnexa_audit_owner); "
                             f"migrations before {v} are applied; run db/bootstrap/B003_audit_owner.sql as the installer, then run "
                             f"this runner again"); sys.exit(6)
                 b003_checked = True

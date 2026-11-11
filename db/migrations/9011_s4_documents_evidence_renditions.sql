@@ -190,10 +190,19 @@ begin
     end loop;
     if has_any_column_privilege('bnx_definer', 'bnx_audit.audit_event', 'UPDATE,REFERENCES') then
       v := v || jsonb_build_object('rule', 'AUDIT_TABLE_PRIVILEGE', 'role', 'bnx_definer', 'priv', 'COLUMN'); end if;
-    for r in select t.tgname from (values ('t_append_only'), ('t_chain_version')) t(tgname)
+    for r in select t.tgname from (values ('t_append_only'), ('t_chain_version'), ('t_chain_append')) t(tgname)
               where not exists (select 1 from pg_trigger g where g.tgrelid = 'bnx_audit.audit_event'::regclass and g.tgname = t.tgname
                                   and g.tgenabled = 'O') loop
       v := v || jsonb_build_object('rule', 'AUDIT_TRIGGER', 'trigger', r.tgname); end loop;
+    -- 9011 review R-10/R-12: the chain-append check belongs to the audit owner; no row security, rules or inheritance children
+    if coalesce((select pg_get_userbyid(f.proowner) from pg_trigger g join pg_proc f on f.oid = g.tgfoid
+                  where g.tgrelid = 'bnx_audit.audit_event'::regclass and g.tgname = 't_chain_append'), '') <> 'balnexa_audit_owner' then
+      v := v || jsonb_build_object('rule', 'AUDIT_TRIGGER', 'trigger', 't_chain_append', 'owner', 'not balnexa_audit_owner'); end if;
+    if exists (select 1 from pg_class c where c.oid = 'bnx_audit.audit_event'::regclass
+                and (c.relrowsecurity or c.relhasrules or c.relhassubclass))
+       or exists (select 1 from pg_inherits i where i.inhparent = 'bnx_audit.audit_event'::regclass)
+       or exists (select 1 from pg_publication_rel pr where pr.prrelid = 'bnx_audit.audit_event'::regclass) then
+      v := v || jsonb_build_object('rule', 'AUDIT_TABLE_SHAPE', 'object', 'bnx_audit.audit_event'); end if;
   end if;
   if coalesce((select relkind from pg_class where oid = to_regclass('bnx.audit_event')), 'v') <> 'v' then
     v := v || jsonb_build_object('rule', 'AUDIT_TABLE_OWNER', 'object', 'bnx.audit_event', 'kind', 'not a view'); end if;
@@ -219,7 +228,9 @@ begin
     if r.pub then v := v || jsonb_build_object('rule', 'PUBLIC_EXECUTE', 'function', r.proname); end if;
     if r.prosecdef and not coalesce('search_path=pg_catalog, pg_temp' = any(r.proconfig), false) then
       v := v || jsonb_build_object('rule', 'DEFINER_SEARCH_PATH', 'function', r.proname); end if;
-    if r.owner <> 'bnx_definer' then v := v || jsonb_build_object('rule', 'FUNCTION_OWNER', 'function', r.proname); end if;
+    -- functions in bnx_audit belong to the audit owner (9011 review R-10: the chain-append check); everything else to the definer
+    if r.owner <> (case when r.nspname = 'bnx_audit' then 'balnexa_audit_owner' else 'bnx_definer' end) then
+      v := v || jsonb_build_object('rule', 'FUNCTION_OWNER', 'function', r.proname); end if;
     if r.app <> (r.proname like 'cmd\_%' or r.proname like 'q\_%') or r.wrk <> (r.proname like 'wrk\_%')
        or r.authn <> (r.proname like 'authn\_%') or r.bak or r.fed <> (r.proname like 'fed\_%') then
       v := v || jsonb_build_object('rule', 'EXECUTE_GRANT', 'function', r.nspname || '.' || r.proname, 'app', r.app,
@@ -854,7 +865,8 @@ end $$;
 -- step 2, Z1 verdict -> Z2: the Executor stages the verdict of the transient scan, never content (DOC-SIN-01/04/07/08)
 create function bnx.wrk_doc_validated(p_staging uuid) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare s record; pl jsonb; did uuid; st text; sha bytea; res text; nxt text; d record; nm text;
+declare s record; pl jsonb; did uuid; st text; sha bytea; res text; nxt text; d record; nm text; qh boolean; ih boolean;
+        why text;
 begin
   if session_user <> 'bnx_worker' then perform bnx.fail('FORBIDDEN', 'P0403'); end if;
   select * into s from bnx_intake.staging_payload where id = p_staging for update;
@@ -877,6 +889,12 @@ begin
   if st in ('QUARANTINED','INVALIDATED') then return bnx.doc_reject(p_staging, 'TERMINAL_STATE'); end if;
   if st = 'SCANNING' then return bnx.doc_reject(p_staging, 'SCAN_IN_PROGRESS'); end if;
   sha := decode(pl->>'sha256', 'hex'); res := pl->>'scan_result';
+  -- 9011 review R-07 (A1-OD-2, §5.3 "terminal for that SHA-256"): bytes once quarantined stay quarantined under every later
+  -- discovery and every detector version; bytes left SCAN_INCOMPLETE under the current detector are not admitted on a
+  -- different verdict for the same bytes and version (the database, not the Executor build, holds this memory)
+  qh := exists (select 1 from bnx_doc.document_scan x where x.sha256 = sha and x.scan_result = 'SIN_CANDIDATE');
+  ih := exists (select 1 from bnx_doc.document_scan x where x.sha256 = sha and x.scan_result = 'SCAN_INCOMPLETE'
+                   and x.sin_detector_version = pl->>'sin_detector_version');
   -- the SCANNING transition is checked against the previous scan before the new verdict is stored; both or neither
   begin
     perform bnx.doc_event(did, 'SCANNING', null, p_staging);
@@ -891,6 +909,10 @@ begin
   end;
   -- notification metadata keys are fixed (9010); a file name is included only when it contains no digit at all (DOC-SIN-08)
   nm := case when d.original_name is null or d.original_name ~ '[0-9]' then null else left(d.original_name, 80) end;
+  why := res;
+  if res <> 'SIN_CANDIDATE' and qh then why := 'QUARANTINED_HASH'; res := 'SIN_CANDIDATE';
+  elsif res = 'PASSED' and ih then why := 'INCOMPLETE_HASH'; res := 'SCAN_INCOMPLETE';
+  end if;
   if res = 'SIN_CANDIDATE' then
     nxt := 'QUARANTINED';
     perform bnx.notify('EXCEPTION', 'SIN_QUARANTINE:' || encode(sha, 'hex'), true,
@@ -909,8 +931,9 @@ begin
     perform bnx.notify('EXCEPTION', 'DECLARE:' || did || ':' || encode(sha, 'hex'), true,
                        jsonb_strip_nulls(jsonb_build_object('kind', 'REDACTION_DECLARATION_PENDING', 'source_id', d.module, 'record_key', did, 'masked_subject', nm)));
   end if;
-  perform bnx.doc_event(did, nxt, res, p_staging);
-  return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', nxt));
+  perform bnx.doc_event(did, nxt, why, p_staging);
+  return bnx.doc_done(p_staging, jsonb_strip_nulls(jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', nxt,
+                      'reason', case when why in ('QUARANTINED_HASH', 'INCOMPLETE_HASH') then why end)));
 end $$;
 
 -- the Owner's redaction declaration (A1-OD-3): Owner only, PWA only, bound to identity, revision and SHA-256 (DOC-SIN-11)
@@ -932,7 +955,8 @@ begin
     perform bnx.fail('DECLARATION_NOT_APPLICABLE', 'P0409'); end if;
   insert into bnx_doc.document_declaration(discovery_id, sha256, source_kind, source_file_id, head_revision_id, md5, mail_message_id,
                                            mime_part, declared_by)
-  values (did, sha, d.source_kind, d.source_file_id, d.head_revision_id, d.md5, d.mail_message_id, d.mime_part, a.member_id);
+  values (did, sha, d.source_kind, d.source_file_id, d.head_revision_id, d.md5, d.mail_message_id, d.mime_part, a.member_id)
+  on conflict (discovery_id, sha256) do nothing;                              -- R-08: a repeated declaration is a no-op
   perform bnx.doc_event(did, 'ADMISSIBLE', 'OWNER_DECLARED_REDACTED', null);
   perform bnx.audit(a, 'doc_declare_redacted', jsonb_build_object('discovery_id', did),
                     jsonb_build_object('sha256', cmd->>'sha256', 'source_kind', d.source_kind), null);
@@ -951,10 +975,33 @@ begin
   rc := bnx.idem_begin(a, 'doc_tag_sin_bearing', cmd); if rc is not null then return rc; end if;
   begin did := (cmd->>'discovery_id')::uuid; exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'discovery_id'); end;
   if bnx.doc_state(did) is distinct from 'ADMISSIBLE' then perform bnx.fail('DECLARATION_NOT_APPLICABLE', 'P0409'); end if;
+  -- 9011 review R-08: these bytes already carry the Owner's declaration, so the tag changes nothing
+  if exists (select 1 from bnx_doc.document_declaration x where x.discovery_id = did and x.sha256 = (bnx.doc_latest_scan(did)).sha256) then
+    return bnx.idem_end(a, 'doc_tag_sin_bearing', cmd, jsonb_build_object('discovery_id', did, 'state', 'ADMISSIBLE',
+                        'declaration_status', 'DECLARED'));
+  end if;
   perform bnx.doc_event(did, 'PENDING_DECLARATION', 'OWNER_TAGGED', null);
   perform bnx.audit(a, 'doc_tag_sin_bearing', jsonb_build_object('discovery_id', did), '{}', null);
   return bnx.idem_end(a, 'doc_tag_sin_bearing', cmd, jsonb_build_object('discovery_id', did, 'state', 'PENDING_DECLARATION'));
 end $$;
+
+-- 9011 review R-09: whether an evidence object may be used. Readers of evidence (9016 vault, PWA) must call
+-- bnx.evidence_usable(): an object is usable only while a document that registered it is ARCHIVED, its scan passed under
+-- the current detector, and its bytes were never quarantined. An object no admitted document registered (R1 evidence from
+-- before 9011) has never been scanned: UNSCANNED, not usable until it passes the Z1 scan.
+create function bnx.evidence_status(p_object uuid) returns text
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select case
+    when not exists (select 1 from bnx.evidence_object o where o.id = p_object) then 'NOT_FOUND'
+    when exists (select 1 from bnx.evidence_object o join bnx_doc.document_scan x on x.sha256 = o.sha256
+                  where o.id = p_object and x.scan_result = 'SIN_CANDIDATE') then 'QUARANTINED'
+    when not exists (select 1 from bnx_doc.document_evidence e where e.evidence_object_id = p_object) then 'UNSCANNED'
+    when exists (select 1 from bnx_doc.document_evidence e where e.evidence_object_id = p_object
+                  and bnx.doc_state(e.discovery_id) = 'ARCHIVED' and bnx.doc_scan_current(e.discovery_id)) then 'USABLE'
+    else 'NOT_CURRENT' end
+$$;
+create function bnx.evidence_usable(p_object uuid) returns boolean
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$ select bnx.evidence_status(p_object) = 'USABLE' $$;
 
 -- step 5 gate (Addendum A1 Rev 1 §5.4, DOC-SIN-12): the Executor re-fetched the bytes for archiving and reports their SHA-256
 -- and identity. Admission only if identity and hash are unchanged, the scan passed under the current detector and the
@@ -987,6 +1034,7 @@ begin
          or d.md5 is distinct from pl->>'md5' or d.mail_message_id is distinct from pl->>'mail_message_id'
          or d.mime_part is distinct from pl->>'mime_part' then 'IDENTITY_CHANGED'
     when sc.sha256 is distinct from decode(pl->>'sha256', 'hex') then 'HASH_MISMATCH'
+    when exists (select 1 from bnx_doc.document_scan x where x.sha256 = sc.sha256 and x.scan_result = 'SIN_CANDIDATE') then 'QUARANTINED_HASH'
     when not bnx.doc_scan_current(did) then 'SCAN_NOT_CURRENT'
     when bnx.doc_needs_declaration(did) and not exists (select 1 from bnx_doc.document_declaration x
                                                          where x.discovery_id = did and x.sha256 = sc.sha256) then 'DECLARATION_MISSING'
