@@ -548,6 +548,10 @@ KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequ
 IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009", "9010"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
+    # 9012a R28 engine helpers; cmd_declare_loan is a new command that OBJ-249 does not name yet (register update recorded in
+    # docs/s4/S4_9012_Implementation_Notes.md); 9012 is partly implemented, so its disposition rows stay out of scope
+    "bnx.cmd_declare_loan", "bnx.r28_basis", "bnx.r28_contract", "bnx.r28_days", "bnx.r28_dec", "bnx.r28_div", "bnx.r28_evaluate",
+    "bnx.r28_household_internal", "bnx.r28_require_post", "bnx.r28_round", "bnx.r28_scale",
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",

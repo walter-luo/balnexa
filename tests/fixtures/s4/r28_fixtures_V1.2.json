@@ -1,0 +1,446 @@
+{
+ "version": "R28-ORACLE-FIXTURES-V1.2",
+ "status": "Synthetic values only. Adds AT-R28-16...23 (UA V1.2 \u00a710.4) to the 30 fixtures of V1.1, which are unchanged and kept in r28_fixtures_V1.1.json. Expected values computed by tests/oracle/r28_reference.py (V1.2) and checked by hand in docs/s4/S4_9012_Implementation_Notes.md. AT-R28-20 (reversal at N+1) needs ledger versions and is a database test.",
+ "fixtures": [
+  {
+   "id": "AT-R28-16",
+   "title": "Negative principal",
+   "contract": {
+    "currency": "CAD",
+    "principal": "-1000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PRINCIPAL"
+   }
+  },
+  {
+   "id": "AT-R28-17",
+   "title": "Zero principal",
+   "contract": {
+    "currency": "CAD",
+    "principal": "0.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PRINCIPAL"
+   }
+  },
+  {
+   "id": "AT-R28-18a",
+   "title": "Zero payment",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-03-01",
+      "amount": "0.00"
+     }
+    ],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PAYMENT"
+   }
+  },
+  {
+   "id": "AT-R28-18b",
+   "title": "Payment amount not a decimal string",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-03-01",
+      "amount": "12,50"
+     }
+    ],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PAYMENT"
+   }
+  },
+  {
+   "id": "AT-R28-18c",
+   "title": "Payment scale beyond CAD minor units",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-03-01",
+      "amount": "100.001"
+     }
+    ],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PAYMENT"
+   }
+  },
+  {
+   "id": "AT-R28-18d",
+   "title": "Payment scale beyond JPY minor units",
+   "contract": {
+    "currency": "JPY",
+    "principal": "1000000",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-03-01",
+      "amount": "1000.5"
+     }
+    ],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PAYMENT"
+   }
+  },
+  {
+   "id": "AT-R28-18e",
+   "title": "Principal scale beyond CAD minor units (V1a)",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.005",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:INVALID_PRINCIPAL"
+   }
+  },
+  {
+   "id": "AT-R28-19",
+   "title": "Payment dated before start",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.05"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2025-12-15",
+      "amount": "100.00"
+     }
+    ],
+    "as_of": "2026-07-01"
+   },
+   "expected": {
+    "refusal": "REJECT:PAYMENT_BEFORE_START"
+   }
+  },
+  {
+   "id": "AT-R28-21",
+   "title": "Payment on the as-of date and a later-dated payment",
+   "contract": {
+    "currency": "CAD",
+    "principal": "5000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.04"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-04-01",
+      "amount": "1000.00"
+     },
+     {
+      "date": "2026-05-01",
+      "amount": "500.00"
+     }
+    ],
+    "as_of": "2026-04-01"
+   },
+   "expected": {
+    "status": "OK",
+    "accrued_interest_total": "49.32",
+    "accrued_interest": "49.32",
+    "principal_outstanding": "4049.32",
+    "interest_outstanding": "0.00",
+    "outstanding_total": "4049.32",
+    "interest_paid": "49.32",
+    "principal_paid": "950.68",
+    "overdue": null,
+    "days_past_due": null,
+    "rounding_events": [
+     {
+      "event_date": "2026-04-01",
+      "kind": "payment",
+      "unrounded_trunc12": "49.315068493150",
+      "rounded": "49.32",
+      "mode": "HALF_UP"
+     },
+     {
+      "event_date": "2026-04-01",
+      "kind": "as_of",
+      "unrounded_trunc12": "0.000000000000",
+      "rounded": "0.00",
+      "mode": "HALF_UP"
+     }
+    ]
+   }
+  },
+  {
+   "id": "AT-R28-22",
+   "title": "Rate change inside the interval and on the payment date, HALF_EVEN: one rounding per event (G1)",
+   "contract": {
+    "currency": "CAD",
+    "principal": "3650.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "simple",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.0365"
+     },
+     {
+      "from": "2026-01-08",
+      "annual_rate": "0.0219"
+     },
+     {
+      "from": "2026-02-01",
+      "annual_rate": "0.03"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_EVEN",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [
+     {
+      "date": "2026-02-01",
+      "amount": "100.00"
+     }
+    ],
+    "as_of": "2026-03-01"
+   },
+   "expected": {
+    "status": "OK",
+    "accrued_interest_total": "16.00",
+    "accrued_interest": "16.00",
+    "principal_outstanding": "3557.81",
+    "interest_outstanding": "8.19",
+    "outstanding_total": "3566.00",
+    "interest_paid": "7.81",
+    "principal_paid": "92.19",
+    "overdue": null,
+    "days_past_due": null,
+    "rounding_events": [
+     {
+      "event_date": "2026-02-01",
+      "kind": "payment",
+      "unrounded_trunc12": "7.811000000000",
+      "rounded": "7.81",
+      "mode": "HALF_EVEN"
+     },
+     {
+      "event_date": "2026-03-01",
+      "kind": "as_of",
+      "unrounded_trunc12": "8.187836712328",
+      "rounded": "8.19",
+      "mode": "HALF_EVEN"
+     }
+    ]
+   }
+  },
+  {
+   "id": "AT-R28-23",
+   "title": "Compound monthly, stub of 15 days after the last period end (G2)",
+   "contract": {
+    "currency": "CAD",
+    "principal": "10000.00",
+    "start": "2026-01-01",
+    "day_count": "ACT/365F",
+    "period_rule": "start_inclusive_end_exclusive",
+    "interest_model": "compound",
+    "rates": [
+     {
+      "from": "2026-01-01",
+      "annual_rate": "0.06"
+     }
+    ],
+    "rounding": {
+     "mode": "HALF_UP",
+     "event": "payment_and_as_of"
+    },
+    "waterfall": "interest_then_principal",
+    "payments": [],
+    "as_of": "2027-01-16",
+    "compounding": {
+     "periods_per_year": 12,
+     "period_ends": [
+      "2026-02-01",
+      "2026-03-01",
+      "2026-04-01",
+      "2026-05-01",
+      "2026-06-01",
+      "2026-07-01",
+      "2026-08-01",
+      "2026-09-01",
+      "2026-10-01",
+      "2026-11-01",
+      "2026-12-01",
+      "2027-01-01"
+     ]
+    }
+   },
+   "expected": {
+    "status": "OK",
+    "accrued_interest_total": "642.96",
+    "accrued_interest": "642.96",
+    "principal_outstanding": "10000.00",
+    "interest_outstanding": "642.96",
+    "outstanding_total": "10642.96",
+    "interest_paid": "0.00",
+    "principal_paid": "0.00",
+    "overdue": null,
+    "days_past_due": null,
+    "rounding_events": [
+     {
+      "event_date": "2027-01-16",
+      "kind": "as_of",
+      "unrounded_trunc12": "642.956475649873",
+      "rounded": "642.96",
+      "mode": "HALF_UP"
+     }
+    ]
+   }
+  }
+ ]
+}
