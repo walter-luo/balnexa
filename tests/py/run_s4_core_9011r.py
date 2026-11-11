@@ -46,6 +46,114 @@ def t_fp(server, ev):
             f"categories together {other:.2%} (hashes and UUIDs in prose are the only contributors); per category in FP-SIN-01.json")
 
 
+REVIEW = os.path.join(h.ROOT, "tests", "py", "review9011")
+# reviewer detector cases that stay negative by design (docs/s4/S4_9011R_Remediation_2026-11-11.md §2)
+DET_BY_DESIGN = {"R-A-22", "R-A-46", "R-A-48", "R-A-55", "R-A-57", "R-A-60", "R-A-77", "R-A-79", "R-A-93", "R-A-94", "R-A-98",
+                 "R-A-102", "R-A-105"}
+
+
+@test("AT-9011R-DET", "review R-01...R-05, R-41...R-43 (the reviewer's 108 adversarial and 400 fuzz cases, Python/JS/SQL)")
+def t_review_detector(server, ev):
+    sys.path.insert(0, REVIEW)
+    os.environ.setdefault("BNX_REPO", h.ROOT)
+    import adv_detector as A
+    cases = [c for c in A.build() + A.fuzz() if c["origin"] != "ocr"]
+    ocr = [c for c in A.build() if c["origin"] == "ocr"]
+    js = C5.js_hits(cases)
+    db = h.fresh(server, "bnx_r_det")
+    diffs, missed = [], []
+    with C1.migrator(server, db) as cx:
+        for c in cases:
+            p = sorted(map(C5.key, C5.py_hits(c)))
+            j = sorted(map(C5.key, js[c["id"]]))
+            q = sorted(map(C5.key, C5.sql_hits(cx, c)))
+            if not (p == j == q):
+                diffs.append(c["id"])
+            if c["id"].startswith("R-A-") and not p:
+                missed.append(c["id"])
+    missed += [c["id"] for c in ocr if not C5.py_hits(c)]
+    json.dump({"cases": len(cases) + len(ocr), "differences": diffs, "not_detected": sorted(missed)},
+              open(os.path.join(ev, "AT-9011R-DET.json"), "w"), indent=1)
+    check(not diffs, f"implementations differ: {diffs}")
+    check(set(missed) == DET_BY_DESIGN, f"not detected beyond the by-design set: {sorted(set(missed) - DET_BY_DESIGN)}; "
+                                        f"now detected from it: {sorted(DET_BY_DESIGN - set(missed))}")
+    return (f"{len(cases)} reviewer cases ({len(cases) - 400} adversarial without OCR, 400 fuzz) and {len(ocr)} OCR cases: Python, JS "
+            f"and SQL identical; every reviewer "
+            f"evasion form is detected (hex/UUID padding, unlisted invisible characters, dot/slash/underscore/minus/bullet "
+            f"separators, 2-4-3 and 4-5 groupings, label windows, acronym keys); not detected: only the {len(DET_BY_DESIGN)} "
+            f"by-design cases (correct negatives, CRA program accounts, clean OCR runs)")
+
+
+def evasion_forms(L):
+    """The reviewer's end-to-end forms (e2e_evasion.py, e2e_shared_index.py), built from a generated value."""
+    return {"hex padding before": "a" * 23 + L, "hex padding after": L + "f" * 23, "invisible U+200E": L[:4] + "‎" + L[4:],
+            "invisible U+2061": L[:4] + "⁡" + L[4:], "dot separators": ".".join((L[:3], L[3:6], L[6:])),
+            "slash separators": "/".join((L[:3], L[3:6], L[6:])), "2-4-3 grouping": f"{L[:2]} {L[2:6]} {L[6:]}",
+            "labelled 2-4-3 grouping": f"SIN {L[:2]} {L[2:6]} {L[6:]}", "UUID-shaped tail": "abcdef12-abcd-4bcd-8bcd-" + L + "abc",
+            "keycap digits": "".join(c + "️⃣" for c in L), "control: plain value": L}
+
+
+@test("AT-9011R-E2E", "review R-01, R-02, R-03, R-41 end to end (production command and shared index; reviewer's e2e forms)")
+def t_e2e(server, ev):
+    L = SC.value("luhn", 301)
+    forms = evasion_forms(L)
+    H = C4.index_household(server, "bnx_r_e2e")
+    out = {}
+    for name, v in forms.items():
+        try:
+            H.expense(H.owner, "1.00", desc="x " + v)
+            out[name] = "STORED"
+        except psycopg.Error as e:
+            out[name] = (e.diag.message_primary or "")[:20]
+    recs = [C4.rec("f-e2e-%d" % k, notes="note " + v) for k, v in enumerate(forms.values())] + [C4.rec("f-e2e-clean")]
+    st, sid = C4.consume(H, recs)
+    acks = dict(C4.sql(H, "select record_key, status from bnx_intake.index_record_ack"))
+    stored = " ".join(str(r[0]) for r in C4.sql(H, "select description from bnx.journal_entry union all "
+                                                   "select columns::text from bnx_intake.external_index_record union all "
+                                                   "select payload::text from bnx_intake.staging_payload"))
+    H.close()
+    blocked = sorted(k for k, s in acks.items() if s == "BLOCKED")
+    leaked = not C5.no_value(stored, [L])
+    json.dump({"posting": out, "index_acks": acks, "value_in_database": leaked}, open(os.path.join(ev, "AT-9011R-E2E.json"), "w"), indent=1)
+    check(all(v == "SIN_CANDIDATE" for v in out.values()), f"stored: {[k for k, v in out.items() if v != 'SIN_CANDIDATE']}")
+    check(len(blocked) == len(forms) and acks.get("f-e2e-clean") == "CONSUMED" and not leaked, f"{acks} leaked={leaked}")
+    return (f"{len(forms)} forms (hex padding before and after, U+200E and U+2061 inside, dot and slash separators, 2-4-3 with and "
+            f"without a label, UUID tail, keycap digits, plain control) refused by cmd_post_transaction (SIN_CANDIDATE) and "
+            f"BLOCKED by the shared-index consumer; the clean record CONSUMED; the value is nowhere in the database")
+
+
+# reviewer validator cases whose verdict stays as recorded, with the reason in the remediation note §3
+VAL_BY_DESIGN = {
+    "PDF-META-catalog-integer-value": "D-9011c-2: numbers in PDF dictionaries are not read (coordinates)",
+    "PDF-META-name-object-with-digits": "D-9011c-2: name objects are not text",
+    "EML-pgp-armored-body-unreadable": "encrypted content is out of scope (R-45 item 5)",
+    "TXT-ebcdic-cp037": "EBCDIC is not an accepted text encoding (R-45 item 6)",
+    "PDF-IMG-unsupported-or-garbage-filter-CCITTFaxDecode": "garbage fax data decodes to a blank image; limit L-R-3",
+    "XLSX-split-across-three-cells": "D-9011c-7: cells are judged one by one",
+}
+
+
+@test("AT-9011R-VAL", "review R-18...R-40, R-45 (the reviewer's validator cases, light set, against this validator)")
+def t_review_validator(server, ev):
+    sys.path.insert(0, REVIEW)
+    import common
+    for m in ("q8_pdf", "q8_xlsx", "q8_eml", "q8_img", "q8_text", "q8_extra", "q9_limits"):
+        __import__(m)
+    out, counts = {}, {}
+    for cid, expect, fn, tags in list(common.REGISTRY):
+        if tags["heavy"]:
+            continue
+        rec = common.run_one(cid, expect, fn, tags)
+        out[cid] = {k: rec.get(k) for k in ("expect", "verdict", "result", "rules")}
+        counts[rec["verdict"]] = counts.get(rec["verdict"], 0) + 1
+    bad = {k: v for k, v in out.items() if v["verdict"] in ("MISSED", "NOT_FAIL_CLOSED", "FALSE_POSITIVE", "HANG", "EXC_ESCAPED")}
+    json.dump({"counts": counts, "bad": bad, "by_design": VAL_BY_DESIGN, "cases": out}, open(os.path.join(ev, "AT-9011R-VAL.json"), "w"), indent=1)
+    unexpected = sorted(set(bad) - set(VAL_BY_DESIGN))
+    check(not unexpected, f"{len(unexpected)} cases not handled: {unexpected[:30]}")
+    return (f"{len(out)} reviewer validator cases: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) +
+            f"; the remaining {len(bad)} are the documented by-design or limit cases ({', '.join(sorted(bad))})")
+
+
 # ------------------------------------------------------------------------------------------------ document states
 @test("AT-9011R-07", "review R-07; A1-OD-2, Addendum §5.3 ('terminal for that SHA-256'), AT-SIN-18 extended to a second discovery")
 def t_quarantine_hash(server, ev):
