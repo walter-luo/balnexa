@@ -190,10 +190,19 @@ begin
     end loop;
     if has_any_column_privilege('bnx_definer', 'bnx_audit.audit_event', 'UPDATE,REFERENCES') then
       v := v || jsonb_build_object('rule', 'AUDIT_TABLE_PRIVILEGE', 'role', 'bnx_definer', 'priv', 'COLUMN'); end if;
-    for r in select t.tgname from (values ('t_append_only'), ('t_chain_version')) t(tgname)
+    for r in select t.tgname from (values ('t_append_only'), ('t_chain_version'), ('t_chain_append')) t(tgname)
               where not exists (select 1 from pg_trigger g where g.tgrelid = 'bnx_audit.audit_event'::regclass and g.tgname = t.tgname
                                   and g.tgenabled = 'O') loop
       v := v || jsonb_build_object('rule', 'AUDIT_TRIGGER', 'trigger', r.tgname); end loop;
+    -- 9011 review R-10/R-12: the chain-append check belongs to the audit owner; no row security, rules or inheritance children
+    if coalesce((select pg_get_userbyid(f.proowner) from pg_trigger g join pg_proc f on f.oid = g.tgfoid
+                  where g.tgrelid = 'bnx_audit.audit_event'::regclass and g.tgname = 't_chain_append'), '') <> 'balnexa_audit_owner' then
+      v := v || jsonb_build_object('rule', 'AUDIT_TRIGGER', 'trigger', 't_chain_append', 'owner', 'not balnexa_audit_owner'); end if;
+    if exists (select 1 from pg_class c where c.oid = 'bnx_audit.audit_event'::regclass
+                and (c.relrowsecurity or c.relhasrules or c.relhassubclass))
+       or exists (select 1 from pg_inherits i where i.inhparent = 'bnx_audit.audit_event'::regclass)
+       or exists (select 1 from pg_publication_rel pr where pr.prrelid = 'bnx_audit.audit_event'::regclass) then
+      v := v || jsonb_build_object('rule', 'AUDIT_TABLE_SHAPE', 'object', 'bnx_audit.audit_event'); end if;
   end if;
   if coalesce((select relkind from pg_class where oid = to_regclass('bnx.audit_event')), 'v') <> 'v' then
     v := v || jsonb_build_object('rule', 'AUDIT_TABLE_OWNER', 'object', 'bnx.audit_event', 'kind', 'not a view'); end if;
@@ -219,7 +228,9 @@ begin
     if r.pub then v := v || jsonb_build_object('rule', 'PUBLIC_EXECUTE', 'function', r.proname); end if;
     if r.prosecdef and not coalesce('search_path=pg_catalog, pg_temp' = any(r.proconfig), false) then
       v := v || jsonb_build_object('rule', 'DEFINER_SEARCH_PATH', 'function', r.proname); end if;
-    if r.owner <> 'bnx_definer' then v := v || jsonb_build_object('rule', 'FUNCTION_OWNER', 'function', r.proname); end if;
+    -- functions in bnx_audit belong to the audit owner (9011 review R-10: the chain-append check); everything else to the definer
+    if r.owner <> (case when r.nspname = 'bnx_audit' then 'balnexa_audit_owner' else 'bnx_definer' end) then
+      v := v || jsonb_build_object('rule', 'FUNCTION_OWNER', 'function', r.proname); end if;
     if r.app <> (r.proname like 'cmd\_%' or r.proname like 'q\_%') or r.wrk <> (r.proname like 'wrk\_%')
        or r.authn <> (r.proname like 'authn\_%') or r.bak or r.fed <> (r.proname like 'fed\_%') then
       v := v || jsonb_build_object('rule', 'EXECUTE_GRANT', 'function', r.nspname || '.' || r.proname, 'app', r.app,
@@ -302,7 +313,7 @@ end $$;
 -- in 0-based code-point positions of the original text. Internal functions: no runtime role holds EXECUTE on them.
 
 create function bnx.sin_detector_spec() returns jsonb
-language sql immutable set search_path = pg_catalog, pg_temp as $f$ select $spec${"spec":"bnx-sin-detector","version":"1.0.0","source":"Addendum A1 Rev 1 §3 (S4 V1.2); Owner decisions A1-OD-1 (2026-11-10) and DELEGATED_DECISION D-A1-1..4","unicode_version":"15.1.0","origins":["native","typed","ocr"],"origins_sql_js":["native","typed"],"zero_width":[8203,8204,8205,8288,65279,173],"whitespace":[9,10,11,12,13,32,133,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288],"dash_separators":[45,8208,8209,8210,8211,8212,8213],"apostrophes":[8217,8216,700],"nd_zeros":[48,1632,1776,1984,2406,2534,2662,2790,2918,3046,3174,3302,3430,3558,3664,3792,3872,4160,4240,6112,6160,6470,6608,6784,6800,6992,7088,7232,7248,42528,43216,43264,43472,43504,43600,44016,65296,66720,68912,69734,69872,69942,70096,70384,70736,70864,71248,71360,71472,71904,72016,72784,73040,73120,73552,92768,92864,93008,120782,120792,120802,120812,120822,123200,123632,124144,125264,130032],"sequence_regex":"[0-9]{3}(?: +|[-‐-―])?[0-9]{3}(?: +|[-‐-―])?[0-9]{3}(?![0-9])","label_window_after":64,"label_window_before":32,"labels":[{"lang":"en","label":"SIN","kind":"sin","folded":"sin","pattern":"sin","word_start":true,"word_end":true},{"lang":"en","label":"S.I.N.","kind":"sin","folded":"s.i.n.","pattern":"s\\.i\\.n\\.","word_start":true,"word_end":false},{"lang":"en","label":"Social Insurance Number","kind":"sin","folded":"social insurance number","pattern":"social +insurance +number","word_start":true,"word_end":true},{"lang":"en","label":"Social Insurance No","kind":"sin","folded":"social insurance no","pattern":"social +insurance +no","word_start":true,"word_end":true},{"lang":"en","label":"Social Insurance #","kind":"sin","folded":"social insurance #","pattern":"social +insurance +#","word_start":true,"word_end":false},{"lang":"en","label":"Soc. Ins. No","kind":"sin","folded":"soc. ins. no","pattern":"soc\\. +ins\\. +no","word_start":true,"word_end":true},{"lang":"en","label":"Individual Tax Number","kind":"itn","folded":"individual tax number","pattern":"individual +tax +number","word_start":true,"word_end":true},{"lang":"en","label":"ITN","kind":"itn","folded":"itn","pattern":"itn","word_start":true,"word_end":true},{"lang":"fr","label":"NAS","kind":"sin","folded":"nas","pattern":"nas","word_start":true,"word_end":true},{"lang":"fr","label":"N.A.S.","kind":"sin","folded":"n.a.s.","pattern":"n\\.a\\.s\\.","word_start":true,"word_end":false},{"lang":"fr","label":"numéro d'assurance sociale","kind":"sin","folded":"numero d'assurance sociale","pattern":"numero +d'assurance +sociale","word_start":true,"word_end":true},{"lang":"fr","label":"no d'assurance sociale","kind":"sin","folded":"no d'assurance sociale","pattern":"no +d'assurance +sociale","word_start":true,"word_end":true},{"lang":"fr","label":"n° d'assurance sociale","kind":"sin","folded":"n° d'assurance sociale","pattern":"n° +d'assurance +sociale","word_start":true,"word_end":true},{"lang":"zh-Hans","label":"社会保险号","kind":"sin","folded":"社会保险号","pattern":"社会保险号","word_start":false,"word_end":false},{"lang":"zh-Hans","label":"社会保险号码","kind":"sin","folded":"社会保险号码","pattern":"社会保险号码","word_start":false,"word_end":false},{"lang":"zh-Hans","label":"社会保障号","kind":"sin","folded":"社会保障号","pattern":"社会保障号","word_start":false,"word_end":false},{"lang":"zh-Hant","label":"社會保險號","kind":"sin","folded":"社會保險號","pattern":"社會保險號","word_start":false,"word_end":false},{"lang":"zh-Hant","label":"社會保險號碼","kind":"sin","folded":"社會保險號碼","pattern":"社會保險號碼","word_start":false,"word_end":false}],"key_tokens":[["sin"],["nas"],["itn"],["social","insurance"],["assurance","sociale"],["individual","tax"]],"program_identifiers":["RT","RP","RC","RZ","RR","RG","RD","RE","RM","RN","LT","RU","PT"],"bn15_suffix_regex":"[ -]?(?:RT|RP|RC|RZ|RR|RG|RD|RE|RM|RN|LT|RU|PT)[ -]?[0-9]{4}(?![0-9A-Za-z])","itn_prefixes":["08","09"],"hex_token_min":32,"uuid_regex":"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}","ocr":{"confusables":{"O":"0","o":"0","I":"1","l":"1","|":"1","S":"5","B":"8","Z":"2","G":"6"},"t_ocr":0.9,"run_digits":[8,10],"t_ocr_note":"provisional; D-A1-4 sets the final value in 9011c from the corpus"},"mask":"[MASKED:SIN]","rules":{"R_LABEL":"nine-digit sequence near a SIN/ITN label or under a labelled key","R_MOD10":"nine-digit sequence passing Mod 10 (Luhn; assumption A-1 accepted as D-A1-2)","R_ITN":"nine-digit sequence beginning 08 or 09 (D-A1-1)","R_OCR9":"any nine-digit sequence in OCR text","R_OCR_RUN":"8- or 10-digit OCR run with a low-confidence or confusable glyph"}}$spec$::jsonb $f$;
+language sql immutable set search_path = pg_catalog, pg_temp as $f$ select $spec${"spec": "bnx-sin-detector", "version": "1.1.0", "source": "Addendum A1 Rev 1 §3 (S4 V1.2); Owner decisions A1-OD-1 (2026-11-10) and DELEGATED_DECISION D-A1-1..4; v1.1.0: 9011 review remediation D-9011R-1..6 (docs/s4/S4_9011R_Remediation_2026-11-11.md)", "unicode_version": "15.1.0", "origins": ["native", "typed", "ocr"], "origins_sql_js": ["native", "typed"], "ignorable_ranges": [[173, 173], [768, 879], [1155, 1161], [1425, 1469], [1471, 1471], [1473, 1474], [1476, 1477], [1479, 1479], [1536, 1541], [1552, 1562], [1564, 1564], [1611, 1631], [1648, 1648], [1750, 1757], [1759, 1764], [1767, 1768], [1770, 1773], [1807, 1807], [1809, 1809], [1840, 1866], [1958, 1968], [2027, 2035], [2045, 2045], [2070, 2073], [2075, 2083], [2085, 2087], [2089, 2093], [2137, 2139], [2192, 2193], [2200, 2207], [2250, 2306], [2362, 2362], [2364, 2364], [2369, 2376], [2381, 2381], [2385, 2391], [2402, 2403], [2433, 2433], [2492, 2492], [2497, 2500], [2509, 2509], [2530, 2531], [2558, 2558], [2561, 2562], [2620, 2620], [2625, 2626], [2631, 2632], [2635, 2637], [2641, 2641], [2672, 2673], [2677, 2677], [2689, 2690], [2748, 2748], [2753, 2757], [2759, 2760], [2765, 2765], [2786, 2787], [2810, 2815], [2817, 2817], [2876, 2876], [2879, 2879], [2881, 2884], [2893, 2893], [2901, 2902], [2914, 2915], [2946, 2946], [3008, 3008], [3021, 3021], [3072, 3072], [3076, 3076], [3132, 3132], [3134, 3136], [3142, 3144], [3146, 3149], [3157, 3158], [3170, 3171], [3201, 3201], [3260, 3260], [3263, 3263], [3270, 3270], [3276, 3277], [3298, 3299], [3328, 3329], [3387, 3388], [3393, 3396], [3405, 3405], [3426, 3427], [3457, 3457], [3530, 3530], [3538, 3540], [3542, 3542], [3633, 3633], [3636, 3642], [3655, 3662], [3761, 3761], [3764, 3772], [3784, 3790], [3864, 3865], [3893, 3893], [3895, 3895], [3897, 3897], [3953, 3966], [3968, 3972], [3974, 3975], [3981, 3991], [3993, 4028], [4038, 4038], [4141, 4144], [4146, 4151], [4153, 4154], [4157, 4158], [4184, 4185], [4190, 4192], [4209, 4212], [4226, 4226], [4229, 4230], [4237, 4237], [4253, 4253], [4447, 4448], [4957, 4959], [5906, 5908], [5938, 5939], [5970, 5971], [6002, 6003], [6068, 6069], [6071, 6077], [6086, 6086], [6089, 6099], [6109, 6109], [6155, 6159], [6277, 6278], [6313, 6313], [6432, 6434], [6439, 6440], [6450, 6450], [6457, 6459], [6679, 6680], [6683, 6683], [6742, 6742], [6744, 6750], [6752, 6752], [6754, 6754], [6757, 6764], [6771, 6780], [6783, 6783], [6832, 6862], [6912, 6915], [6964, 6964], [6966, 6970], [6972, 6972], [6978, 6978], [7019, 7027], [7040, 7041], [7074, 7077], [7080, 7081], [7083, 7085], [7142, 7142], [7144, 7145], [7149, 7149], [7151, 7153], [7212, 7219], [7222, 7223], [7376, 7378], [7380, 7392], [7394, 7400], [7405, 7405], [7412, 7412], [7416, 7417], [7616, 7679], [8203, 8207], [8234, 8238], [8288, 8292], [8294, 8303], [8400, 8432], [11503, 11505], [11647, 11647], [11744, 11775], [12330, 12333], [12441, 12442], [12644, 12644], [42607, 42610], [42612, 42621], [42654, 42655], [42736, 42737], [43010, 43010], [43014, 43014], [43019, 43019], [43045, 43046], [43052, 43052], [43204, 43205], [43232, 43249], [43263, 43263], [43302, 43309], [43335, 43345], [43392, 43394], [43443, 43443], [43446, 43449], [43452, 43453], [43493, 43493], [43561, 43566], [43569, 43570], [43573, 43574], [43587, 43587], [43596, 43596], [43644, 43644], [43696, 43696], [43698, 43700], [43703, 43704], [43710, 43711], [43713, 43713], [43756, 43757], [43766, 43766], [44005, 44005], [44008, 44008], [44013, 44013], [64286, 64286], [65024, 65039], [65056, 65071], [65279, 65279], [65440, 65440], [65529, 65531], [66045, 66045], [66272, 66272], [66422, 66426], [68097, 68099], [68101, 68102], [68108, 68111], [68152, 68154], [68159, 68159], [68325, 68326], [68900, 68903], [69291, 69292], [69373, 69375], [69446, 69456], [69506, 69509], [69633, 69633], [69688, 69702], [69744, 69744], [69747, 69748], [69759, 69761], [69811, 69814], [69817, 69818], [69821, 69821], [69826, 69826], [69837, 69837], [69888, 69890], [69927, 69931], [69933, 69940], [70003, 70003], [70016, 70017], [70070, 70078], [70089, 70092], [70095, 70095], [70191, 70193], [70196, 70196], [70198, 70199], [70206, 70206], [70209, 70209], [70367, 70367], [70371, 70378], [70400, 70401], [70459, 70460], [70464, 70464], [70502, 70508], [70512, 70516], [70712, 70719], [70722, 70724], [70726, 70726], [70750, 70750], [70835, 70840], [70842, 70842], [70847, 70848], [70850, 70851], [71090, 71093], [71100, 71101], [71103, 71104], [71132, 71133], [71219, 71226], [71229, 71229], [71231, 71232], [71339, 71339], [71341, 71341], [71344, 71349], [71351, 71351], [71453, 71455], [71458, 71461], [71463, 71467], [71727, 71735], [71737, 71738], [71995, 71996], [71998, 71998], [72003, 72003], [72148, 72151], [72154, 72155], [72160, 72160], [72193, 72202], [72243, 72248], [72251, 72254], [72263, 72263], [72273, 72278], [72281, 72283], [72330, 72342], [72344, 72345], [72752, 72758], [72760, 72765], [72767, 72767], [72850, 72871], [72874, 72880], [72882, 72883], [72885, 72886], [73009, 73014], [73018, 73018], [73020, 73021], [73023, 73029], [73031, 73031], [73104, 73105], [73109, 73109], [73111, 73111], [73459, 73460], [73472, 73473], [73526, 73530], [73536, 73536], [73538, 73538], [78896, 78912], [78919, 78933], [92912, 92916], [92976, 92982], [94031, 94031], [94095, 94098], [94180, 94180], [113821, 113822], [113824, 113827], [118528, 118573], [118576, 118598], [119143, 119145], [119155, 119170], [119173, 119179], [119210, 119213], [119362, 119364], [121344, 121398], [121403, 121452], [121461, 121461], [121476, 121476], [121499, 121503], [121505, 121519], [122880, 122886], [122888, 122904], [122907, 122913], [122915, 122916], [122918, 122922], [123023, 123023], [123184, 123190], [123566, 123566], [123628, 123631], [124140, 124143], [125136, 125142], [125252, 125258], [917504, 921599]], "digit_map": [[4969, 1], [4970, 2], [4971, 3], [4972, 4], [4973, 5], [4974, 6], [4975, 7], [4976, 8], [4977, 9], [6618, 1], [9461, 1], [9462, 2], [9463, 3], [9464, 4], [9465, 5], [9466, 6], [9467, 7], [9468, 8], [9469, 9], [9471, 0], [10102, 1], [10103, 2], [10104, 3], [10105, 4], [10106, 5], [10107, 6], [10108, 7], [10109, 8], [10110, 9], [10112, 1], [10113, 2], [10114, 3], [10115, 4], [10116, 5], [10117, 6], [10118, 7], [10119, 8], [10120, 9], [10122, 1], [10123, 2], [10124, 3], [10125, 4], [10126, 5], [10127, 6], [10128, 7], [10129, 8], [10130, 9], [68160, 1], [68161, 2], [68162, 3], [68163, 4], [69216, 1], [69217, 2], [69218, 3], [69219, 4], [69220, 5], [69221, 6], [69222, 7], [69223, 8], [69224, 9], [69714, 1], [69715, 2], [69716, 3], [69717, 4], [69718, 5], [69719, 6], [69720, 7], [69721, 8], [69722, 9]], "whitespace": [9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288], "line_breaks": [10, 11, 12, 13, 133, 8232, 8233], "hard_separators": [9, 10, 11, 12, 13, 133, 8232, 8233], "dash_separators": [45, 8208, 8209, 8210, 8211, 8212, 8213], "apostrophes": [8217, 8216, 700], "nd_zeros": [48, 1632, 1776, 1984, 2406, 2534, 2662, 2790, 2918, 3046, 3174, 3302, 3430, 3558, 3664, 3792, 3872, 4160, 4240, 6112, 6160, 6470, 6608, 6784, 6800, 6992, 7088, 7232, 7248, 42528, 43216, 43264, 43472, 43504, 43600, 44016, 65296, 66720, 68912, 69734, 69872, 69942, 70096, 70384, 70736, 70864, 71248, 71360, 71472, 71904, 72016, 72784, 73040, 73120, 73552, 92768, 92864, 93008, 120782, 120792, 120802, 120812, 120822, 123200, 123632, 124144, 125264, 130032], "sequence": {"digits": 9, "strict_max_groups": 3, "strict_min_group": 2, "link_strict_regex": "^(?: +| *[‐‑‒–—―−-]{1,2} *)$", "link_loose_regex": "^(?: *[./_·•]{1,2} *|,)$", "note": "groups are maximal ASCII digit runs after §3.2; consecutive groups are linked by a separator matching the strict regex (S: spaces, dashes) or the loose regex (L: dot, slash, underscore, middle dot, bullet, bare comma); a strict link whose original characters include a hard separator (tab, line break) counts as L; a window of linked groups holding exactly nine digits is a sequence when: (a) all links are S, it has at most strict_max_groups groups and every group has at least strict_min_group digits; or (b) it is three groups of three digits (S or L links); near a label, under a labelled key and in origin ocr also (c) any grouping whose links are all S"}, "uuid_regex": "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}", "uuid_note": "a window of two or more groups lying inside a UUID-shaped substring is the token's own dash structure, not a sequence; a single nine-digit group inside it remains a sequence (D-9011R-1)", "label_window_after": 64, "label_window_before": 32, "label_line_max": 256, "labels": [{"lang": "en", "label": "SIN", "kind": "sin", "folded": "sin", "pattern": "sin", "word_start": true, "word_end": true}, {"lang": "en", "label": "S.I.N.", "kind": "sin", "folded": "s.i.n.", "pattern": "s\\.i\\.n\\.", "word_start": true, "word_end": false}, {"lang": "en", "label": "Social Insurance Number", "kind": "sin", "folded": "social insurance number", "pattern": "social +insurance +number", "word_start": true, "word_end": true}, {"lang": "en", "label": "Social Insurance No", "kind": "sin", "folded": "social insurance no", "pattern": "social +insurance +no", "word_start": true, "word_end": true}, {"lang": "en", "label": "Social Insurance #", "kind": "sin", "folded": "social insurance #", "pattern": "social +insurance +#", "word_start": true, "word_end": false}, {"lang": "en", "label": "Soc. Ins. No", "kind": "sin", "folded": "soc. ins. no", "pattern": "soc\\. +ins\\. +no", "word_start": true, "word_end": true}, {"lang": "en", "label": "Individual Tax Number", "kind": "itn", "folded": "individual tax number", "pattern": "individual +tax +number", "word_start": true, "word_end": true}, {"lang": "en", "label": "ITN", "kind": "itn", "folded": "itn", "pattern": "itn", "word_start": true, "word_end": true}, {"lang": "fr", "label": "NAS", "kind": "sin", "folded": "nas", "pattern": "nas", "word_start": true, "word_end": true}, {"lang": "fr", "label": "N.A.S.", "kind": "sin", "folded": "n.a.s.", "pattern": "n\\.a\\.s\\.", "word_start": true, "word_end": false}, {"lang": "fr", "label": "numéro d'assurance sociale", "kind": "sin", "folded": "numero d'assurance sociale", "pattern": "numero +d'assurance +sociale", "word_start": true, "word_end": true}, {"lang": "fr", "label": "no d'assurance sociale", "kind": "sin", "folded": "no d'assurance sociale", "pattern": "no +d'assurance +sociale", "word_start": true, "word_end": true}, {"lang": "fr", "label": "n° d'assurance sociale", "kind": "sin", "folded": "n° d'assurance sociale", "pattern": "n° +d'assurance +sociale", "word_start": true, "word_end": true}, {"lang": "zh-Hans", "label": "社会保险号", "kind": "sin", "folded": "社会保险号", "pattern": "社会保险号", "word_start": false, "word_end": false}, {"lang": "zh-Hans", "label": "社会保险号码", "kind": "sin", "folded": "社会保险号码", "pattern": "社会保险号码", "word_start": false, "word_end": false}, {"lang": "zh-Hans", "label": "社会保障号", "kind": "sin", "folded": "社会保障号", "pattern": "社会保障号", "word_start": false, "word_end": false}, {"lang": "zh-Hant", "label": "社會保險號", "kind": "sin", "folded": "社會保險號", "pattern": "社會保險號", "word_start": false, "word_end": false}, {"lang": "zh-Hant", "label": "社會保險號碼", "kind": "sin", "folded": "社會保險號碼", "pattern": "社會保險號碼", "word_start": false, "word_end": false}], "key_split_chars": [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 58, 59, 60, 61, 62, 63, 64, 91, 92, 93, 94, 95, 96, 123, 124, 125, 126], "key_tokens": [["sin"], ["nas"], ["itn"], ["social", "insurance"], ["assurance", "sociale"], ["individual", "tax"], ["s", "i", "n"], ["n", "a", "s"], ["i", "t", "n"]], "program_identifiers": ["RT", "RP", "RC", "RZ", "RR", "RG", "RD", "RE", "RM", "RN", "LT", "RU", "PT"], "bn15_suffix_regex": "[ -]?(?:RT|RP|RC|RZ|RR|RG|RD|RE|RM|RN|LT|RU|PT)[ -]?[0-9]{4}(?![0-9A-Za-z])", "itn_prefixes": ["08", "09"], "hex_exempt": {"key_tokens": ["id", "ids", "uid", "uuid", "uuids", "guid", "sha1", "sha256", "sha512", "md5", "hash", "hashes", "digest", "checksum", "etag", "key", "keys", "nonce", "token"], "value_regex": "^(?:[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64}|[0-9A-Fa-f]{128})$", "note": "structured data only (JSON string values), never under a labelled key; free text has no exemption (D-9011R-1)"}, "ocr": {"confusables": {"O": "0", "o": "0", "I": "1", "l": "1", "|": "1", "S": "5", "B": "8", "Z": "2", "G": "6"}, "t_ocr": 0.9, "run_digits": [8, 10, 11, 12], "t_ocr_note": "set in 9011c from the corpus (D-9011c-3)"}, "mask": "[MASKED:SIN]", "rules": {"R_LABEL": "nine-digit sequence near a SIN/ITN label or under a labelled key", "R_MOD10": "nine-digit sequence passing Mod 10 (Luhn; assumption A-1 accepted as D-A1-2)", "R_ITN": "nine-digit sequence beginning 08 or 09 (D-A1-1)", "R_OCR9": "any nine-digit sequence in OCR text", "R_OCR_RUN": "8-, 10-, 11- or 12-digit OCR run with a low-confidence or confusable glyph"}}$spec$::jsonb $f$;
 
 create function bnx.sin_luhn(d text) returns boolean
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
@@ -316,36 +327,59 @@ begin
   return t % 10 = 0;
 end $$;
 
--- normalized text and, per character, the 0-based code-point index of the original character it came from
--- (idx is null when the text is ASCII: then normalization only maps ASCII whitespace to spaces and indexes are unchanged)
-create function bnx.sin_normalize(p text, out n text, out idx int[])
+-- v1.1 (R-02, R-41): default-ignorable, format and combining characters are removed before matching (binary search over
+-- the spec's code-point ranges)
+create function bnx.sin_ignorable(cp int, lo int[], hi int[]) returns boolean
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
-declare sp jsonb := bnx.sin_detector_spec(); zw int[]; ws int[]; zeros int[]; i int; k int; ch text; t text; c text; cp int; z int;
-        buf text[] := '{}'; ix int[] := '{}';
+declare a int := 1; b int := coalesce(array_length(lo, 1), 0); m int; k int := 0;
+begin
+  if cp < 173 then return false; end if;
+  while a <= b loop
+    m := (a + b) / 2;
+    if lo[m] <= cp then k := m; a := m + 1; else b := m - 1; end if;
+  end loop;
+  return k > 0 and cp <= hi[k];
+end $$;
+
+-- normalized text; per character, the 0-based code-point index of the original character it came from and whether it was
+-- a line break (idx and brk are null when the text is ASCII: then normalization only maps ASCII whitespace to spaces)
+create function bnx.sin_normalize(p text, out n text, out idx int[], out brk boolean[])
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare sp jsonb := bnx.sin_detector_spec(); lo int[]; hi int[]; ws int[]; lbs int[]; zeros int[]; dm_cp int[]; dm_d int[];
+        i int; k int; ch text; t text; c text; cp int; z int; buf text[] := '{}'; ix int[] := '{}'; bk boolean[] := '{}';
 begin
   if p is null then return; end if;
   if octet_length(p) = length(p) then
-    n := translate(p, E'\t\n\x0b\x0c\r', '     '); idx := null; return;
+    n := translate(p, E'\t\n\x0b\x0c\r', '     '); idx := null; brk := null; return;
   end if;
-  zw := array(select jsonb_array_elements_text(sp->'zero_width')::int);
+  lo := array(select (x->>0)::int from jsonb_array_elements(sp->'ignorable_ranges') x);
+  hi := array(select (x->>1)::int from jsonb_array_elements(sp->'ignorable_ranges') x);
   ws := array(select jsonb_array_elements_text(sp->'whitespace')::int);
+  lbs := array(select jsonb_array_elements_text(sp->'line_breaks')::int);
   zeros := array(select jsonb_array_elements_text(sp->'nd_zeros')::int);
+  dm_cp := array(select (x->>0)::int from jsonb_array_elements(sp->'digit_map') x);
+  dm_d := array(select (x->>1)::int from jsonb_array_elements(sp->'digit_map') x);
   for i in 1 .. length(p) loop
     ch := substr(p, i, 1);
-    continue when ascii(ch) = any(zw);
+    continue when bnx.sin_ignorable(ascii(ch), lo, hi);
     t := normalize(ch, NFKC);
     for k in 1 .. length(t) loop
       c := substr(t, k, 1); cp := ascii(c);
-      continue when cp = any(zw);
+      continue when bnx.sin_ignorable(cp, lo, hi);
       if cp >= 128 then
         select x into z from unnest(zeros) x where cp - x between 0 and 9;
-        if found then c := chr(48 + cp - z); cp := ascii(c); end if;
+        if found then c := chr(48 + cp - z); cp := ascii(c);
+        else
+          z := array_position(dm_cp, cp);
+          if z is not null then c := chr(48 + dm_d[z]); cp := ascii(c); end if;
+        end if;
       end if;
+      bk := bk || (cp = any(lbs));
       if cp = any(ws) then c := ' '; end if;
       buf := buf || c; ix := ix || (i - 1);
     end loop;
   end loop;
-  n := array_to_string(buf, ''); idx := ix;
+  n := array_to_string(buf, ''); idx := ix; brk := bk;
 end $$;
 
 create function bnx.sin_fold(n text) returns text
@@ -362,20 +396,13 @@ begin
   return array_to_string(buf, '');
 end $$;
 
-create function bnx.sin_scan(p text, p_origin text default 'native', p_force_label boolean default false) returns jsonb
+-- label spans [la, lb) (0-based) in folded text, whole words per the spec
+create function bnx.sin_label_spans(f text, out la int[], out lb int[])
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
-declare sp jsonb := bnx.sin_detector_spec(); r record; n text; idx int[]; f text; seq text := sp->>'sequence_regex';
-        la int[] := '{}'; lb int[] := '{}'; ha int[] := '{}'; hb int[] := '{}'; lab jsonb; pat text; st int; a int; b int;
-        i int; j int; ii int; jj int; d text; near boolean; rule text; k int; hits jsonb := '[]';
-        wa int := (sp->>'label_window_after')::int; wb int := (sp->>'label_window_before')::int;
+declare lab jsonb; pat text; st int; a int; b int;
 begin
-  if p_origin is null or not (p_origin = any(array(select jsonb_array_elements_text(sp->'origins_sql_js')))) then
-    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'sin detector origin'); end if;
-  if p is null then return hits; end if;
-  select * into r from bnx.sin_normalize(p); n := r.n; idx := r.idx;
-  if n !~ seq then return hits; end if;                                     -- no nine-digit sequence anywhere
-  f := bnx.sin_fold(n);
-  for lab in select x from jsonb_array_elements(sp->'labels') x loop
+  la := '{}'; lb := '{}';
+  for lab in select x from jsonb_array_elements(bnx.sin_detector_spec()->'labels') x loop
     pat := lab->>'pattern'; st := 1;
     loop
       a := regexp_instr(f, pat, st, 1, 0); exit when a = 0;
@@ -386,58 +413,139 @@ begin
       la := la || (a - 1); lb := lb || (b - 1);
     end loop;
   end loop;
-  foreach pat in array array['[0-9A-Fa-f]{' || (sp->>'hex_token_min') || ',}', sp->>'uuid_regex'] loop
-    st := 1;
-    loop
-      a := regexp_instr(n, pat, st, 1, 0); exit when a = 0;
-      b := regexp_instr(n, pat, st, 1, 1);
-      ha := ha || (a - 1); hb := hb || (b - 1); st := b;
-    end loop;
-  end loop;
+end $$;
+
+-- v1.1: windows of linked digit groups holding exactly nine digits (spec "sequence"); near a label by the character window
+-- or by line (same line, or the next non-empty line, within label_line_max)
+create function bnx.sin_scan(p text, p_origin text default 'native', p_force_label boolean default false) returns jsonb
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare sp jsonb := bnx.sin_detector_spec(); sq jsonb := sp->'sequence'; r record; l record; n text; idx int[]; brk boolean[];
+        ls text := sq->>'link_strict_regex'; ll text := sq->>'link_loose_regex'; nd int := (sq->>'digits')::int;
+        gs int[] := '{}'; ge int[] := '{}'; lk text[] := '{}'; g int; st int; a int; b int; ga int; gb int; tot int; mn int;
+        allstrict boolean; ok boolean; oknear boolean; mx int; f333 boolean; ng int; ii int; jj int; d text; near boolean; rule text; k int; q int; p1 int; p2 int;
+        sep text; isb boolean; hits jsonb := '[]';
+        hs int[] := array(select jsonb_array_elements_text(sp->'hard_separators')::int); ua int[] := '{}'; ub int[] := '{}'; skip boolean;
+        wa int := (sp->>'label_window_after')::int; wb int := (sp->>'label_window_before')::int; lm int := (sp->>'label_line_max')::int;
+begin
+  if p_origin is null or not (p_origin = any(array(select jsonb_array_elements_text(sp->'origins_sql_js')))) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'sin detector origin'); end if;
+  if p is null then return hits; end if;
+  select * into r from bnx.sin_normalize(p); n := r.n; idx := r.idx; brk := r.brk;
+  if length(regexp_replace(n, '[^0-9]', '', 'g')) < nd then return hits; end if;   -- fewer than nine digits in all
+  select * into l from bnx.sin_label_spans(bnx.sin_fold(n));
   st := 1;
   loop
-    i := regexp_instr(n, seq, st, 1, 0); exit when i = 0;
-    j := regexp_instr(n, seq, st, 1, 1);
-    st := i + 1;
-    continue when i > 1 and substr(n, i - 1, 1) between '0' and '9';     -- a sequence starts after a non-digit (§3.1)
-    ii := i - 1; jj := j - 1;                                               -- 0-based [ii, jj)
-    d := regexp_replace(substr(n, i, j - i), '[^0-9]', '', 'g');
-    rule := null;
-    near := p_force_label;
-    if not near then
-      for k in 1 .. coalesce(array_length(la, 1), 0) loop
-        if (lb[k] <= ii and ii - lb[k] <= wa) or (jj <= la[k] and la[k] - jj <= wb) or (la[k] < jj and ii < lb[k]) then near := true; exit; end if;
-      end loop;
-    end if;
-    for k in 1 .. coalesce(array_length(ha, 1), 0) loop
-      if ha[k] <= ii and ii < hb[k] then rule := 'SKIP'; exit; end if;     -- starts inside a hash or UUID token: labels do not apply (D-9011a-1)
-    end loop;
-    continue when rule = 'SKIP';
-    rule := null;
-    if near then rule := 'R_LABEL';
-    elsif jj - ii = 9 and not (i > 1 and substr(n, i - 1, 1) ~ '^[A-Za-z]$') and regexp_instr(n, sp->>'bn15_suffix_regex', j) = j then
-      continue;                                                              -- complete CRA program account (§3.5)
-    elsif bnx.sin_luhn(d) then rule := 'R_MOD10';
-    elsif left(d, 2) = any(array(select jsonb_array_elements_text(sp->'itn_prefixes'))) then rule := 'R_ITN';
-    else continue;
-    end if;
-    hits := hits || jsonb_build_object('rule', rule,
-              'start', case when idx is null then ii else idx[i] end,
-              'end', case when idx is null then jj else idx[j - 1] + 1 end);
+    a := regexp_instr(n, '[0-9]+', st, 1, 0); exit when a = 0;
+    b := regexp_instr(n, '[0-9]+', st, 1, 1);
+    gs := gs || (a - 1); ge := ge || (b - 1); st := b;
   end loop;
-  return coalesce((select jsonb_agg(x order by (x->>'start')::int, (x->>'end')::int, x->>'rule') from jsonb_array_elements(hits) x), '[]');
+  g := coalesce(array_length(gs, 1), 0);
+  st := 1;
+  loop                                                                       -- UUID-shaped substrings (D-9011R-1)
+    a := regexp_instr(n, sp->>'uuid_regex', st, 1, 0); exit when a = 0;
+    b := regexp_instr(n, sp->>'uuid_regex', st, 1, 1);
+    ua := ua || (a - 1); ub := ub || (b - 1); st := b;
+  end loop;
+  for k in 1 .. g - 1 loop
+    sep := substr(n, ge[k] + 1, gs[k + 1] - ge[k]);
+    if sep ~ ls then
+      -- a strict link holding a hard separator (tab, line break) in the original text counts as L
+      isb := false;
+      for q in ge[k] .. gs[k + 1] - 1 loop
+        isb := ascii(case when idx is null then substr(p, q + 1, 1) else substr(p, idx[q + 1] + 1, 1) end) = any(hs);
+        exit when isb;
+      end loop;
+      lk := lk || case when isb then 'L' else 'S' end;
+    else
+      lk := lk || case when sep ~ ll then 'L' else null end;
+    end if;
+  end loop;
+  for ga in 1 .. g loop
+    tot := 0; allstrict := true; mn := 99; mx := 0;
+    for gb in ga .. g loop
+      if gb > ga then
+        exit when lk[gb - 1] is null;
+        allstrict := allstrict and lk[gb - 1] = 'S';
+      end if;
+      tot := tot + (ge[gb] - gs[gb]); mn := least(mn, ge[gb] - gs[gb]); mx := greatest(mx, ge[gb] - gs[gb]);
+      exit when tot > nd;
+      continue when tot < nd;
+      ng := gb - ga + 1; ii := gs[ga]; jj := ge[gb];                              -- 0-based [ii, jj)
+      f333 := ng = 3 and mn = 3 and mx = 3;
+      ok := (allstrict and ng <= (sq->>'strict_max_groups')::int and mn >= (sq->>'strict_min_group')::int) or f333;
+      oknear := allstrict or f333;
+      continue when not oknear;
+      skip := false;
+      if ng > 1 then
+        for k in 1 .. coalesce(array_length(ua, 1), 0) loop
+          if ua[k] <= ii and jj <= ub[k] then skip := true; exit; end if;
+        end loop;
+      end if;
+      continue when skip;
+      d := regexp_replace(substr(n, ii + 1, jj - ii), '[^0-9]', '', 'g');
+      near := p_force_label;
+      for k in 1 .. coalesce(array_length(l.la, 1), 0) loop
+        exit when near;
+        if (l.lb[k] <= ii and ii - l.lb[k] <= wa) or (jj <= l.la[k] and l.la[k] - jj <= wb) or (l.la[k] < jj and ii < l.lb[k]) then
+          near := true; exit;
+        end if;
+        if l.lb[k] <= ii and ii - l.lb[k] <= lm then
+          p1 := null; p2 := null;
+          for q in l.lb[k] .. ii - 1 loop
+            isb := case when brk is null then substr(p, q + 1, 1) in (E'\n', E'\x0b', E'\x0c', E'\r') else brk[q + 1] end;
+            if isb then p1 := coalesce(p1, q); p2 := q; end if;
+          end loop;
+          if p1 is null or substr(n, p1 + 1, p2 - p1 + 1) ~ '^ *$' then near := true; exit; end if;
+        end if;
+        if jj <= l.la[k] and l.la[k] - jj <= lm then
+          isb := false;
+          for q in jj .. l.la[k] - 1 loop
+            isb := case when brk is null then substr(p, q + 1, 1) in (E'\n', E'\x0b', E'\x0c', E'\r') else brk[q + 1] end;
+            exit when isb;
+          end loop;
+          if not isb then near := true; exit; end if;
+        end if;
+      end loop;
+      continue when not (ok or near);
+      if near then rule := 'R_LABEL';
+      elsif ng = 1 and not (ii > 0 and substr(n, ii, 1) ~ '^[A-Za-z]$') and regexp_instr(n, sp->>'bn15_suffix_regex', jj + 1) = jj + 1 then
+        continue;                                                              -- complete CRA program account (§3.5)
+      elsif bnx.sin_luhn(d) then rule := 'R_MOD10';
+      elsif left(d, 2) = any(array(select jsonb_array_elements_text(sp->'itn_prefixes'))) then rule := 'R_ITN';
+      else continue;
+      end if;
+      hits := hits || jsonb_build_object('rule', rule,
+                'start', case when idx is null then ii else idx[ii + 1] end,
+                'end', case when idx is null then jj else idx[jj] + 1 end);
+    end loop;
+  end loop;
+  return coalesce((select jsonb_agg(x order by (x->>'start')::int, (x->>'end')::int, x->>'rule')
+                     from (select distinct x from jsonb_array_elements(hits) x) s), '[]');
 end $$;
 
 create function bnx.sin_candidate(p text, p_origin text default 'native') returns boolean
 language sql immutable set search_path = pg_catalog, pg_temp as $$ select jsonb_array_length(bnx.sin_scan(p, p_origin)) > 0 $$;
 
+-- v1.1 (R-04): key tokens: camelCase and acronym boundaries, letter/digit boundaries (p_digits), ASCII punctuation separates
+create function bnx.sin_key_split(p_key text, p_digits boolean default true) returns text[]
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare k text := coalesce(p_key, ''); punct text;
+begin
+  punct := (select string_agg(chr(x::int), '' order by o) from jsonb_array_elements_text(bnx.sin_detector_spec()->'key_split_chars') with ordinality a(x, o));
+  k := regexp_replace(k, '([a-z0-9])([A-Z])', '\1 \2', 'g');
+  k := regexp_replace(k, '([A-Z]+)([A-Z][a-z])', '\1 \2', 'g');
+  if p_digits then
+    k := regexp_replace(k, '([A-Za-z])([0-9])', '\1 \2', 'g');
+    k := regexp_replace(k, '([0-9])([A-Za-z])', '\1 \2', 'g');
+  end if;
+  k := translate(bnx.sin_fold((bnx.sin_normalize(k)).n), punct, repeat(' ', length(punct)));
+  return array(select t from unnest(string_to_array(k, ' ')) t where t <> '');
+end $$;
+
 create function bnx.sin_key_is_label(p_key text) returns boolean
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
-declare toks text[]; pat jsonb; s int; m int; ok boolean;
+declare toks text[] := bnx.sin_key_split(p_key); pat jsonb; s int; m int; ok boolean;
 begin
-  toks := array(select t from unnest(regexp_split_to_array(
-            bnx.sin_fold((bnx.sin_normalize(regexp_replace(coalesce(p_key, ''), '([a-z0-9])([A-Z])', '\1 \2', 'g'))).n), '[ _.-]+')) t
-          where t <> '');
   for pat in select x from jsonb_array_elements(bnx.sin_detector_spec()->'key_tokens') x loop
     for s in 1 .. coalesce(array_length(toks, 1), 0) - jsonb_array_length(pat) + 1 loop
       ok := true;
@@ -447,11 +555,22 @@ begin
       if ok then return true; end if;
     end loop;
   end loop;
-  return false;
+  return coalesce(array_length((bnx.sin_label_spans(array_to_string(toks, ' '))).la, 1), 0) > 0;
 end $$;
 
--- hits in a JSON value: keys, strings and numbers; values under a labelled key are judged with force_label
-create function bnx.sin_scan_json(p jsonb, p_origin text default 'native', p_path text default '$', p_labelled boolean default false)
+-- v1.1 (D-9011R-1): a key whose last token names an id or a hash
+create function bnx.sin_key_is_hex(p_key text) returns boolean
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare toks text[] := bnx.sin_key_split(p_key, false);
+begin
+  return coalesce(array_length(toks, 1), 0) > 0
+     and toks[array_length(toks, 1)] = any(array(select jsonb_array_elements_text(bnx.sin_detector_spec()->'hex_exempt'->'key_tokens')));
+end $$;
+
+-- hits in a JSON value: keys, strings and numbers; values under a labelled key are judged with force_label; a string that is
+-- exactly a UUID or a hex digest under an id/hash key (and not under a labelled key) is machine data (v1.1, D-9011R-1)
+create function bnx.sin_scan_json(p jsonb, p_origin text default 'native', p_path text default '$', p_labelled boolean default false,
+                                  p_hexkey boolean default false)
 returns jsonb language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
 declare out jsonb := '[]'; e record; h jsonb;
 begin
@@ -461,13 +580,18 @@ begin
       for h in select x from jsonb_array_elements(bnx.sin_scan(e.key, p_origin)) x loop
         out := out || (h || jsonb_build_object('path', p_path || '.' || e.key, 'part', 'key'));
       end loop;
-      out := out || bnx.sin_scan_json(e.value, p_origin, p_path || '.' || e.key, p_labelled or bnx.sin_key_is_label(e.key));
+      out := out || bnx.sin_scan_json(e.value, p_origin, p_path || '.' || e.key, p_labelled or bnx.sin_key_is_label(e.key),
+                                      bnx.sin_key_is_hex(e.key));
     end loop;
   when 'array' then
     for e in select value, ordinality from jsonb_array_elements(p) with ordinality loop
-      out := out || bnx.sin_scan_json(e.value, p_origin, p_path || '[' || (e.ordinality - 1) || ']', p_labelled);
+      out := out || bnx.sin_scan_json(e.value, p_origin, p_path || '[' || (e.ordinality - 1) || ']', p_labelled, p_hexkey);
     end loop;
   when 'string', 'number' then
+    if jsonb_typeof(p) = 'string' and p_hexkey and not p_labelled
+       and (p #>> '{}') ~ (bnx.sin_detector_spec()->'hex_exempt'->>'value_regex') then
+      return out;
+    end if;
     for h in select x from jsonb_array_elements(bnx.sin_scan(p #>> '{}', p_origin, p_labelled)) x loop
       out := out || (h || jsonb_build_object('path', p_path, 'part', 'value'));
     end loop;
@@ -476,23 +600,22 @@ begin
   return out;
 end $$;
 
--- cheap pre-filter on the JSON text (escapes of control characters count as separators), then the full scan
+-- cheap pre-filter on the JSON text (fewer than nine digits in all), then the full scan
 create function bnx.sin_json_has(p jsonb) returns boolean
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
 declare t text;
 begin
   if p is null then return false; end if;
   t := p::text;
-  if octet_length(t) = length(t)
-     and regexp_replace(t, '\\(?:[tnrfb]|u00[0-9a-fA-F]{2})', ' ', 'g') !~ (bnx.sin_detector_spec()->>'sequence_regex') then
+  if octet_length(t) = length(t) and length(regexp_replace(t, '[^0-9]', '', 'g')) < 9 then
     return false;
   end if;
   return jsonb_array_length(bnx.sin_scan_json(p)) > 0;
 end $$;
 
 -- copy of p with every key, string or number that holds a candidate replaced by the mask
-create function bnx.sin_mask_json(p jsonb, p_origin text default 'native', p_labelled boolean default false) returns jsonb
-language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+create function bnx.sin_mask_json(p jsonb, p_origin text default 'native', p_labelled boolean default false, p_hexkey boolean default false)
+returns jsonb language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
 declare mask text := bnx.sin_detector_spec()->>'mask'; out jsonb; e record; nk text;
 begin
   case jsonb_typeof(p)
@@ -501,12 +624,18 @@ begin
     for e in select key, value from jsonb_each(p) loop
       nk := case when bnx.sin_candidate(e.key, p_origin) then mask else e.key end;
       if out ? nk then nk := nk || '#' || (select count(*) from jsonb_object_keys(out)); end if;
-      out := out || jsonb_build_object(nk, bnx.sin_mask_json(e.value, p_origin, p_labelled or bnx.sin_key_is_label(e.key)));
+      out := out || jsonb_build_object(nk, bnx.sin_mask_json(e.value, p_origin, p_labelled or bnx.sin_key_is_label(e.key),
+                                                             bnx.sin_key_is_hex(e.key)));
     end loop;
     return out;
   when 'array' then
-    return coalesce((select jsonb_agg(bnx.sin_mask_json(x, p_origin, p_labelled) order by o) from jsonb_array_elements(p) with ordinality a(x, o)), '[]');
+    return coalesce((select jsonb_agg(bnx.sin_mask_json(x, p_origin, p_labelled, p_hexkey) order by o)
+                       from jsonb_array_elements(p) with ordinality a(x, o)), '[]');
   when 'string', 'number' then
+    if jsonb_typeof(p) = 'string' and p_hexkey and not p_labelled
+       and (p #>> '{}') ~ (bnx.sin_detector_spec()->'hex_exempt'->>'value_regex') then
+      return p;
+    end if;
     return case when jsonb_array_length(bnx.sin_scan(p #>> '{}', p_origin, p_labelled)) > 0 then to_jsonb(mask) else p end;
   else return p;
   end case;
@@ -736,7 +865,8 @@ end $$;
 -- step 2, Z1 verdict -> Z2: the Executor stages the verdict of the transient scan, never content (DOC-SIN-01/04/07/08)
 create function bnx.wrk_doc_validated(p_staging uuid) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare s record; pl jsonb; did uuid; st text; sha bytea; res text; nxt text; d record; nm text;
+declare s record; pl jsonb; did uuid; st text; sha bytea; res text; nxt text; d record; nm text; qh boolean; ih boolean;
+        why text;
 begin
   if session_user <> 'bnx_worker' then perform bnx.fail('FORBIDDEN', 'P0403'); end if;
   select * into s from bnx_intake.staging_payload where id = p_staging for update;
@@ -759,6 +889,12 @@ begin
   if st in ('QUARANTINED','INVALIDATED') then return bnx.doc_reject(p_staging, 'TERMINAL_STATE'); end if;
   if st = 'SCANNING' then return bnx.doc_reject(p_staging, 'SCAN_IN_PROGRESS'); end if;
   sha := decode(pl->>'sha256', 'hex'); res := pl->>'scan_result';
+  -- 9011 review R-07 (A1-OD-2, §5.3 "terminal for that SHA-256"): bytes once quarantined stay quarantined under every later
+  -- discovery and every detector version; bytes left SCAN_INCOMPLETE under the current detector are not admitted on a
+  -- different verdict for the same bytes and version (the database, not the Executor build, holds this memory)
+  qh := exists (select 1 from bnx_doc.document_scan x where x.sha256 = sha and x.scan_result = 'SIN_CANDIDATE');
+  ih := exists (select 1 from bnx_doc.document_scan x where x.sha256 = sha and x.scan_result = 'SCAN_INCOMPLETE'
+                   and x.sin_detector_version = pl->>'sin_detector_version');
   -- the SCANNING transition is checked against the previous scan before the new verdict is stored; both or neither
   begin
     perform bnx.doc_event(did, 'SCANNING', null, p_staging);
@@ -773,6 +909,10 @@ begin
   end;
   -- notification metadata keys are fixed (9010); a file name is included only when it contains no digit at all (DOC-SIN-08)
   nm := case when d.original_name is null or d.original_name ~ '[0-9]' then null else left(d.original_name, 80) end;
+  why := res;
+  if res <> 'SIN_CANDIDATE' and qh then why := 'QUARANTINED_HASH'; res := 'SIN_CANDIDATE';
+  elsif res = 'PASSED' and ih then why := 'INCOMPLETE_HASH'; res := 'SCAN_INCOMPLETE';
+  end if;
   if res = 'SIN_CANDIDATE' then
     nxt := 'QUARANTINED';
     perform bnx.notify('EXCEPTION', 'SIN_QUARANTINE:' || encode(sha, 'hex'), true,
@@ -791,8 +931,9 @@ begin
     perform bnx.notify('EXCEPTION', 'DECLARE:' || did || ':' || encode(sha, 'hex'), true,
                        jsonb_strip_nulls(jsonb_build_object('kind', 'REDACTION_DECLARATION_PENDING', 'source_id', d.module, 'record_key', did, 'masked_subject', nm)));
   end if;
-  perform bnx.doc_event(did, nxt, res, p_staging);
-  return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', nxt));
+  perform bnx.doc_event(did, nxt, why, p_staging);
+  return bnx.doc_done(p_staging, jsonb_strip_nulls(jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', nxt,
+                      'reason', case when why in ('QUARANTINED_HASH', 'INCOMPLETE_HASH') then why end)));
 end $$;
 
 -- the Owner's redaction declaration (A1-OD-3): Owner only, PWA only, bound to identity, revision and SHA-256 (DOC-SIN-11)
@@ -814,7 +955,8 @@ begin
     perform bnx.fail('DECLARATION_NOT_APPLICABLE', 'P0409'); end if;
   insert into bnx_doc.document_declaration(discovery_id, sha256, source_kind, source_file_id, head_revision_id, md5, mail_message_id,
                                            mime_part, declared_by)
-  values (did, sha, d.source_kind, d.source_file_id, d.head_revision_id, d.md5, d.mail_message_id, d.mime_part, a.member_id);
+  values (did, sha, d.source_kind, d.source_file_id, d.head_revision_id, d.md5, d.mail_message_id, d.mime_part, a.member_id)
+  on conflict (discovery_id, sha256) do nothing;                              -- R-08: a repeated declaration is a no-op
   perform bnx.doc_event(did, 'ADMISSIBLE', 'OWNER_DECLARED_REDACTED', null);
   perform bnx.audit(a, 'doc_declare_redacted', jsonb_build_object('discovery_id', did),
                     jsonb_build_object('sha256', cmd->>'sha256', 'source_kind', d.source_kind), null);
@@ -833,10 +975,33 @@ begin
   rc := bnx.idem_begin(a, 'doc_tag_sin_bearing', cmd); if rc is not null then return rc; end if;
   begin did := (cmd->>'discovery_id')::uuid; exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'discovery_id'); end;
   if bnx.doc_state(did) is distinct from 'ADMISSIBLE' then perform bnx.fail('DECLARATION_NOT_APPLICABLE', 'P0409'); end if;
+  -- 9011 review R-08: these bytes already carry the Owner's declaration, so the tag changes nothing
+  if exists (select 1 from bnx_doc.document_declaration x where x.discovery_id = did and x.sha256 = (bnx.doc_latest_scan(did)).sha256) then
+    return bnx.idem_end(a, 'doc_tag_sin_bearing', cmd, jsonb_build_object('discovery_id', did, 'state', 'ADMISSIBLE',
+                        'declaration_status', 'DECLARED'));
+  end if;
   perform bnx.doc_event(did, 'PENDING_DECLARATION', 'OWNER_TAGGED', null);
   perform bnx.audit(a, 'doc_tag_sin_bearing', jsonb_build_object('discovery_id', did), '{}', null);
   return bnx.idem_end(a, 'doc_tag_sin_bearing', cmd, jsonb_build_object('discovery_id', did, 'state', 'PENDING_DECLARATION'));
 end $$;
+
+-- 9011 review R-09: whether an evidence object may be used. Readers of evidence (9016 vault, PWA) must call
+-- bnx.evidence_usable(): an object is usable only while a document that registered it is ARCHIVED, its scan passed under
+-- the current detector, and its bytes were never quarantined. An object no admitted document registered (R1 evidence from
+-- before 9011) has never been scanned: UNSCANNED, not usable until it passes the Z1 scan.
+create function bnx.evidence_status(p_object uuid) returns text
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select case
+    when not exists (select 1 from bnx.evidence_object o where o.id = p_object) then 'NOT_FOUND'
+    when exists (select 1 from bnx.evidence_object o join bnx_doc.document_scan x on x.sha256 = o.sha256
+                  where o.id = p_object and x.scan_result = 'SIN_CANDIDATE') then 'QUARANTINED'
+    when not exists (select 1 from bnx_doc.document_evidence e where e.evidence_object_id = p_object) then 'UNSCANNED'
+    when exists (select 1 from bnx_doc.document_evidence e where e.evidence_object_id = p_object
+                  and bnx.doc_state(e.discovery_id) = 'ARCHIVED' and bnx.doc_scan_current(e.discovery_id)) then 'USABLE'
+    else 'NOT_CURRENT' end
+$$;
+create function bnx.evidence_usable(p_object uuid) returns boolean
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$ select bnx.evidence_status(p_object) = 'USABLE' $$;
 
 -- step 5 gate (Addendum A1 Rev 1 §5.4, DOC-SIN-12): the Executor re-fetched the bytes for archiving and reports their SHA-256
 -- and identity. Admission only if identity and hash are unchanged, the scan passed under the current detector and the
@@ -869,6 +1034,7 @@ begin
          or d.md5 is distinct from pl->>'md5' or d.mail_message_id is distinct from pl->>'mail_message_id'
          or d.mime_part is distinct from pl->>'mime_part' then 'IDENTITY_CHANGED'
     when sc.sha256 is distinct from decode(pl->>'sha256', 'hex') then 'HASH_MISMATCH'
+    when exists (select 1 from bnx_doc.document_scan x where x.sha256 = sc.sha256 and x.scan_result = 'SIN_CANDIDATE') then 'QUARANTINED_HASH'
     when not bnx.doc_scan_current(did) then 'SCAN_NOT_CURRENT'
     when bnx.doc_needs_declaration(did) and not exists (select 1 from bnx_doc.document_declaration x
                                                          where x.discovery_id = did and x.sha256 = sc.sha256) then 'DECLARATION_MISSING'

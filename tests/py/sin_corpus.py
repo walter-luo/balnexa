@@ -8,12 +8,15 @@ value to evidence; they record case ids and rule codes only.
 Placeholder grammar inside templates: {name:arg:...}
   {v:<kind>:<seed>:<group>}   nine-digit value; kind luhn | nonluhn | itn_luhn | itn_nonluhn; group see GROUPS
   {hex33:<kind>:<seed>}       the value inside a 33-character hex token
-  {hex20:<kind>:<seed>}       the value inside a 20-character hex token (too short for the exemption)
+  {hex20:<kind>:<seed>}       the value inside a 20-character hex token
+  {hex32:<kind>:<seed>}       the value inside a 32-character hex token (an MD5-length digest)
+  {hexpad:<kind>:<seed>}      23 hex letters glued before the value (review finding R-01)
   {uuid:<kind>:<seed>}        the value inside a UUID-shaped token
   {straddle:<kind>:<seed>}    six digits ending a 32-character hex token, a tab, three more digits (a dump column break)
   {ocrconf:<kind>:<seed>}     the value with one digit written as its confusable letter (OCR cases)
   {run:<n>:<seed>:<variant>}  an n-digit run; variant plain | conf (one confusable letter)
   {pad:<n>}                   n filler letters
+  {nl:<n>}                    n line breaks
 A JSON case's template is a JSON value; a string equal to {"$num": "<placeholder>"} becomes a JSON number.
 """
 import json
@@ -71,6 +74,23 @@ GROUPS = {
     "fullwidth": lambda v: _digits(v, 0xFF10),
     "arabic": lambda v: _digits(v, 0x0660),
     "devanagari": lambda v: _digits(v, 0x0966),
+    # detector v1.1 (9011R; R-02, R-03, R-41)
+    "dot": lambda v: f"{v[:3]}.{v[3:6]}.{v[6:]}",
+    "slash": lambda v: f"{v[:3]}/{v[3:6]}/{v[6:]}",
+    "underscore": lambda v: f"{v[:3]}_{v[3:6]}_{v[6:]}",
+    "minus": lambda v: f"{v[:3]}\u2212{v[3:6]}\u2212{v[6:]}",
+    "comma": lambda v: f"{v[:3]},{v[3:6]},{v[6:]}",
+    "spacedash": lambda v: f"{v[:3]} - {v[3:6]} - {v[6:]}",
+    "newline": lambda v: f"{v[:3]}\n{v[3:6]}\n{v[6:]}",
+    "dotnoise": lambda v: f"{v[:3]} {v[3:6]}. {v[6:]}",
+    "g243": lambda v: f"{v[:2]} {v[2:6]} {v[6:]}",
+    "g45": lambda v: f"{v[:4]} {v[4:]}",
+    "tab243": lambda v: f"{v[:2]}\t{v[2:6]}\t{v[6:]}",
+    "lrm": lambda v: f"{v[:4]}\u200e{v[4:]}",
+    "vs16": lambda v: f"{v[:4]}\ufe0f{v[4:]}",
+    "keycap": lambda v: "".join(c + "\ufe0f\u20e3" for c in v),
+    "dingbat": lambda v: "".join("\u24ff" if c == "0" else chr(0x2775 + int(c)) for c in v),
+    "combining": lambda v: "".join(c + "\u0301" for c in v),
 }
 
 
@@ -99,6 +119,10 @@ def expand(tpl):
             return GROUPS[a[3]](value(a[1], int(a[2])))
         if name == "hex33":
             return "a" * 12 + value(a[1], int(a[2])) + "f" * 12
+        if name == "hexpad":
+            return "a" * 23 + value(a[1], int(a[2]))
+        if name == "hex32":
+            return "a" * 12 + value(a[1], int(a[2])) + "f" * 11
         if name == "hex20":
             return "a" * 5 + value(a[1], int(a[2])) + "f" * 6
         if name == "straddle":
@@ -112,6 +136,8 @@ def expand(tpl):
             return _run(int(a[1]), int(a[2]), a[3])
         if name == "pad":
             return "x" * int(a[1])
+        if name == "nl":
+            return "\n" * int(a[1])
         raise ValueError(name)
     return re.sub(r"\{([a-z0-9_]+(?::[a-z0-9_]+)*)\}", rep, tpl)
 

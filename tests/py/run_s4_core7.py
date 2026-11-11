@@ -75,22 +75,28 @@ def t_owner_path(server, ev):
         "session_replication_role replica": "set session_replication_role = replica",
     }
     res = {k: as_owner_path(server, db, q) for k, q in attempts.items()}
-    appended = as_owner_path(server, db, "insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
+    # 9011 review R-10: an append that would break the chain is refused at INSERT by the audit owner's t_chain_append
+    poisoned = as_owner_path(server, db, "insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
                                          f"select max(seq) + 1, 'pwa', 'forged', '{{}}', '\\x00', null, '\\x00', now() from {T}")
+    gap = as_owner_path(server, db, f"insert into {T}(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
+                                    f"select max(seq) + 5, 'pwa', 'forged', '{{}}', '\\x00', (select hash from {T} order by seq desc limit 1), '\\x00', now() from {T}")
+    appended = as_owner_path(server, db, "select bnx.audit(row(null, null, 'system', null, null)::bnx.actor, 'probe', '{}'::jsonb, '{}'::jsonb, null)")
     with C1.migrator(server, db) as cx:
         n1 = cx.execute(f"select count(*) from {T}").fetchone()[0]
         v1 = cx.execute("select bnx.audit_verify()").fetchone()[0]
     rc, vout = verifier(server, db)
     viol = violations(server, db)
-    json.dump({"attempts": res, "append": appended, "rows": [n0, n1], "audit_verify": [v0, v1], "external": vout, "violations": viol},
+    json.dump({"attempts": res, "append": appended, "poisoned_append": poisoned, "gap_append": gap, "rows": [n0, n1], "audit_verify": [v0, v1], "external": vout, "violations": viol},
               open(os.path.join(ev, "AT-G0R-01_owner_path.json"), "w"), indent=1)
     accepted = [k for k, v in res.items() if v == "ACCEPTED"]
     check(not accepted, f"owner path accepted: {accepted}")
     check(n0 == n1 and v0 == 0 and v1 == 0 and rc == 0 and vout.get("verdict") == "INTACT" and viol == [], f"{n0} {n1} {v0} {v1} {rc} {vout} {viol}")
     check(appended == "ACCEPTED", f"append path (bnx.audit) must keep working: {appended}")
+    check("AUDIT_CHAIN_APPEND" in poisoned and "AUDIT_CHAIN_APPEND" in gap, f"chain-breaking appends: {poisoned} / {gap}")
     return (f"bnx_migrator -> SET ROLE bnx_definer: all {len(attempts)} attempts refused (TRUNCATE table/view, DISABLE TRIGGER, "
             f"DELETE, UPDATE, DROP TABLE, DROP SCHEMA, RENAME, OWNER TO, SET ROLE, CREATE, self-GRANT then TRUNCATE, "
-            f"session_replication_role); append still works (a forged append is what audit_verify detects, AT-CMD-06); "
+            f"session_replication_role); bnx.audit() still appends, while a mis-hashed or gapped INSERT is refused at insert "
+            f"(AUDIT_CHAIN_APPEND, 9011 review R-10); "
             f"{n1} rows unchanged, audit_verify 0, external verifier INTACT, 0 privilege violations")
 
 
@@ -115,6 +121,17 @@ def t_detection(server, ev):
                                    "AUDIT_OWNER_LOGIN", "AUDIT_OWNER_ROLE"),
         "INSERT granted to bnx_app": (f"grant insert on {T} to bnx_app", f"revoke insert on {T} from bnx_app",
                                       "RUNTIME_TABLE_PRIVILEGE", "INSERT_PRIVILEGE"),
+        # 9011 review R-12: implicit rights through a predefined role, and table-shape changes that hide or divert rows
+        "pg_write_all_data granted to bnx_definer": ("grant pg_write_all_data to bnx_definer", "revoke pg_write_all_data from bnx_definer",
+                                                    "AUDIT_TABLE_PRIVILEGE", "EFFECTIVE_WRITE_PRIVILEGE"),
+        "row security with a hiding policy": (f"alter table {T} enable row level security; create policy hide on {T} for select using (seq < 3)",
+                                              f"drop policy hide on {T}; alter table {T} disable row level security",
+                                              "AUDIT_TABLE_SHAPE", "TABLE_SHAPE"),
+        "extra trigger on the chain": (f"create function public.noop_tg() returns trigger language plpgsql as $$ begin return new; end $$; "
+                                       f"create trigger zz_extra before insert on {T} for each row execute function public.noop_tg()",
+                                       f"drop trigger zz_extra on {T}; drop function public.noop_tg()", "", "EXTRA_TRIGGER"),
+        "chain-append check disabled": (f"alter table {T} disable trigger t_chain_append", f"alter table {T} enable trigger t_chain_append",
+                                        "AUDIT_TRIGGER", "TRIGGER"),
     }
     out, bad = {}, []
     for name, (do, undo, rule, ext) in cases.items():
@@ -128,15 +145,18 @@ def t_detection(server, ev):
         got_rule = [x["rule"] for x in v]
         got_ext = vo.get("catalog", [])
         out[name] = {"audit_privileges": got_rule, "external": got_ext, "external_exit": rc, "runner_exit": r.returncode}
-        if not any(rule in g for g in got_rule) or not any(g.startswith(ext) for g in got_ext) or rc != 1 or r.returncode != 7:
+        # an extra trigger is a verifier-only check (the database audit does not enumerate triggers); runner exit 0 then
+        db_ok = (not rule and r.returncode == 0) or (rule and any(rule in g for g in got_rule) and r.returncode == 7)
+        if not db_ok or not any(g.startswith(ext) for g in got_ext) or rc != 1:
             bad.append(name)
     clean_v, (clean_rc, _) = violations(server, db), verifier(server, db)
     json.dump(out, open(os.path.join(ev, "AT-G0R-02_detection.json"), "w"), indent=1)
     check(not bad, f"not detected: {bad}: {json.dumps({k: out[k] for k in bad})}")
     check(clean_v == [] and clean_rc == 0, f"after revert: {clean_v} {clean_rc}")
     return (f"{len(cases)} weakenings made by a superuser (owner back to bnx_definer, TRUNCATE or column UPDATE granted, trigger "
-            f"disabled, SET membership for bnx_migrator, LOGIN for the audit owner, INSERT for bnx_app): each reported by "
-            f"audit_privileges() and by the external verifier (exit 1), runner exit 7; clean again after revert")
+            f"disabled, SET membership for bnx_migrator, LOGIN for the audit owner, INSERT for bnx_app, pg_write_all_data for the "
+            f"definer, a hiding row-security policy, the chain-append check disabled): each reported by audit_privileges() (runner "
+            f"exit 7) and by the external verifier (exit 1); an extra trigger is reported by the verifier; clean again after revert")
 
 
 # ------------------------------------------------------------------------------------------------ B003 and the runner
@@ -264,14 +284,14 @@ def t_anchor(server, ev):
         res[name] = {"audit_verify": av, "without_anchor": [rc_n, o_n.get("verdict")], "with_anchor": [rc_a, o_a.get("verdict"), o_a.get("anchors")]}
         with psycopg.connect(h.dsn(server, "postgres", "postgres"), autocommit=True) as cx:
             cx.execute(f'drop database "{copy}" with (force)')
-    # a forged append through the owner path breaks the hash chain (detected without an anchor)
-    with psycopg.connect(h.dsn(server, "bnx_migrator", db)) as cx:
-        cx.execute("set role bnx_definer")
-        cx.execute(f"insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
-                   f"select max(seq) + 1, 'pwa', 'forged', '{{}}', '\\x00', (select hash from {T} order by seq desc limit 1), '\\x00', now() from {T}")
-        cx.commit()
+    # a mis-hashed append through the owner path is refused at insert (9011 review R-10); the chain stays intact
+    forged = as_owner_path(server, db, f"insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
+                                       f"select max(seq) + 1, 'pwa', 'forged', '{{}}', '\\x00', (select hash from {T} order by seq desc limit 1), '\\x00', now() from {T}")
     rc_f, o_f = verifier(server, db, anchor)
-    res["forged append by the owner path"] = [rc_f, o_f.get("verdict"), o_f.get("chain")]
+    res["forged append by the owner path"] = [forged, rc_f, o_f.get("verdict"), o_f.get("chain")]
+    # R-14: a malformed anchor is an argument error (exit 2), not a failed check
+    rc_m, _o = verifier(server, db, "12:not-a-hash")
+    res["malformed anchor exit"] = rc_m
     json.dump(res, open(os.path.join(ev, "AT-G0R-05_anchor.json"), "w"), indent=1)
     t1, t2 = res["superuser deletes the last 3 rows"], res["superuser rewrites seq 2 and recomputes every later hash"]
     check(rc0 == 0 and o0["verdict"] == "INTACT", f"clean: {o0}")
@@ -279,10 +299,12 @@ def t_anchor(server, ev):
           and any(a.startswith("ANCHOR_MISSING") for a in t1["with_anchor"][2]), f"tail deletion: {t1}")
     check(t2["audit_verify"] == 0 and t2["without_anchor"][1] == "INTACT" and t2["with_anchor"][0] == 1
           and any(a.startswith("ANCHOR_HASH") for a in t2["with_anchor"][2]), f"rewrite: {t2}")
-    check(rc_f == 1 and any(c.startswith("HASH") for c in o_f["chain"]), f"forged: {res['forged append by the owner path']}")
+    check("AUDIT_CHAIN_APPEND" in forged and rc_f == 0 and o_f.get("verdict") == "INTACT", f"forged: {res['forged append by the owner path']}")
+    check(rc_m == 2, f"malformed anchor exit {rc_m}")
     return (f"clean chain INTACT, head {anchor.split(':')[0]} recorded as anchor; superuser tail deletion (V8.6) and full rewrite with "
             f"recomputed hashes (X2): audit_verify 0 and verifier INTACT without an anchor (documented residual), FAILED with the anchor "
-            f"(ANCHOR_MISSING, ANCHOR_HASH); a forged append through the owner path fails the hash check")
+            f"(ANCHOR_MISSING, ANCHOR_HASH); a mis-hashed append through the owner path is refused at insert and the chain stays "
+            f"INTACT (R-10); a malformed --anchor exits 2 (R-14)")
 
 
 def main():

@@ -93,17 +93,24 @@ def t_audit_v2(server, ev):
         amb = cx.execute("select concat_ws('|', 1, null, 'x') = concat_ws('|', 1, 'x', null), "
                          "bnx.audit_canonical_v2(1, null, null, 'x', 'c', '{}', 'h', null, now(), 2::smallint, null, null, null, null) = "
                          "bnx.audit_canonical_v2(1, null, null, null, 'x', '{}', 'h', null, now(), 2::smallint, null, null, null, null)").fetchone()
-        cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, chain_version, at_hashed) "
-                   "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', 2, now() from bnx.audit_event")
-        forged = cx.execute("select bnx.audit_verify(), (select max(seq) from bnx.audit_event)").fetchone()
+        # a mis-hashed v2 row: refused at insert by the audit owner's t_chain_append (9011 review R-10); before B003 the row
+        # would be stored and audit_verify() would name it
+        try:
+            cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, chain_version, at_hashed) "
+                       "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', 2, now() from bnx.audit_event")
+            forged = cx.execute("select bnx.audit_verify(), (select max(seq) from bnx.audit_event)").fetchone()
+        except psycopg.Error as e:
+            forged = ("refused", (e.diag.message_primary or "")[:40])
         cx.rollback()
         cx.execute("set role bnx_definer")
         try:
             cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, chain_version) "
-                       "select max(seq)+1, 'pwa', 'v1-late', '{}', '\\x00', null, '\\x00', 1 from bnx.audit_event")
+                       "select max(seq)+1, 'pwa', 'v1-late', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', 1 from bnx.audit_event")
             raise Fail("v1 row after v2 accepted")
         except psycopg.Error as e:
-            check("AUDIT_CHAIN_VERSION" in str(e), str(e)); late = "AUDIT_CHAIN_VERSION"
+            # t_chain_append (R-10, detail chain_version) fires before t_chain_version; either refusal is the guard
+            check("AUDIT_CHAIN_VERSION" in str(e) or (e.diag.message_primary == "AUDIT_CHAIN_APPEND" and e.diag.message_detail == "chain_version"), str(e))
+            late = e.diag.message_primary + ("" if e.diag.message_primary == "AUDIT_CHAIN_VERSION" else " (chain_version)")
             cx.rollback()
     bad_env = expect_err(H.app.call, "VALIDATION_FAILED", "q_whoami", {**H.owner, "envelope": {"trace_id": "x" * 101}}, {})
     # sessions that audit without resolve_actor (Worker, authn) cannot inject an envelope either (same-family review finding 6)
@@ -119,10 +126,10 @@ def t_audit_v2(server, ev):
                 check(e.diag.message_primary == "VALIDATION_FAILED", str(e)); direct.append(e.diag.message_detail)
     head = one(H, "select bnx.audit_head()")[0]
     H.close()
-    check(tz_ok == 0 and swap is False and amb == (True, False) and forged[0] == forged[1], f"tz={tz_ok} swap={swap} amb={amb} forged={forged}")
+    check(tz_ok == 0 and swap is False and amb == (True, False) and forged == ("refused", "AUDIT_CHAIN_APPEND"), f"tz={tz_ok} swap={swap} amb={amb} forged={forged}")
     return (f"{n_v1} R1 v1 events verify unchanged; first v2 seq {first_v2} (boundary); verify=0 also under TimeZone Asia/Shanghai; "
             f"envelope recorded and hashed; member/connection swap changes the v2 hash; v1 concat_ws ambiguity reproduced, v2 unambiguous; "
-            f"forged v2 row detected at seq {forged[0]}; v1-after-v2 refused ({late}); oversized envelope -> {bad_env}; envelope GUCs set "
+            f"forged v2 row refused at insert ({forged[1]}, R-10); v1-after-v2 refused ({late}); oversized envelope -> {bad_env}; envelope GUCs set "
             f"directly in a session are refused at audit() too {direct}; head {head['seq']}")
 
 
