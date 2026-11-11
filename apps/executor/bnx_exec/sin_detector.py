@@ -241,3 +241,14 @@ def mask_json(v, origin="native", labelled=False):
         return v
     s = v if isinstance(v, str) else json.dumps(v)
     return MASK if scan(s, origin, force_label=labelled) else v
+
+
+def scrub(text, origin="native"):
+    """Guard C3: the text with every candidate replaced by MASK (for log writers)."""
+    out, k = [], 0
+    for h in scan(text, origin):
+        if h["start"] < k:
+            continue
+        out.append(text[k:h["start"]]); out.append(MASK); k = h["end"]
+    out.append(text[k:])
+    return "".join(out)

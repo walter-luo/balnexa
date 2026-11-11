@@ -73,3 +73,58 @@ New tests:
 | L-4 | NFKC is taken from each runtime's Unicode tables (Python 15.x, Node ICU, PostgreSQL). The spec pins the decimal-digit table; rare compatibility characters could normalise differently between runtimes | The corpus covers the characters that matter; AT-SIN-11 fails on any divergence it sees |
 | L-5 | Audits now scan their payload. A cheap pre-filter skips the full scan when no nine-digit pattern exists, and suite timings did not change measurably | Watch in 9011b/c |
 | L-6 | D-9011a-1 is a design refinement made under the delegation | Fold into Addendum A1 Rev 2 |
+
+---
+
+# 9011b — discovery, scan verdicts, declaration and admission
+
+| Field | Value |
+|---|---|
+| Authority | Addendum A1 Rev 1 §2, §4, §5, §7 (DOC-SIN-04/05/06/08/11/12/13/14), guards C3 and C4; Owner decisions A1-OD-2 and A1-OD-3 |
+| Evidence grade | Every PASS below is `AUTHOR_RUNTIME_EVIDENCE` |
+| Scope boundary | Document bytes never reach the database. The Executor stages identities, verdicts and re-fetched hashes only. Registration in Z3 (`bnx.evidence_object`, `bnx.document`, `bnx_doc.document_revision`, Drive archive copy) and the Executor validators follow in 9011c |
+
+## 1. What was built (migration 9011, same file)
+
+| Item | Detail |
+|---|---|
+| `bnx_doc.document_discovery` | Source identity per revision. Drive: `source_file_id`, `head_revision_id`, `md5`, `size_bytes`, `source_mtime`. Mail: `mail_message_id`, `mime_part`. Also module, period, and the original name or `name_withheld`. Append-only |
+| `bnx_doc.document_scan` | One row per verdict: `sha256`, `sin_detector_version`, `scan_result` (`PASSED`, `SIN_CANDIDATE`, `SCAN_INCOMPLETE`), rule codes, locators (positions only; validated), class, `class_uncertain`, `sin_bearing`. Append-only |
+| `bnx_doc.document_declaration` | The Owner's declaration bound to discovery, SHA-256, revision and source identity. Append-only |
+| `bnx_doc.document_state_event` | `DISCOVERED`, `SCANNING`, `QUARANTINED`, `SCAN_INCOMPLETE`, `PENDING_DECLARATION`, `ADMISSIBLE`, `ARCHIVED`, `INVALIDATED`. Append-only, with a transition trigger (`trg_doc_state_transition`). `QUARANTINED` and `INVALIDATED` are terminal. `SCAN_INCOMPLETE` can only be scanned again under a new detector version |
+| `bnx_doc.document_current` | View: state, latest scan, `declaration_status` (`NOT_REQUIRED`, `PENDING`, `DECLARED`, `INVALIDATED`) and `source_fidelity`. The three controls are separate fields; there is no `redaction_status` |
+| Promoters | `wrk_doc_discovered` (a new revision invalidates earlier unarchived ones), `wrk_doc_validated` (verdict, state, Owner notification), `wrk_doc_archived` (the admission gate). They are dispatched by `wrk_promote_staged` (MODIFY of 9010) |
+| Commands | `cmd_doc_declare_redacted` and `cmd_doc_tag_sin_bearing`: Owner only, PWA channel only, tier 3. Not in the MCP catalog, not executable by the worker |
+| Query | `q_doc_redaction_queue` (Owner): pending, quarantined and admissible documents, labelled "Owner-redacted copy — not the issuer's original" where applicable. No locators, no content |
+| Re-scan | `wrk_doc_rescan_due` lists documents whose last scan predates the current detector version (including archived ones). `doc_scan_current` is the gate that later renditions, indexes and AI use must check |
+| Worker C4 | `get_balances` and every other MCP tool response passes `scanJson`. A hit returns `SIN_CANDIDATE_REFUSED`, and the refusal is audited through `wrk_audit_sin_refusal` with the tool name and rule codes only |
+| Worker / Executor C3 | `scrub()` in both detector implementations; the Worker's error log passes it |
+
+## 2. Decisions taken under the delegation — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9011b-1 | The no-release rule of A1-OD-2 is enforced by a transition trigger, not only by the absence of a command | It holds for every present and future function, including direct inserts by the definer (tested) |
+| D-9011b-2 | A verdict computed under any detector version other than the current one is rejected (`DETECTOR_VERSION_STALE`). Admission also requires a scan under the current version | DOC-SIN-14 without a grace window |
+| D-9011b-3 | When admission fails (identity changed, hash mismatch, scan not current, declaration missing), the document returns to `DISCOVERED` with the reason and nothing is written. Re-scan and, where needed, a new declaration follow | Addendum §5.4 |
+| D-9011b-4 | Notification metadata uses the fixed 9010 keys: `record_key` = discovery id, `source_id` = module, `masked_subject` = file name. The file name is included only when it contains no digit at all | DOC-SIN-08 and the 9010 notification contract |
+| D-9011b-5 | A file name that contains a candidate never reaches the database: `stage_write` refuses the whole discovery. The Executor must send `name_withheld` instead (9011c) | Fail closed; the Executor change is recorded for 9011c |
+| D-9011b-6 | The SIN-bearing class list is held in the database (`doc_class_sin_bearing`). The Executor's `sin_bearing` flag can only add to it, and an uncertain class always requires a declaration | Addendum §2 and §3.7 |
+
+## 3. Test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+Local runs, PG16.15 and PG17.11. All suites: R1 40/0/0 (PG16), 38/0/2 (PG17; pg_dump 17 is not installed locally); core1 12, core2 12, core3 9, core4 11 and core5 8 on both majors, all passing; black-box 8/8 on both; simulation exit 0.
+
+| Test | Shows |
+|---|---|
+| AT-SIN-22-27 | T4: `PENDING_DECLARATION`, and archive is refused before the declaration. The declaration is refused for a member, through MCP, for the worker (no EXECUTE) and with a wrong hash. The Owner's declaration makes the document admissible and labelled; it is then archived as `DECLARED` / `OWNER_REDACTED_SOURCE`. Quarantine is terminal: the same bytes and a later PASSED verdict are rejected, the declaration is refused, and five direct state inserts are refused by the trigger even for the definer. There is one notification, without a digit-bearing name. A new revision invalidates the old one. A changed hash or identity at re-fetch sends the document back to `DISCOVERED`. A bank statement is admissible on the scan alone; an Owner tag or an uncertain class requires a declaration. `audit_verify` is 0 |
+| AT-SIN-16,30 | `SCAN_INCOMPLETE` is not re-scannable under the same detector. Stale-version verdicts, unknown fields and text in locators are rejected, and a file name with a candidate is refused at staging. After a simulated detector bump, documents are due for re-scan, admission on an old scan is refused, and an incomplete scan may be retried |
+| AT-SIN-C4 | The real Worker module with a mocked database: responses carrying a Mod-10 value or an ITN are refused, each audited with rule codes only; a clean response passes; log lines are scrubbed |
+
+## 4. Limits
+
+| ID | Item | Handling |
+|---|---|---|
+| L-7 | `ARCHIVED` is recorded as a state; the Z3 writes (evidence object, document row, Drive copy and re-hash, second copy) are not implemented yet | 9011c |
+| L-8 | No Executor exists yet. The verdict, discovery and archive payloads are the contract the Executor must produce | 9011c |
+| L-9 | An archived document found by a later re-scan to contain a candidate moves `ARCHIVED → SCANNING → QUARANTINED`. Removing the archived copies is an incident procedure that does not exist yet | 9011c notes; the erasure command (DL §9) is later |

@@ -535,6 +535,12 @@ HELPERS_NOT_IN_DISPOSITION = {
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",
+    # 9011b document states, declaration and admission (Addendum A1 Rev 1 §5); the disposition names wrk_document_* (OBJ-245),
+    # implemented as wrk_doc_*; reconciled in the disposition when 9011 is complete
+    "bnx.cmd_doc_declare_redacted", "bnx.cmd_doc_tag_sin_bearing", "bnx.q_doc_redaction_queue", "bnx.doc_class_sin_bearing",
+    "bnx.doc_done", "bnx.doc_event", "bnx.doc_latest_scan", "bnx.doc_locators_ok", "bnx.doc_needs_declaration",
+    "bnx.doc_payload_keys_ok", "bnx.doc_reject", "bnx.doc_scan_current", "bnx.doc_state", "bnx.trg_doc_state_transition",
+    "bnx.wrk_audit_sin_refusal", "bnx.wrk_doc_archived", "bnx.wrk_doc_discovered", "bnx.wrk_doc_rescan_due", "bnx.wrk_doc_validated",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

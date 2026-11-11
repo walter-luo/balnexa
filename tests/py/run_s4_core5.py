@@ -3,7 +3,7 @@
 C6). Conventions as run_g0.py. Generated corpus values are synthetic and are never written to evidence: evidence holds case ids,
 rule codes and counts only.
 Usage: run_s4_core5.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""
-import argparse, json, os, subprocess, sys, time, traceback
+import argparse, hashlib, json, os, subprocess, sys, time, traceback
 import psycopg
 import harness as h
 import run_s4_core1 as C1
@@ -176,6 +176,170 @@ def t_mutation(server, ev):
     H.close()
     check(before == "SIN_CANDIDATE" and after, f"{before} {after}")
     return "with the audit guard removed the same posting is accepted, so AT-SIN-08a would fail: the guard is what refuses it"
+
+
+# ------------------------------------------------------------------------------------------------ 9011b document states
+def sha(tag):
+    return hashlib.sha256(("synthetic-document-" + tag).encode()).hexdigest()
+
+
+def promote(H, job, kind, payload):
+    st = C4.stage(H, job, kind, payload)
+    H.worker.call("wrk_promote_staged", st["staging_id"])
+    return C4.one(H, "select result from bnx_intake.staging_payload where id = %s", (st["staging_id"],))[0]
+
+
+def discover(H, fid, rev="r1", name="Synthetic slip.pdf", module="TAX"):
+    return promote(H, "DOC_DISCOVER", "doc_discovered", {"source_kind": "DRIVE_INBOX", "source_file_id": fid, "head_revision_id": rev,
+                   "md5": hashlib.md5((fid + rev).encode()).hexdigest(), "size_bytes": 1024, "source_mtime": "2026-03-01T10:00:00Z",
+                   "module": module, "period_key": "2025", "original_name": name})["discovery_id"]
+
+
+def verdict(H, did, digest, result="PASSED", cls="T4", uncertain=False, version=None, **extra):
+    return promote(H, "DOC_PROCESS", "doc_validated", {"discovery_id": did, "sha256": digest, "scan_result": result,
+                   "sin_detector_version": version or S.VERSION, "rule_codes": ["R_MOD10"] if result == "SIN_CANDIDATE" else [],
+                   "locators": [{"part": "page", "page": 1, "kind": "text_layer", "offset": 120, "length": 11}] if result == "SIN_CANDIDATE" else [],
+                   "doc_class": cls, "class_uncertain": uncertain, "sin_bearing": cls == "T4", **extra})
+
+
+def archive(H, did, digest, fid, rev="r1"):
+    return promote(H, "DOC_PROCESS", "doc_archived", {"discovery_id": did, "sha256": digest, "source_file_id": fid, "head_revision_id": rev,
+                   "md5": hashlib.md5((fid + rev).encode()).hexdigest(), "archived_file_id": "processed-" + fid})
+
+
+def state(H, did):
+    return C4.one(H, "select state, declaration_status, source_fidelity, scan_result from bnx_doc.document_current where discovery_id = %s", (did,))
+
+
+@test("AT-SIN-22-27", "Addendum A1 Rev 1 §5, DOC-SIN-05/11/12/13; A1-OD-2, A1-OD-3 (declaration, admission, no release, invalidation)")
+def t_doc_states(server, ev):
+    H = C4.v2_full(server, "bnx_s4c5docs")
+    out = {}
+    # SIN-bearing class: pending declaration; archive refused before it; only the Owner in the PWA may declare
+    d1 = discover(H, "f-t4-1"); h1 = sha("t4-1")
+    out["t4_after_scan"] = verdict(H, d1, h1)["state"]
+    out["archive_before_declaration"] = archive(H, d1, h1, "f-t4-1").get("reason")
+    out["member"] = C1.expect_err(H.cmd, "FORBIDDEN_ROLE", H.member, "doc_declare_redacted", discovery_id=d1, sha256=h1)
+    out["mcp"] = C1.expect_err(H.cmd, "FORBIDDEN_CHANNEL", C4.bearer(H, ["finance.read"]), "doc_declare_redacted", discovery_id=d1, sha256=h1)
+    try:
+        H.worker.call("cmd_doc_declare_redacted", {"kind": "session"}, {"discovery_id": d1, "sha256": h1}); out["worker"] = "accepted"
+    except psycopg.Error as e:
+        out["worker"] = type(e).__name__
+    out["wrong_hash"] = C1.expect_err(H.cmd, "DECLARATION_NOT_APPLICABLE", H.owner, "doc_declare_redacted", discovery_id=d1, sha256=sha("other"))
+    dec = H.cmd(H.owner, "doc_declare_redacted", discovery_id=d1, sha256=h1)
+    queue = H.q(H.owner, "doc_redaction_queue")["items"]
+    lab = [i["label"] for i in queue if i["discovery_id"] == d1]
+    out["archive"] = archive(H, d1, h1, "f-t4-1")["state"]
+    out["t4_final"] = state(H, d1)
+    # quarantine: terminal, one notification per SHA-256, no declaration, no state change even by the definer
+    d2 = discover(H, "f-t4-2", name="T4 2025 copy.pdf"); h2 = sha("t4-2")
+    out["quarantine"] = verdict(H, d2, h2, result="SIN_CANDIDATE")["state"]
+    out["same_bytes_again"] = verdict(H, d2, h2, result="SIN_CANDIDATE").get("reason")
+    out["passed_after_quarantine"] = verdict(H, d2, h2).get("reason")
+    out["declare_quarantined"] = C1.expect_err(H.cmd, "DECLARATION_NOT_APPLICABLE", H.owner, "doc_declare_redacted", discovery_id=d2, sha256=h2)
+    blocked = {}
+    for st_ in ("ADMISSIBLE", "SCANNING", "ARCHIVED", "PENDING_DECLARATION", "DISCOVERED"):
+        try:
+            C1.installer_sql(server, H.db, "insert into bnx_doc.document_state_event(discovery_id, state) values (%s, %s) returning seq", (d2, st_))
+            blocked[st_] = "accepted"
+        except psycopg.Error as e:
+            blocked[st_] = e.diag.message_primary
+    notes = C4.sql(H, "select dedupe_key, minimal_metadata from bnx_intake.notification where dedupe_key like 'SIN_QUARANTINE:%%'")
+    # declaration is bound to the revision: a new revision invalidates; admission re-checks identity and hash
+    d3 = discover(H, "f-t4-3"); h3 = sha("t4-3"); verdict(H, d3, h3)
+    H.cmd(H.owner, "doc_declare_redacted", discovery_id=d3, sha256=h3)
+    d3b = discover(H, "f-t4-3", rev="r2")
+    out["old_revision"] = state(H, d3)[0]
+    out["new_revision_needs_scan"] = state(H, d3b)[0]
+    d4 = discover(H, "f-t4-4"); h4 = sha("t4-4"); verdict(H, d4, h4); H.cmd(H.owner, "doc_declare_redacted", discovery_id=d4, sha256=h4)
+    out["refetch_hash_mismatch"] = archive(H, d4, sha("tampered"), "f-t4-4").get("reason")
+    verdict(H, d4, h4)
+    out["redeclare_needed_after_return"] = state(H, d4)[0]
+    d5 = discover(H, "f-t4-5"); h5 = sha("t4-5"); verdict(H, d5, h5); H.cmd(H.owner, "doc_declare_redacted", discovery_id=d5, sha256=h5)
+    out["identity_changed"] = archive(H, d5, h5, "f-t4-5", rev="r9").get("reason")
+    # not SIN-bearing: admissible on the scan alone; an Owner tag or an uncertain class requires a declaration
+    d6 = discover(H, "f-bank-1", module="FINANCE"); h6 = sha("bank-1")
+    out["bank"] = verdict(H, d6, h6, cls="BANK_STATEMENT")["state"]
+    out["bank_view"] = state(H, d6)
+    out["tagged"] = H.cmd(H.owner, "doc_tag_sin_bearing", discovery_id=d6)["state"]
+    d7 = discover(H, "f-unk-1", module="FINANCE")
+    out["uncertain"] = verdict(H, d7, sha("unk-1"), cls="BANK_STATEMENT", uncertain=True)["state"]
+    verify = C4.one(H, "select bnx.audit_verify()")[0]
+    H.close()
+    json.dump(out | {"blocked_transitions": blocked, "quarantine_notes": len(notes)}, open(os.path.join(ev, "AT-SIN-22-27.json"), "w"), indent=1, default=str)
+    check(out["t4_after_scan"] == "PENDING_DECLARATION" and out["archive_before_declaration"] == "NOT_ADMISSIBLE", f"{out}")
+    check(out["worker"] == "InsufficientPrivilege" and dec["declaration_status"] == "DECLARED", f"{out} {dec}")
+    check(lab == ["Owner-redacted copy — not the issuer's original"], f"label {lab}")
+    check(out["archive"] == "ARCHIVED" and list(out["t4_final"]) == ["ARCHIVED", "DECLARED", "OWNER_REDACTED_SOURCE", "PASSED"], f"{out}")
+    check(out["quarantine"] == "QUARANTINED" and out["same_bytes_again"] == "TERMINAL_STATE" and out["passed_after_quarantine"] == "TERMINAL_STATE", f"{out}")
+    check(all(v == "DOC_STATE_TRANSITION" for v in blocked.values()), f"quarantine left by {blocked}")
+    check(len(notes) == 1 and notes[0][1].get("masked_subject") is None, f"notifications {notes}")
+    check(out["old_revision"] == "INVALIDATED" and out["new_revision_needs_scan"] == "DISCOVERED", f"{out}")
+    check(out["refetch_hash_mismatch"] == "HASH_MISMATCH" and out["identity_changed"] == "IDENTITY_CHANGED", f"{out}")
+    check(out["redeclare_needed_after_return"] == "ADMISSIBLE", f"{out}")
+    check(out["bank"] == "ADMISSIBLE" and list(out["bank_view"])[1:3] == ["NOT_REQUIRED", "AS_RECEIVED_FROM_OWNER"], f"{out}")
+    check(out["tagged"] == "PENDING_DECLARATION" and out["uncertain"] == "PENDING_DECLARATION" and verify == 0, f"{out} {verify}")
+    return (f"T4: PENDING_DECLARATION, archive refused before declaration; declaration refused for member ({out['member']}), MCP "
+            f"({out['mcp']}), worker (no EXECUTE), wrong hash; Owner declaration -> ADMISSIBLE, labelled 'Owner-redacted copy', archived "
+            f"(DECLARED, OWNER_REDACTED_SOURCE). Quarantine terminal: same bytes and a later PASSED verdict rejected, declaration refused, "
+            f"5 direct transitions refused by the trigger even as definer, one notification without the digit-bearing file name. A new "
+            f"revision invalidates the old one; hash or identity changed at re-fetch -> back to DISCOVERED, nothing archived. Bank "
+            f"statement admissible on the scan alone (NOT_REQUIRED, AS_RECEIVED_FROM_OWNER); Owner tag and uncertain class -> "
+            f"PENDING_DECLARATION; audit_verify {verify}")
+
+
+@test("AT-SIN-16,30", "Addendum A1 Rev 1 DOC-SIN-14, §3.7 (detector version, SCAN_INCOMPLETE, payload validation)")
+def t_doc_versions(server, ev):
+    H = C4.v2_full(server, "bnx_s4c5ver")
+    out = {}
+    d1 = discover(H, "f-inc-1"); h1 = sha("inc-1")
+    out["incomplete"] = verdict(H, d1, h1, result="SCAN_INCOMPLETE")["state"]
+    out["retry_same_version"] = verdict(H, d1, h1).get("reason")
+    out["stale_version"] = verdict(H, discover(H, "f-old-1"), sha("old-1"), version="0.9.0").get("reason")
+    out["unknown_field"] = verdict(H, discover(H, "f-x-1"), sha("x-1"), page_text="hello").get("reason")
+    out["locator_with_text"] = verdict(H, discover(H, "f-x-2"), sha("x-2"), result="SIN_CANDIDATE",
+                                       locators=[{"part": "page", "kind": "text 4417"}]).get("reason")
+    out["name_with_candidate"] = C1.expect_err(C4.stage, "SIN_CANDIDATE", H, "DOC_DISCOVER", "doc_discovered",
+                                               {"source_kind": "DRIVE_INBOX", "source_file_id": "f-y-1", "head_revision_id": "r1", "md5": "0" * 32,
+                                                "module": "TAX", "original_name": "SIN " + SC.value("nonluhn", 71)})
+    d2 = discover(H, "f-ok-1", module="FINANCE"); h2 = sha("ok-1"); verdict(H, d2, h2, cls="BANK_STATEMENT")
+    d3 = discover(H, "f-ok-2", module="FINANCE"); h3 = sha("ok-2"); verdict(H, d3, h3, cls="BANK_STATEMENT"); archive(H, d3, h3, "f-ok-2")
+    due0 = H.worker.call("wrk_doc_rescan_due")
+    # detector version bump (simulated in this test database only): re-scan due, admission refused until re-scanned
+    body = C1.installer_sql(server, H.db, "select pg_get_functiondef('bnx.sin_detector_spec()'::regprocedure)")[0][0]
+    with C1.migrator(server, H.db) as cx:
+        cx.execute(body.replace('"version":"1.0.0"', '"version":"1.0.1"')); cx.commit()
+    due1 = H.worker.call("wrk_doc_rescan_due")
+    out["archive_on_old_scan"] = archive(H, d2, h2, "f-ok-1").get("reason")
+    out["incomplete_retry_after_bump"] = verdict(H, d1, h1, version="1.0.1", cls="BANK_STATEMENT")["state"]
+    H.close()
+    json.dump(out | {"due_before": due0, "due_after": due1}, open(os.path.join(ev, "AT-SIN-16_30.json"), "w"), indent=1, default=str)
+    check(out["incomplete"] == "SCAN_INCOMPLETE" and out["retry_same_version"] == "RESCAN_NOT_ALLOWED", f"{out}")
+    check(out["stale_version"] == "DETECTOR_VERSION_STALE" and out["unknown_field"] == "UNKNOWN_FIELD"
+          and out["locator_with_text"] == "VALIDATION_FAILED" and out["name_with_candidate"] == "SIN_CANDIDATE", f"{out}")
+    check(due0 == [] and set(due1) >= {d1, d2, d3}, f"rescan due {due0} {due1}")
+    check(out["archive_on_old_scan"] == "SCAN_NOT_CURRENT" and out["incomplete_retry_after_bump"] == "ADMISSIBLE", f"{out}")
+    return (f"SCAN_INCOMPLETE cannot be re-scanned under the same detector ({out['retry_same_version']}); stale detector verdicts, unknown "
+            f"fields and locators carrying text are rejected; a file name with a candidate is refused at staging; after a detector "
+            f"version bump {len(due1)} documents are due for re-scan (incl. ARCHIVED), admission on an old scan returns the document to "
+            f"DISCOVERED, and the incomplete scan may be retried")
+
+
+@test("AT-SIN-C4", "Addendum A1 Rev 1 guards C4, C3 (Worker: MCP responses and log lines)")
+def t_worker_guard(server, ev):
+    vals = [SC.value("luhn", 61), SC.value("itn_nonluhn", 62)]
+    r = subprocess.run(["node", os.path.join(HERE, "sin_worker_guard.mjs")], input=json.dumps({"values": vals, "clean": "plain"}),
+                       capture_output=True, text=True)
+    check(r.returncode == 0, r.stderr[-800:])
+    o = json.loads(r.stdout)
+    json.dump(o, open(os.path.join(ev, "AT-SIN-C4.json"), "w"), indent=1)
+    c = o["cases"]
+    check(c[0]["refused"] and c[1]["refused"] and not c[2]["refused"] and not any(x["leaked"] for x in c), f"{c}")
+    check([a["rules"] for a in c[0]["audits"]] == [["R_MOD10"]] and [a["rules"] for a in c[1]["audits"]] == [["R_ITN"]]
+          and all(a["role"] == "bnx_worker" and not a["has_value"] for x in c for a in x["audits"]) and c[2]["audits"] == [], f"{c}")
+    check(o["scrub"] == {"masked": True, "leaked": False}, f"{o['scrub']}")
+    return ("get_balances responses carrying a Mod-10 value or an ITN are refused (SIN_CANDIDATE_REFUSED), each refusal audited through "
+            "wrk_audit_sin_refusal with rule codes only; a clean response passes unchanged; log lines are scrubbed")
 
 
 @test("AT-SIN-C6", "Addendum A1 Rev 1 guard C6 (repository scan with the reference detector)")

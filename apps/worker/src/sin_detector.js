@@ -167,3 +167,19 @@ export function maskJson(v, origin = 'native', labelled = false) {
   }
   return v;
 }
+
+// guard C3: a log line with every candidate replaced by the mask (positions are code points of the original text)
+export function scrub(text) {
+  const s = String(text ?? '');
+  const hits = scan(s);
+  if (!hits.length) return s;
+  const cps = Array.from(s), out = [];
+  let k = 0;
+  for (const h of hits) {
+    if (h.start < k) continue;
+    out.push(cps.slice(k, h.start).join(''), MASK);
+    k = h.end;
+  }
+  out.push(cps.slice(k).join(''));
+  return out.join('');
+}
