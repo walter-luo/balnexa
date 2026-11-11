@@ -85,6 +85,7 @@ Local runs on PG16.15 and PG17.11:
 - **Full regression:** R1 40/0/0 on PG16 and 38/0/2 on PG17 (pg_dump 17 is not installed locally); core3–core7 all PASS; the new core8 7/0/0 on both majors; black-box 8/8; simulation exit 0.
 - **core1 and core2:** in that run each had one failure, AT-INV-01 and AT-FLG-11, because their declared object lists did not include the new 9012a objects. After the lists were updated, both tests were re-run and pass on both majors.
 - **CI:** runs every suite on both majors with PGDG builds.
+- **FAMILY re-run (L-9012-1, commit 65179fb):** local full regression green again on PG16.15 and PG17.11, with the same R1 counts (40/0/0 and 38/0/2), core1–core7 unchanged, core8 8/0/0 including AT-R28-FAM, black-box 8/8, simulation exit 0. CI run 43026225677 green on both majors, with PG17 R1 at 40/0/0. AT-REG-01-03 now counts 29 seed institutions with 29 unique codes (FAMILY added).
 
 | Test | Shows |
 |---|---|
