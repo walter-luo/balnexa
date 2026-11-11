@@ -128,3 +128,67 @@ Local runs, PG16.15 and PG17.11. All suites: R1 40/0/0 (PG16), 38/0/2 (PG17; pg_
 | L-7 | `ARCHIVED` is recorded as a state; the Z3 writes (evidence object, document row, Drive copy and re-hash, second copy) are not implemented yet | 9011c |
 | L-8 | No Executor exists yet. The verdict, discovery and archive payloads are the contract the Executor must produce | 9011c |
 | L-9 | An archived document found by a later re-scan to contain a candidate moves `ARCHIVED → SCANNING → QUARANTINED`. Removing the archived copies is an incident procedure that does not exist yet | 9011c notes; the erasure command (DL §9) is later |
+
+# 9011c — Executor document validator (Z1) and Z3 registration at admission
+
+Scope: Addendum A1 Rev 1 §3, §4 (zone Z1), §5.4, §7 DOC-SIN-01/02/03/07/12 and tests AT-SIN-01…07, 13, 29, 30, 31.
+Synthetic fixtures only, built in memory at test time (`tests/py/doc_fixtures.py`). No real document was downloaded or used.
+No cloud resource was touched. Libraries come from PyPI only, pinned with hashes (`apps/executor/requirements.txt`). The
+OCR engine and strace come from the Ubuntu archive.
+
+## 1. What was built
+
+| Part | Content |
+|---|---|
+| `apps/executor/bnx_exec/doc_validator.py` | `validate(bytes, name)` returns the verdict only: `sha256`, `sin_detector_version`, `scan_result`, rule codes and positional locators. No text, value or file name leaves it. It writes no file, opens no network connection and silences library logging (guard C3) |
+| Formats | Detected from magic bytes, not from the name. PDF, PNG, JPEG, XLSX, EML, CSV/TXT/MD and OFX/QFX are read. ZIP, gzip, bzip2, 7z, RAR, tar, macro workbooks (`vbaProject.bin`), embedded OLE objects, encrypted PDFs or ZIP members, PDFs with JavaScript or Launch actions, and unknown binaries are refused with a rule code (`SCAN_INCOMPLETE`) |
+| PDF, pass 1 (carve) | Independent of any cross-reference table, so objects that no revision references any more are included. Covers string operands (literal and hex) in the file and in every decoded stream, XMP and other metadata streams, and embedded files, which are validated recursively. Plain text hidden in an untyped stream is scanned. Graphics operands, font programs and CMaps are not scanned |
+| PDF, pass 2 (structure, per revision) | For every `%%EOF` prefix: the text layer of each page (this includes hidden optional-content layers and text under drawn boxes), annotations, form fields, Info, attachments, and OCR of each page image. A form field named or described as a SIN field is labelled |
+| Images | EXIF, XMP, PNG text and IPTC metadata. OCR through the `tesseract` binary on stdin/stdout, with word confidences, under origin `ocr` (rules `R_OCR9` and `R_OCR_RUN`). If OCR is missing, fails or times out, the result is `SCAN_INCOMPLETE` |
+| XLSX | Every sheet, including hidden and very hidden sheets, row by row. Also comments, defined names, document properties, and the raw text of every XML part. Embedded media are validated recursively. A column whose header is a SIN label is judged as labelled |
+| EML | Every header and every MIME part, including HTML. Attachments and attached messages are validated recursively |
+| Limits | 25 MiB per file, nesting depth 3, at most 2,000 ZIP members and 100 MiB uncompressed, 120 s per file. Exceeding any limit gives `SCAN_INCOMPLETE` |
+| Staging payloads | `discovered_payload` omits the file name when it holds a candidate, so the database records `name_withheld` (D-9011b-5). `validated_payload` builds the 9011b verdict. `archived_payload` carries the SHA-256, size and type of the re-fetched bytes |
+| Z3 registration (migration 9011) | In the admission gate `wrk_doc_archived`: `bnx.evidence_object` (the SHA-256 the Executor computed over the re-fetched bytes, `integrity_state = verified`, `storage_kind = drive_processed`, `r2_key` NULL, `archive_state = single_copy`), `bnx.evidence_file` (`drive_inbox` or `mail_exact_fetch`, the MIME type, `archived`), and the new write-once link table `bnx_doc.document_evidence`. The link records `source_fidelity`, the declaration (when one is required), the scan and the Drive file id of the Processed copy. Identical bytes share one evidence object. Re-admission after a re-scan writes no new rows |
+| Database change | A scan with no document class now needs a declaration (`doc_needs_declaration`). `doc_archived` requires `size_bytes` and an allowlisted `mime` |
+
+## 2. Decisions taken under the delegation — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9011c-1 | The validator fails closed. Any extraction failure, refused format, limit or OCR failure adds a rule code and gives `SCAN_INCOMPLETE`. A hit takes precedence and gives `SIN_CANDIDATE` | §3.7. A partial scan must never pass |
+| D-9011c-2 | PDFs are not scanned as raw bytes. Pass 1 extracts string operands; pass 2 reads the structure revision by revision | A raw byte scan flagged an annotation rectangle: three three-digit coordinates separated by spaces form a nine-digit sequence, and that one passed Mod 10. Coordinates and widths are not text. Hidden places (old revisions, orphan objects, metadata, embedded files) stay covered by the carve pass |
+| D-9011c-3 | D-A1-4 resolved: `t_ocr` stays at 0.90. The lowest word confidence on clean synthetic digit lines was 0.926–0.950 at 18–44 px (AT-SIN-13 evidence). The spec file is unchanged at 1.0.0; its "provisional" note will be updated with the next version bump, so that the spec content does not change without a version change | Clean readings stay above the threshold; the confusable glyphs S, B, G, Z and the pipe character produce `R_OCR_RUN` |
+| D-9011c-4 | OCR runs the `tesseract` binary directly over stdin/stdout, with a minimal environment, one thread, and a timeout equal to the remaining time budget. `pytesseract` is not used | `pytesseract` writes temporary image files. AT-SIN-31 traces the OCR child too |
+| D-9011c-5 | A verdict without a document class counts as uncertain, so it needs the Owner's declaration. The validator's default is `class_uncertain = true` until a classifier exists | Fail closed (§3.7, D-9011b-6) |
+| D-9011c-6 | The trusted SHA-256 writer for these documents is the lease-bound `doc_archived` staging payload, promoted by the worker. `verified_by_execution` records `executor:doc_archived:<staging id>`. `acquired_by` is the active Owner, meaning "uploaded by" only (INV-33) | R1 rule: `evidence_object.sha256` is set only from the Executor's hash. The Executor's cloud identity is M0-B |
+| D-9011c-7 | Text from separate cells, XML elements, PDF strings or HTML elements is joined with " \| ". No nine-digit sequence can span two cells, but label proximity still can | Three-digit numbers in adjacent cells would otherwise read as one nine-digit number (tested). Labels next to a value in the neighbouring cell are still found |
+| D-9011c-8 | The tests are a new suite, `run_s4_core6.py`, picked up by the CI loop. CI installs the hash-pinned wheels plus `tesseract-ocr`, `tesseract-ocr-eng` and `strace` | One suite per increment, as for core1–core5 |
+
+## 3. Test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+Local runs, PG16.15 and PG17.11, pypdf 6.17.0, openpyxl 3.1.5, Pillow 12.3.0, tesseract 5.3.4. All suites: R1 40/0/0 (PG16), 38/0/2 (PG17; pg_dump 17 is not installed locally); core1 12, core2 12, core3 9, core4 11, core5 8 and core6 8 on both majors, all passing; black-box 8/8 on both; simulation exit 0; repository scan 0 hits.
+
+| Test | Shows |
+|---|---|
+| AT-SIN-01-04 | 11 synthetic PDFs. These give `SIN_CANDIDATE`, each through its own extraction path: a visible value; a value under a black box (text layer); a value only in revision 0 of an incremental update (the last revision alone is clean); and a value only in Info, XMP, an annotation, a form field, a hidden optional-content layer or an embedded file. Clean and properly redacted PDFs give `PASSED`. A field named `sin` labels its value. Graphics coordinates are not read as numbers. End to end: `QUARANTINED`, archive refused, no Z3 row, and no value in staging, scans, notifications or audit |
+| AT-SIN-05,07 | OCR: a visible value in a PNG scan and in an image-only PDF gives `R_OCR9`. The same scans with a box over the number pass. End to end, the visible scan is quarantined. The redacted T4 waits in `PENDING_DECLARATION`; the Owner declares it; the queue labels it; and admission writes `evidence_object`, `evidence_file` and `document_evidence` (`OWNER_REDACTED_SOURCE`, declaration linked). `declaration_status`, `scan_result` and `sin_detector_version` are separate fields. The Z3 rows are write-once |
+| AT-SIN-06 | XLSX values in a very hidden sheet, a comment, a property, and under a `SIN` column header (Mod-10-invalid) are found. Adjacent three-digit cells stay clean. An EML value in an attachment of an attached message is found. CSV and OFX are scanned |
+| AT-SIN-13 | Real tesseract. Mod-10-invalid nine digits give `R_OCR9`. 8- and 10-digit runs with a confusable glyph give `R_OCR_RUN`. A clean 8-digit run gives no hit. The t_ocr measurement for D-9011c-3 |
+| AT-SIN-29 | Bytes changed between scan and archive give `HASH_MISMATCH`: the document returns to `DISCOVERED` and no Z3 row is written. After a fresh scan the statement is admitted as `AS_RECEIVED_FROM_OWNER`. The same bytes arriving by mail share the evidence object |
+| AT-SIN-30 | These all give `SCAN_INCOMPLETE`, each with its own rule code: encrypted PDF, damaged image, OCR timeout, missing OCR engine, JavaScript, ZIP, macro workbook, unknown binary, oversize file and truncated PDF. End to end, the encrypted PDF stays `SCAN_INCOMPLETE`, and an uncertain or missing class stays `PENDING_DECLARATION`; archive is refused |
+| AT-SIN-31 | Four runs in a fresh process under `strace -f`: success, quarantine, OCR timeout, and SIGKILL during OCR. No file was created or written, TMPDIR, HOME and the working directory stayed empty, and stdout and stderr held no value |
+| AT-SIN-11c | All 73 native corpus cases written as UTF-8 text files give the same verdict, rule codes and hit count as `sin_detector.scan` |
+
+## 4. Limits
+
+| ID | Item | Handling |
+|---|---|---|
+| L-7 | Now partly closed. Z3 registration is done (evidence object, evidence file, link). Still open: the Drive Processed copy and re-hash (`wrk_record_archive_event`, 0109), the second copy (`dual_verified`), and `bnx.document` rows (statement segmentation) | Drive copy: M1/M0-B-08. Segmentation: the statement work packages |
+| L-8 | Now partly closed. The validator exists as library code. There is no Executor job runner, Drive or mail fetcher, lease client or cloud identity | M1 / M0-B |
+| L-9 | Unchanged. A re-scan that quarantines an `ARCHIVED` document leaves its write-once Z3 rows in place. Every later use must check `doc_scan_current` and the state | Incident and erasure procedure (DL §9), later |
+| L-10 | OCR misreadings made with high confidence are not flagged: `l`, `I` and `O` read as digits give a clean 8- or 10-digit run. A nine-digit value is always flagged (`R_OCR9`), even when misread | Inherent to OCR; documented for the Owner |
+| L-11 | Pages are not rasterised. Text drawn as vector outlines, or set in a font without a usable Unicode mapping, can be missed when the page has no image to OCR | Needs a PDF rasteriser (poppler or pdfium) in the Executor container: M1 |
+| L-12 | Anything outside the format allowlist (DOCX, HEIC, TIFF, JBIG2 or CCITT page images, and others) gives `SCAN_INCOMPLETE`. The Owner converts such a file and drops it in again | Fail closed by design |
+| L-13 | There is no document classifier. Every document without an Owner-supplied class needs a declaration | Safe, at the cost of more Owner work; a classifier is a later increment |
+| L-14 | AT-SIN-07 "every view labels it": the label is in the redaction queue and `source_fidelity` is stored with the evidence. The evidence and rendition views do not exist yet | 9016 renditions and the PWA must show the label from `bnx_doc.document_evidence.source_fidelity` |

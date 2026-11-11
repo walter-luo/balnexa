@@ -8,6 +8,8 @@
 --   bnx.stage_write                (9010)  masks index payloads, refuses other kinds (DOC-SIN-10, D-9011a-2)
 --   bnx.wrk_consume_shared_index   (9010)  blocks masked records, stores no columns for them (DOC-SIN-10)
 --   bnx.wrk_promote_staged         (9010)  dispatches doc_discovered / doc_validated / doc_archived to the 9011b promoters
+-- 9011c adds no MODIFY: it writes bnx.evidence_object and bnx.evidence_file (0004, 9004) through new code in the admission
+-- gate bnx.wrk_doc_archived, within the existing R1 constraints and write-once triggers.
 
 -- ---------- SIN/ITN detector (Addendum A1 Rev 1 §3; guard C1; spec/sin-detector/sin_detector_v1.json) ----------
 -- Same algorithm as apps/executor/bnx_exec/sin_detector.py and apps/worker/src/sin_detector.js for origins 'native' and
@@ -234,7 +236,8 @@ alter table bnx_intake.intake_exception drop constraint intake_exception_class_c
 -- ======================================================================================================================
 -- 9011b: discovery, transient scan verdicts, Owner redaction declaration and admission (Addendum A1 Rev 1 §2, §4, §5, §7;
 -- Owner decisions A1-OD-2 and A1-OD-3). Document bytes never reach the database: the Executor stages identities and verdicts
--- only (zones Z0-Z2). Registration of evidence objects in Z3 (bnx.evidence_object / bnx.document) follows in 9011c.
+-- only (zones Z0-Z2). 9011c registers the admitted copy in Z3 (bnx.evidence_object, bnx.evidence_file and the link table
+-- bnx_doc.document_evidence) inside the admission gate, under the R1 write-once rules.
 -- ======================================================================================================================
 
 create table bnx_doc.document_discovery(
@@ -282,6 +285,20 @@ create trigger t_append_only before update or delete on bnx_doc.document_declara
 create trigger t_append_only before update or delete on bnx_doc.document_state_event for each row execute function bnx.trg_append_only();
 insert into bnx.table_class values ('document_discovery','E'),('document_scan','E'),('document_declaration','E'),('document_state_event','E');
 
+-- 9011c: the Z3 registration of an admitted document (one row per admission; write-once). source_fidelity and the declaration
+-- are copied at admission so the evidence keeps the three fields of A1-OD-3 separately even after a later re-scan.
+create table bnx_doc.document_evidence(
+  discovery_id uuid primary key references bnx_doc.document_discovery,
+  evidence_object_id uuid not null references bnx.evidence_object,
+  evidence_file_id uuid not null references bnx.evidence_file,
+  scan_id uuid not null references bnx_doc.document_scan,
+  declaration_id uuid references bnx_doc.document_declaration,
+  source_fidelity text not null check (source_fidelity in ('OWNER_REDACTED_SOURCE','AS_RECEIVED_FROM_OWNER')),
+  archived_file_id text not null, staging_id uuid not null, registered_at timestamptz not null default now(),
+  check ((source_fidelity = 'OWNER_REDACTED_SOURCE') = (declaration_id is not null)));
+create trigger t_append_only before update or delete on bnx_doc.document_evidence for each row execute function bnx.trg_append_only();
+insert into bnx.table_class values ('document_evidence','E');
+
 -- SIN-bearing classes (Addendum A1 Rev 1 §2); an uncertain class or an Owner tag also requires a declaration
 create function bnx.doc_class_sin_bearing(p_class text) returns boolean
 language sql immutable set search_path = pg_catalog, pg_temp as $$
@@ -301,7 +318,9 @@ $$;
 
 create function bnx.doc_needs_declaration(p_disc uuid) returns boolean
 language sql stable set search_path = pg_catalog, pg_temp as $$
-  select coalesce((select s.sin_bearing or s.class_uncertain or bnx.doc_class_sin_bearing(s.doc_class) from bnx.doc_latest_scan(p_disc) s), true)
+  -- 9011c: a scan without a class is uncertain (fail closed, D-9011c-5)
+  select coalesce((select s.sin_bearing or s.class_uncertain or s.doc_class is null or bnx.doc_class_sin_bearing(s.doc_class)
+                     from bnx.doc_latest_scan(p_disc) s), true)
       or exists (select 1 from bnx_doc.document_state_event e where e.discovery_id = p_disc and e.reason = 'OWNER_TAGGED')
 $$;
 
@@ -539,7 +558,8 @@ end $$;
 -- declaration (when required) is bound to that hash. Any mismatch writes nothing and returns the document to DISCOVERED.
 create function bnx.wrk_doc_archived(p_staging uuid) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare s record; pl jsonb; did uuid; d record; sc bnx_doc.document_scan; why text;
+declare s record; pl jsonb; did uuid; d record; sc bnx_doc.document_scan; why text; obj uuid; fil uuid;
+        dec uuid; own uuid;
 begin
   if session_user <> 'bnx_worker' then perform bnx.fail('FORBIDDEN', 'P0403'); end if;
   select * into s from bnx_intake.staging_payload where id = p_staging for update;
@@ -547,7 +567,12 @@ begin
   if s.state in ('PROMOTED','REJECTED') then return s.result; end if;
   pl := s.payload;
   if not bnx.doc_payload_keys_ok(pl, array['discovery_id','sha256','source_file_id','head_revision_id','md5','mail_message_id','mime_part',
-                                         'archived_file_id']) or coalesce(pl->>'sha256', '') !~ '^[0-9a-f]{64}$' then
+                                         'archived_file_id','size_bytes','mime']) or coalesce(pl->>'sha256', '') !~ '^[0-9a-f]{64}$'
+     or coalesce(pl->>'archived_file_id', '') !~ '^[A-Za-z0-9_-]{1,128}$'
+     or coalesce(pl->>'size_bytes', '') !~ '^[0-9]{1,9}$' or (pl->>'size_bytes')::bigint not between 1 and 26214400
+     or not coalesce(pl->>'mime', '') = any(array['application/pdf','image/png','image/jpeg','text/csv','text/plain','text/markdown',
+                                                 'message/rfc822','application/x-ofx',
+                                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']) then
     return bnx.doc_reject(p_staging, 'VALIDATION_FAILED'); end if;
   begin did := (pl->>'discovery_id')::uuid; exception when others then return bnx.doc_reject(p_staging, 'VALIDATION_FAILED'); end;
   select * into d from bnx_doc.document_discovery where id = did for update;
@@ -567,8 +592,40 @@ begin
     perform bnx.doc_event(did, 'DISCOVERED', why, p_staging);
     return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', 'DISCOVERED', 'reason', why));
   end if;
+  -- 9011c: Z3 registration (R1 write-once rules, 0004/9004). The object is identified by the SHA-256 the Executor computed
+  -- over the re-fetched bytes; the copy lives in the Drive Processed folder until O-7 (storage_kind drive_processed, r2_key
+  -- NULL, archive_state single_copy). Identical bytes admitted twice share one object (the R1 unique index on sha256).
+  -- re-admission after a re-scan (DOC-SIN-14): the evidence is write-once and already registered for these bytes
+  select e.evidence_object_id, e.evidence_file_id into obj, fil from bnx_doc.document_evidence e where e.discovery_id = did;
+  if obj is not null then
+    perform bnx.doc_event(did, 'ARCHIVED', 'READMITTED', p_staging);
+    return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', 'ARCHIVED',
+                                                      'evidence_object_id', obj, 'evidence_file_id', fil));
+  end if;
+  fil := gen_random_uuid();
+  select id into own from bnx.member where role = 'owner' and state = 'active' order by created_at limit 1;
+  if own is null then return bnx.doc_reject(p_staging, 'NO_OWNER'); end if;
+  select x.id into dec from bnx_doc.document_declaration x where x.discovery_id = did and x.sha256 = sc.sha256;
+  if not bnx.doc_needs_declaration(did) then dec := null; end if;
+  select id into obj from bnx.evidence_object where sha256 = sc.sha256 and integrity_state = 'verified' and dedup_into is null;
+  if obj is null then
+    obj := gen_random_uuid();
+    insert into bnx.evidence_object(id, r2_key, storage_kind, size_bytes, sha256, integrity_state, verified_by_execution, verified_at)
+    values (obj, null, 'drive_processed', (pl->>'size_bytes')::bigint, sc.sha256, 'verified', 'executor:doc_archived:' || p_staging, now());
+  elsif (select size_bytes from bnx.evidence_object where id = obj) <> (pl->>'size_bytes')::bigint then
+    return bnx.doc_reject(p_staging, 'SIZE_MISMATCH');
+  end if;
+  insert into bnx.evidence_file(id, evidence_object_id, sha256_declared, size_declared, mime, original_name, acquired_via, acquired_by,
+                                storage_state)
+  values (fil, obj, sc.sha256, (pl->>'size_bytes')::bigint, pl->>'mime', d.original_name,
+          case d.source_kind when 'DRIVE_INBOX' then 'drive_inbox' else 'mail_exact_fetch' end, own, 'archived');
+  insert into bnx_doc.document_evidence(discovery_id, evidence_object_id, evidence_file_id, scan_id, declaration_id, source_fidelity,
+                                        archived_file_id, staging_id)
+  values (did, obj, fil, sc.id, dec, case when dec is null then 'AS_RECEIVED_FROM_OWNER' else 'OWNER_REDACTED_SOURCE' end,
+          pl->>'archived_file_id', p_staging);
   perform bnx.doc_event(did, 'ARCHIVED', 'ADMITTED', p_staging);
-  return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', 'ARCHIVED'));
+  return bnx.doc_done(p_staging, jsonb_build_object('status', 'PROMOTED', 'discovery_id', did, 'state', 'ARCHIVED',
+                                                    'evidence_object_id', obj, 'evidence_file_id', fil));
 end $$;
 
 -- DOC-SIN-14: documents whose last scan predates the current detector version and that are not terminal

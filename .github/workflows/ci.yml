@@ -58,6 +58,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install "psycopg[binary]==3.2.3"
+      - name: Executor validator dependencies (9011c; PyPI with hashes, OCR engine and strace from Ubuntu)
+        run: |
+          pip install --require-hashes --only-binary=:all: -r apps/executor/requirements.txt
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng strace
+          tesseract --version | head -1
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

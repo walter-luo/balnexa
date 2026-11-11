@@ -204,7 +204,8 @@ def verdict(H, did, digest, result="PASSED", cls="T4", uncertain=False, version=
 
 def archive(H, did, digest, fid, rev="r1"):
     return promote(H, "DOC_PROCESS", "doc_archived", {"discovery_id": did, "sha256": digest, "source_file_id": fid, "head_revision_id": rev,
-                   "md5": hashlib.md5((fid + rev).encode()).hexdigest(), "archived_file_id": "processed-" + fid})
+                   "md5": hashlib.md5((fid + rev).encode()).hexdigest(), "archived_file_id": "processed-" + fid,
+                   "size_bytes": 1024, "mime": "application/pdf"})
 
 
 def state(H, did):
