@@ -69,3 +69,13 @@ As increment 1: PG16 16.15 (Ubuntu); PG17 17.11 embedded-postgres beta (not the 
 ## 6. Next increment (proposed order)
 
 9008 economic-type rule and chunked plan posting → 9009 OAuth fixes and legacy scope boundary → 9010 intake/drafts/lease/staging. Each later migration adds its `t_scope_flag_*` triggers (F-C2-07).
+
+## Erratum 2026-11-11 — refusal code before activation (G0 finding F-05)
+
+Before `bnx.install_activate_config`, a gated command on an upgraded R1 database is refused in one of two ways. Both fail closed:
+
+- **`SCOPE_DISABLED`** when the account's region is `UNKNOWN`. `bnx.pol_require_region` refuses that region before any configuration is consulted. This is the G0 V3.11 fixture: an R1 account without a registry institution.
+- **`SCOPE_UNCONFIGURED`** when the region is known but no configuration version is ACTIVE. This is the AT-FLG-10 fixture: an R1 account linked to ICBC.
+
+Read-only balance queries give `SCOPE_UNCONFIGURED` in both cases (`bnx.pol_enabled_acs`). There is no code change.
+

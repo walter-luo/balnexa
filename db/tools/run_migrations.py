@@ -15,6 +15,9 @@ Fail-closed rules
   * the conversion migration 9001 is never applied after an extension migration 9002+ (CONVERSION_AFTER_EXTENSION);
   * before the first extension migration (9002+) is applied, bootstrap B002 must be present: bnx.schema_bootstrap has
     'B002', the four S4 schemas exist owned by bnx_definer and bnx_backup holds USAGE on them (else BOOTSTRAP_MISSING);
+  * before 9011 is applied, bootstrap B003 must be present: bnx.schema_bootstrap has 'B003' and bnx.audit_event is
+    owned by balnexa_audit_owner (G0 finding F-01). Pending migrations before 9011 are applied first; the runner then stops
+    with BOOTSTRAP_MISSING (exit 6) and names the file to run;
   * Draft-04 0001 (privileged bootstrap) and 0007 (needed RESET ROLE) are refused: they are superseded by
     db/bootstrap/B001_bootstrap.sql and 0101; the originals are kept unchanged in db/history/draft04.
 
@@ -27,6 +30,7 @@ import psycopg
 EXT_FROM = "9000"          # first version of the conversion/extension lane
 S4_FROM = "9002"           # first S4 extension migration (needs bootstrap B002)
 S4_SCHEMAS = ("bnx_doc", "bnx_intake", "bnx_tax", "bnx_fed")
+B003_FROM = "9011"         # first migration that needs bootstrap B003 (audit table owned by balnexa_audit_owner)
 REFUSED = {"0001": "superseded by db/bootstrap/B001_bootstrap.sql", "0007": "superseded by 0101_grants_r1.sql"}
 
 
@@ -98,7 +102,19 @@ def main():
             if not b002 or nsch != len(S4_SCHEMAS):
                 log(fh, f"FAIL BOOTSTRAP_MISSING: B002 row={b002}, S4 schemas owned by bnx_definer with backup USAGE={nsch}/"
                         f"{len(S4_SCHEMAS)}; run db/bootstrap/B002_bootstrap_s4.sql as the installer first"); sys.exit(6)
+        b003_checked = False
         for v in pending:
+            if v >= B003_FROM and not b003_checked:
+                cur.execute("set local role bnx_definer")
+                cur.execute("select exists (select 1 from bnx.schema_bootstrap where version = 'B003'), "
+                            "coalesce((select pg_get_userbyid(relowner) from pg_class where oid = to_regclass('bnx_audit.audit_event')), '')")
+                b003, aowner = cur.fetchone()
+                cx.rollback()
+                if not b003 or aowner != "balnexa_audit_owner":
+                    log(fh, f"FAIL BOOTSTRAP_MISSING: B003 row={b003}, bnx.audit_event owner={aowner or 'none'} (expected balnexa_audit_owner); "
+                            f"migrations before {v} are applied; run db/bootstrap/B003_audit_owner.sql as the installer, then run "
+                            f"this runner again"); sys.exit(6)
+                b003_checked = True
             try:
                 cur.execute("select pg_advisory_xact_lock(hashtext('bnx.migrations'))")
                 cur.execute("set local role bnx_definer")

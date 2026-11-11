@@ -1094,12 +1094,13 @@ def t_backup(server, ev):
         snap = bk.execute("select pg_export_snapshot()").fetchone()[0]
         cust = os.path.join(ev, f"AT-BAK-01_{tag}.dump")
         out = os.path.join(ev, f"AT-BAK-01_{tag}.sql")
-        # exact production command of Backup §6 step 4 (custom format, data only, both schemas, exported snapshot)
+        # exact production command of Backup §6 step 4 (custom format, data only, exported snapshot); G0R (B003): the audit
+        # chain lives in schema bnx_audit, which is part of the scope from then on
         cmd = [pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--format=custom", "--data-only",
-               "--schema=bnx", "--schema=auth", "-f", cust]
+               "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", cust]
         r = subprocess.run(cmd, capture_output=True, text=True)
         sch = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--schema-only",
-                              "--schema=bnx", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
+                              "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
         bk.rollback(); bk.close()
         conv = subprocess.run([pg_restore, "--data-only", "-f", out, cust], capture_output=True, text=True)
         open(os.path.join(ev, f"AT-BAK-01_{tag}.cmd"), "w").write(" ".join(cmd).replace(H.db, "<db>") +
@@ -1185,6 +1186,7 @@ def t_backup(server, ev):
             tabs = [r[0] for r in cx.execute("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
                                              "where n.nspname = 'bnx' and c.relkind = 'r' order by 1")]
             cnt = {t: cx.execute(f"select count(*) from bnx.{t}").fetchone()[0] for t in tabs}
+            cnt["bnx_audit.audit_event"] = cx.execute("select count(*) from bnx_audit.audit_event").fetchone()[0]   # G0R (B003)
             av = cx.execute("select bnx.audit_verify()").fetchone()[0]
             js = [r[0] for r in cx.execute("select id from bnx.journal_entry")]
             for j in js:
@@ -1207,7 +1209,7 @@ def t_backup(server, ev):
     check(b_src == b_dst, "balances differ after restore")
     json.dump({"source_counts": src[0], "restored_counts": dst[0], "journals_checked": dst[2], "ledger_version": dst[4],
                "migrations": dst[3]}, open(os.path.join(ev, "AT-BAK-01_restore_verification.json"), "w"), indent=1)
-    return (f"pg_dump --snapshot --data-only --schema=bnx --schema=auth as bnx_backup succeeds before and after a new bnx table+identity "
+    return (f"pg_dump --snapshot --data-only --schema=bnx --schema=bnx_audit --schema=auth as bnx_backup succeeds before and after a new bnx table+identity "
             f"and an auth table+serial; {denied} write/DDL attempts by bnx_backup denied; isolated restore: {len(src[0])} tables equal counts, "
             f"audit chain intact, {dst[2]} journals re-asserted complete, migrations and ledger version V{dst[4]} equal, identical q_balances; no session secret in dump")
 

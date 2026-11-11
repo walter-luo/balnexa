@@ -192,3 +192,11 @@ Local runs, PG16.15 and PG17.11, pypdf 6.17.0, openpyxl 3.1.5, Pillow 12.3.0, te
 | L-12 | Anything outside the format allowlist (DOCX, HEIC, TIFF, JBIG2 or CCITT page images, and others) gives `SCAN_INCOMPLETE`. The Owner converts such a file and drops it in again | Fail closed by design |
 | L-13 | There is no document classifier. Every document without an Owner-supplied class needs a declaration | Safe, at the cost of more Owner work; a classifier is a later increment |
 | L-14 | AT-SIN-07 "every view labels it": the label is in the redaction queue and `source_fidelity` is stored with the evidence. The evidence and rendition views do not exist yet | 9016 renditions and the PWA must show the label from `bnx_doc.document_evidence.source_fidelity` |
+
+# G0R — G0 remediation carried by this migration
+
+The G0 run of 2026-11-11 (`SAME_FAMILY_VERIFICATION`) found that the owner path could empty the audit chain undetected
+(F-01, P1). The fix requires bootstrap B003 before this migration and adds the block G0R at the top of the file. The
+findings, decisions D-G0R-1…9, residual risks, test results and the errata for the G0 re-run are in
+`docs/s4/G0_REMEDIATION_2026-11-11.md`.
+

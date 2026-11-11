@@ -1,4 +1,4 @@
-# Review prompt — 9011a–c (SIN/ITN detector, document intake states, Executor validator)
+# Review prompt — 9011a–c and G0R (SIN/ITN detector, document intake states, Executor validator, G0 remediation)
 
 Paste everything below the line into a new Claude Code session that uses **Claude Sonnet 5.5**. The session has not seen
 the author's work. Its result is graded `SAME_FAMILY_VERIFICATION`: a reviewer from the same model family as the author,
@@ -7,7 +7,8 @@ under Owner decision D1 as amended on 2026-11-10 (`docs/s4/OWNER_DECISIONS_2026-
 
 ---
 
-You are reviewing work package 9011 (increments 9011a, 9011b and 9011c) of Balnexa S4 V1.2. The repository is
+You are reviewing work package 9011 (increments 9011a, 9011b and 9011c) of Balnexa S4 V1.2, and the G0 remediation G0R
+that the same migration carries. The repository is
 `walter-luo/balnexa` (public). The work is on branch `s4/9011a`, draft PR #5, base `main` at `ee13eee`. The author was a
 different Claude session. Your job is to find defects. Do not confirm the author's claims without checking them yourself.
 
@@ -40,6 +41,7 @@ different Claude session. Your job is to find defects. Do not confirm the author
 |---|---|
 | 9011a | `spec/sin-detector/sin_detector_v1.json`, `tools/s4/gen_sin_detector_spec.py`, `apps/executor/bnx_exec/sin_detector.py`, `apps/worker/src/sin_detector.js`, the detector functions and guards in `db/migrations/9011_s4_documents_evidence_renditions.sql`, `tests/fixtures/s4/sin_corpus_v1.json`, `tests/py/sin_corpus.py`, `tools/s4/sin_repo_scan.py`, the CI repository-scan step |
 | 9011b | The 9011b block of migration 9011 (the `bnx_doc` tables, state trigger, promoters, declaration and tag commands, queue, rescan, `wrk_audit_sin_refusal`); MODIFYs of `bnx.audit`, `bnx.stage_write`, `bnx.wrk_consume_shared_index` and `bnx.wrk_promote_staged`; the Worker guards C3 and C4 in `apps/worker/src/index.js` |
+| G0R | `docs/s4/G0_REMEDIATION_2026-11-11.md` (findings F-01…F-07 of the G0 run of 2026-11-11 and their disposition), `db/bootstrap/B003_audit_owner.sql`, the G0R block at the top of migration 9011, the B003 gate in `db/tools/run_migrations.py`, `tools/s4/audit_chain_verify.py`, `tests/py/run_s4_core7.py`, the `harness.migrate` B003 step and the AT-BAK-01 dump scope |
 | 9011c | `apps/executor/bnx_exec/doc_validator.py`, `apps/executor/requirements.txt`, the Z3 registration in `bnx.wrk_doc_archived` and `bnx_doc.document_evidence`, `tests/py/doc_fixtures.py`, `tests/py/doc_z1_probe.py`, `tests/py/run_s4_core6.py`, the CI changes |
 
 ## Setup
@@ -95,6 +97,21 @@ SKIP must have a stated reason.
 11. Can a crafted file make the validator report `PASSED` while it contains a corpus value that the reference detector
     flags in the same extracted text?
 
+**E. G0 remediation (G0R).**
+14. F-01: as `bnx_migrator` → `SET ROLE bnx_definer`, and as each runtime role, try every way you know to remove, change,
+    reorder or hide rows of `bnx_audit.audit_event` without a superuser. Ideas: DDL on the view, rules, triggers on other
+    tables, functions with side effects, `ALTER DEFAULT PRIVILEGES`, publication or subscription objects, `COPY`, large
+    objects, `pg_dump` and restore paths, the restore mode GUC. Each success is a BLOCKER.
+15. Is `balnexa_audit_owner` reachable? Check memberships, `ADMIN OPTION`, `SECURITY DEFINER` functions owned by it (there
+    must be none), and the installer's re-grant window (R-4).
+16. Run `tools/s4/audit_chain_verify.py` against your own tampered copies (superuser) with and without `--anchor`. Can a
+    tamper pass with an anchor? Can its catalog checks be satisfied while the protection is weakened?
+17. Install a fresh database as a non-superuser installer, exactly as the B003 header says. Then install a second database
+    in the same cluster with the superuser installer (as `tests/py/harness.py` does). Do both reach 0 violations? (A
+    second database by the same non-superuser installer cannot run B001 again; that is the known G0 limitation DEV-08,
+    not a finding.)
+18. F-04: is the printable-ASCII envelope rule applied on every path that writes envelope values into the audit chain?
+
 **D. Process and evidence.**
 12. Do the implementation notes match the code? List each `DELEGATED_DECISION` you disagree with, and say why.
 13. Do the CI changes run the new suite on both majors, with hash-pinned dependencies? Did the repository scan stay clean?
@@ -109,7 +126,7 @@ Name the ZIP `Balnexa_9011_review_SAME_FAMILY_<yyyy-mm-dd>.zip`. It must contain
   - a findings table with columns ID (R-01…), Severity (`BLOCKER` / `MAJOR` / `MINOR` / `NOTE`), Area (A–D),
     Requirement (DOC-SIN-x, AT-SIN-x, D-…), Finding, Reproduction (commands and case ids, no values), Evidence grade, and
     Proposed fix;
-  - answers to questions 1–13.
+  - answers to questions 1–18.
 - `runs/`: the raw outputs and results JSON of every suite you ran, per major.
 - `cases/`: your adversarial fixture builders as code (generators only, no generated values), so the author can re-run
   them.

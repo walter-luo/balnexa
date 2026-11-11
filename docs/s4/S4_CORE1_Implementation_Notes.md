@@ -49,6 +49,12 @@ UA V1.2 §6.2, row "Fresh-install order", gives B001 → 0002…0109 → 9001 �
 
 The runner is deliberately **not** changed to enforce the order (Owner decision 2026-11-07). It enforces only "B002 before the first 9002+ file" (exit 6), as UA §6.2 specifies.
 
+**Erratum 2026-11-11 (G0 finding F-03, `SAME_FAMILY_VERIFICATION`):**
+
+- **Exit code.** With the UA §6.2 order, `0108` fails with **exit 6**, not exit 7. Exit 6 comes from the privilege audit inside the migration transaction: the migration is rolled back and the database stays at head `0107`. Exit 7 is the runner's audit after the run.
+- **Recovery.** The G0 verifier tested recovery (V3.12b): run B002, then the runner. The database reaches the head; the rows recorded before recovery stay unchanged; `schema_migrations` needs no manual change.
+- **Order from 9011 (G0R).** B001 → B002 → runner (stops before 9011, exit 6, naming B003) → B003 → runner. See `docs/s4/G0_REMEDIATION_2026-11-11.md`.
+
 ### 1.3 Runner exit codes (`db/tools/run_migrations.py`; G4)
 
 | Exit | Meaning | Source line |

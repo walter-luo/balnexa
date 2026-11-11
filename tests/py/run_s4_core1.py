@@ -190,6 +190,10 @@ def t_bootstrap_missing(server, ev):
 DOC_OPTS = "-c createrole_self_grant=set,inherit"   # documented installer procedure (B002 header; F-C1-01 option a)
 
 
+def opts_doc():
+    return DOC_OPTS
+
+
 def nonsuper_install(server, db, inst, opts):
     """Fresh cluster roles; database owned by a non-superuser CREATEROLE installer; B001+B002 run by it with PGOPTIONS."""
     h.drop_all(server)          # roles are cluster-wide: the installer must create them itself
@@ -229,12 +233,24 @@ def t_nonsuper_installer(server, ev):
     # documented procedure
     res = nonsuper_install(server, db, inst, DOC_OPTS)
     check(all(x["exit"] == 0 for x in res.values()) and len(res) == 2, f"documented bootstrap: {res}")
+    # G0R: the runner stops before 9011 until B003 is applied; the installer runs B003 the same way as B002
+    m0 = h.migrate(server, db, check=False, b003=False, log=os.path.join(ev, "AT-MIG-11b_migrate_before_b003.log"))
+    check(m0.returncode == 6 and "BOOTSTRAP_MISSING: B003" in m0.stdout, f"runner before B003: {m0.returncode} {m0.stdout[-400:]}")
+    b3 = subprocess.run([h.PSQL, h.dsn(server, inst, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f",
+                         os.path.join(ROOT, "db/bootstrap", "B003_audit_owner.sql")], capture_output=True, text=True,
+                        env={**os.environ, "PGOPTIONS": opts_doc()})
+    check(b3.returncode == 0, f"B003 by the installer: {b3.stderr[-400:]}")
+    res["B003_audit_owner.sql"] = {"exit": b3.returncode}
     mem = installer_memberships(server, db, inst)
-    m = h.migrate(server, db, check=False, log=os.path.join(ev, "AT-MIG-11b_migrate_documented.log"))
+    m = h.migrate(server, db, check=False, b003=False, log=os.path.join(ev, "AT-MIG-11b_migrate_documented.log"))
     with migrator(server, db) as cx:
         v = cx.execute("select bnx.audit_privileges()").fetchone()[0]["violations"]
     check(m.returncode == 0 and "privilege_violations=0" in m.stdout and v == [], f"migrate exit {m.returncode}: {m.stdout[-600:]} {v}")
-    check(len(mem) == 9 and all(x[1] and not x[2] and not x[3] for x in mem), f"installer memberships must be ADMIN-only: {mem}")
+    check(len(mem) == 10 and all(x[1] and not x[2] and not x[3] for x in mem), f"installer memberships must be ADMIN-only: {mem}")
+    b3r = subprocess.run([h.PSQL, h.dsn(server, inst, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1", "-f",
+                          os.path.join(ROOT, "db/bootstrap", "B003_audit_owner.sql")], capture_output=True, text=True,
+                         env={**os.environ, "PGOPTIONS": opts_doc()})
+    check(b3r.returncode == 0 and "already applied" in b3r.stdout, f"B003 re-run: {b3r.returncode} {b3r.stdout} {b3r.stderr}")
     res["memberships"] = [list(x) for x in mem]
     res["migrate"] = m.stdout.strip().splitlines()[-1]
     # B002 is re-runnable by the same installer after its self-revoke (no-op guard)
@@ -258,8 +274,8 @@ def t_nonsuper_installer(server, ev):
         cx.execute(f"drop database if exists {db} with (force)")
     h.drop_all(server)              # later tests bootstrap with the postgres installer
     return (f"without the option B001 fails ({out['default']['B001_bootstrap.sql']['error'][-60:]}); documented procedure: "
-            f"B001+B002 by non-superuser '{inst}', 0002..9004 applied incl. amended 0108, 0 violations, 9 ADMIN-only installer "
-            f"memberships (no SET/INHERIT); installer can still toggle LOGIN; an added SET membership is reported (INSTALLER_MEMBERSHIP)")
+            f"B001+B002 by non-superuser '{inst}', runner stops before 9011 until the installer runs B003 (re-run no-op), "
+            f"then 0 violations, 10 ADMIN-only installer memberships incl. balnexa_audit_owner (no SET/INHERIT); installer can still toggle LOGIN; an added SET membership is reported (INSTALLER_MEMBERSHIP)")
 
 
 @test("AT-MIG-11c", "F-C1-01 option a (consequence: R1 0108 checksum changed)")
@@ -621,6 +637,10 @@ HELPERS_NOT_IN_DISPOSITION = {
 }
 
 
+# G0R (B003, G0 finding F-01): the audit chain table moved to schema bnx_audit; bnx.audit_event is now a view over it
+RELOCATED = {"bnx.audit_event": "bnx_audit.audit_event"}
+
+
 @test("AT-INV-01", "S4B-F02 (scope: migrations implemented so far, B002..9010)")
 def t_inventory(server, ev):
     db = "bnx_s4inv01"
@@ -638,7 +658,9 @@ def t_inventory(server, ev):
                 m = re.match(r"\s*([a-z_0-9]+)\s+ON\s+([a-z_]+\.[a-z_0-9]+)", o)
                 if not m:
                     skipped += 1; continue
-                ok = cx.execute("select exists (select 1 from pg_trigger where tgname = %s and tgrelid = to_regclass(%s))", m.groups()).fetchone()[0]
+                tg, rel = m.groups()
+                rel = RELOCATED.get(rel, rel)
+                ok = cx.execute("select exists (select 1 from pg_trigger where tgname = %s and tgrelid = to_regclass(%s))", (tg, rel)).fetchone()[0]
             elif r["Kind"] in ("schema", "role", "extension"):
                 name = re.match(r"\s*([a-z_0-9]+)", o).group(1)
                 q = {"schema": "select exists (select 1 from pg_namespace where nspname = %s)",

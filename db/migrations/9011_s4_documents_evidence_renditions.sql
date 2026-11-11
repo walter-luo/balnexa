@@ -10,6 +10,291 @@
 --   bnx.wrk_promote_staged         (9010)  dispatches doc_discovered / doc_validated / doc_archived to the 9011b promoters
 -- 9011c adds no MODIFY: it writes bnx.evidence_object and bnx.evidence_file (0004, 9004) through new code in the admission
 -- gate bnx.wrk_doc_archived, within the existing R1 constraints and write-once triggers.
+-- G0R (G0 remediation, 2026-11-11) requires bootstrap B003 (db/bootstrap/B003_audit_owner.sql) before this file and MODIFYs:
+--   bnx.audit_privileges           (9002)  ten roles; schema bnx_audit; AUDIT_TABLE_OWNER, AUDIT_TABLE_PRIVILEGE, AUDIT_TRIGGER,
+--                                          AUDIT_OWNER_LOGIN; relation owner = registered schema owner
+--   bnx.audit_verify, bnx.audit_head, bnx.trg_audit_chain_version (9005)  read bnx_audit.audit_event
+--   bnx.envelope_value, bnx.resolve_actor (9005)  envelope values printable ASCII only (F-04)
+--   bnx.audit (above, 9011a)       writes bnx_audit.audit_event
+
+-- ---------- G0R: remediation of G0 findings F-01 and F-04 (G0 report 2026-11-11; docs/s4/G0_REMEDIATION_2026-11-11.md) ----------
+-- F-01: bootstrap B003 has moved the audit chain to bnx_audit.audit_event, owned (with its schema) by balnexa_audit_owner;
+-- bnx_definer keeps SELECT and INSERT only, and bnx.audit_event is a view. The runner refuses this file until B003 is
+-- applied; this check is defence in depth.
+do $$
+begin
+  if not exists (select 1 from bnx.schema_bootstrap where version = 'B003') or to_regclass('bnx_audit.audit_event') is null
+     or (select pg_get_userbyid(relowner) from pg_class where oid = 'bnx_audit.audit_event'::regclass) <> 'balnexa_audit_owner' then
+    raise exception 'BOOTSTRAP_MISSING: B003 has not been applied (bnx_audit.audit_event owned by balnexa_audit_owner)' using errcode = 'P0412';
+  end if;
+end $$;
+insert into bnx.schema_registry values ('bnx_audit', 'balnexa_audit_owner', array['bnx_backup'], 'B003');
+
+-- the chain functions write and read the table itself, not the compatibility view (the view belongs to bnx_definer and
+-- could be redefined by the owner path; the table cannot). MODIFY of 9005 bodies; only the table name changed.
+create or replace function bnx.trg_audit_chain_version() returns trigger
+language plpgsql set search_path = pg_catalog, pg_temp as $$
+begin
+  if bnx.restore_mode() then return new; end if;
+  if new.chain_version < coalesce((select max(chain_version) from bnx_audit.audit_event), 1) then
+    raise exception 'AUDIT_CHAIN_VERSION: v% after v%', new.chain_version, (select max(chain_version) from bnx_audit.audit_event)
+      using errcode = 'P0409';
+  end if;
+  return new;
+end $$;
+
+create or replace function bnx.audit_verify() returns bigint   -- returns 0 when intact, else the first bad seq
+language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $$
+declare r record; prev bytea := null; expect bigint := 1; cv smallint := 1; h bytea;
+begin
+  for r in select * from bnx_audit.audit_event order by seq loop
+    if r.seq <> expect or r.prev_hash is distinct from prev or r.chain_version < cv then return r.seq; end if;
+    if r.chain_version = 1 then
+      h := sha256(coalesce(prev, '\x'::bytea) || convert_to(concat_ws('|', r.seq, r.member_id, r.connection_id, r.channel, r.command,
+             r.subject::text, encode(r.payload_sha256,'hex'), r.ledger_version), 'UTF8'));
+    else
+      h := sha256(coalesce(prev, '\x'::bytea) || bnx.audit_canonical_v2(r.seq, r.member_id, r.connection_id, r.channel, r.command,
+             r.subject, encode(r.payload_sha256,'hex'), r.ledger_version, r.at_hashed, r.chain_version, r.host_profile, r.tool_name,
+             r.tool_version, r.trace_id));
+    end if;
+    if r.hash <> h then return r.seq; end if;
+    prev := r.hash; expect := expect + 1; cv := r.chain_version;
+  end loop;
+  return 0;
+end $$;
+
+create or replace function bnx.audit_head() returns jsonb
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select coalesce((select jsonb_build_object('seq', seq, 'hash', encode(hash, 'hex'), 'chain_version', chain_version)
+                     from bnx_audit.audit_event order by seq desc limit 1), jsonb_build_object('seq', 0))
+$$;
+
+-- audit_privileges MODIFY (9002 body; changed only where marked "9011 G0R"): ten roles, schema bnx_audit, the audit table
+-- owner, the audit table privileges of bnx_definer and its two append-only triggers.
+create or replace function bnx.audit_privileges() returns jsonb
+language plpgsql stable set search_path = pg_catalog, pg_temp as $$
+declare v jsonb := '[]'; m jsonb; r record; role_ text; p text; s record; installer text;
+        nine text[] := array['bnx_definer','bnx_migrator','bnx_app','bnx_worker','bnx_authn','bnx_auth','bnx_backup',
+                             'bnx_fed_reader','bnx_stager','balnexa_audit_owner'];   -- 9011 G0R: + audit owner (B003)
+        runtime text[] := array['bnx_app','bnx_worker','bnx_authn','bnx_backup','bnx_stager','bnx_fed_reader'];
+        nonowner text[] := array['bnx_app','bnx_worker','bnx_authn','bnx_backup','bnx_stager','bnx_fed_reader','bnx_migrator'];
+        regs text[];
+begin
+  select array_agg(nspname order by nspname) into regs from bnx.schema_registry;
+  select applied_by_session into installer from bnx.schema_bootstrap where version = 'B001';
+  -- role inventory: exactly nine bnx_* roles (CROSS-01) plus balnexa_audit_owner (9011 G0R; outside the bnx_ prefix because
+  -- roles are cluster-wide and the 9002..9010 audits of a second database in the same cluster count bnx_* roles)
+  for r in select rolname from pg_roles where rolname like 'bnx\_%' and rolname <> all(nine) loop
+    v := v || jsonb_build_object('rule', 'ROLE_INVENTORY', 'extra', r.rolname); end loop;
+  foreach role_ in array nine loop
+    if not exists (select 1 from pg_roles where rolname = role_) then
+      v := v || jsonb_build_object('rule', 'ROLE_INVENTORY', 'missing', role_); end if;
+  end loop;
+  -- role attributes
+  for r in select rolname, rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls, rolinherit, rolcanlogin
+             from pg_roles where rolname like 'bnx\_%' or rolname = 'balnexa_audit_owner' loop   -- 9011 G0R
+    if r.rolsuper or r.rolcreaterole or r.rolcreatedb or r.rolreplication or r.rolbypassrls then
+      v := v || jsonb_build_object('rule', 'ROLE_ATTRIBUTE', 'role', r.rolname); end if;
+    if r.rolname = 'bnx_definer' and r.rolcanlogin then v := v || jsonb_build_object('rule', 'DEFINER_LOGIN'); end if;  -- R1 rule; bnx_auth is LOGIN in B001
+    if r.rolname = 'bnx_migrator' and r.rolinherit then v := v || jsonb_build_object('rule', 'MIGRATOR_INHERITS'); end if;
+    if r.rolname = 'balnexa_audit_owner' and r.rolcanlogin then v := v || jsonb_build_object('rule', 'AUDIT_OWNER_LOGIN'); end if;  -- 9011 G0R
+  end loop;
+  -- memberships: the documented definer->migrator SET-only grant; and (S4B-F17) the installer's automatic ADMIN
+  -- ADMIN-only membership (no INHERIT, no SET) in the roles it created when the installer is a non-superuser CREATEROLE
+  -- role (Neon project owner); same rule as amended 0108. B002 removes the installer's own SET/INHERIT self-grants.
+  for r in select g.rolname grp, u.rolname mem, am.inherit_option, am.set_option, am.admin_option
+             from pg_auth_members am join pg_roles g on g.oid = am.roleid join pg_roles u on u.oid = am.member
+            where g.rolname like 'bnx\_%' or u.rolname like 'bnx\_%' or 'balnexa_audit_owner' in (g.rolname, u.rolname) loop   -- 9011 G0R
+    if r.grp = 'bnx_definer' and r.mem = 'bnx_migrator' and not r.inherit_option and r.set_option and not r.admin_option then
+      null;
+    elsif r.grp = any(nine) and r.mem = installer and r.mem not like 'bnx\_%' and r.admin_option and not r.inherit_option and not r.set_option then
+      null;  -- INSTALLER_MEMBERSHIP accepted
+    elsif r.grp = any(nine) and r.mem not like 'bnx\_%' then
+      v := v || jsonb_build_object('rule', 'INSTALLER_MEMBERSHIP', 'group', r.grp, 'member', r.mem, 'inherit', r.inherit_option,
+                                   'admin', r.admin_option);
+    else
+      v := v || jsonb_build_object('rule', 'UNEXPECTED_MEMBERSHIP', 'group', r.grp, 'member', r.mem);
+    end if;
+  end loop;
+  -- schemas: registered ones only; owner as registered; nobody else may CREATE; USAGE exactly as registered
+  -- an unregistered schema is a violation when a bnx_* role owns it or any object in it, or holds any privilege on it
+  -- (foreign schemas of the installer, e.g. the Draft-02 conversion source d02 read by bnx_definer in 9001, are ignored)
+  -- runtime roles: any USAGE/CREATE on an unregistered schema is a violation
+  for r in select n.oid, n.nspname, pg_get_userbyid(n.nspowner) owner from pg_namespace n
+            where n.nspname not like 'pg\_%' and n.nspname not in ('information_schema','public') loop
+    select * into s from bnx.schema_registry where nspname = r.nspname;
+    if not found then
+      if r.owner like 'bnx\_%'
+         or exists (select 1 from pg_class c where c.relnamespace = r.oid and pg_get_userbyid(c.relowner) like 'bnx\_%')
+         or exists (select 1 from pg_proc p where p.pronamespace = r.oid and pg_get_userbyid(p.proowner) like 'bnx\_%')
+         or exists (select 1 from unnest(runtime) x where has_schema_privilege(x, r.oid, 'USAGE') or has_schema_privilege(x, r.oid, 'CREATE')) then
+        v := v || jsonb_build_object('rule', 'NEW_SCHEMA_UNREGISTERED', 'schema', r.nspname, 'owner', r.owner);
+      end if;
+      continue;
+    end if;
+    if r.owner <> s.owner then v := v || jsonb_build_object('rule', 'SCHEMA_OWNER', 'schema', r.nspname, 'owner', r.owner); end if;
+    if not has_schema_privilege('bnx_backup', r.nspname, 'USAGE') then
+      v := v || jsonb_build_object('rule', 'BACKUP_SCHEMA_USAGE', 'schema', r.nspname); end if;
+    foreach role_ in array runtime loop
+      if has_schema_privilege(role_, r.nspname, 'USAGE') <> (role_ = any(s.usage_roles)) then
+        v := v || jsonb_build_object('rule', 'RUNTIME_SCHEMA_USAGE', 'schema', r.nspname, 'role', role_,
+                                     'has_usage', has_schema_privilege(role_, r.nspname, 'USAGE')); end if;
+    end loop;
+  end loop;
+  for r in select n.nspname from pg_namespace n where n.nspname = any(regs || array['public']) loop
+    foreach role_ in array nonowner || (case when r.nspname = 'bnx_audit' then array['bnx_definer'] else array['balnexa_audit_owner'] end) loop   -- 9011 G0R
+      if has_schema_privilege(role_, r.nspname, 'CREATE') then
+        v := v || jsonb_build_object('rule', 'SCHEMA_CREATE', 'schema', r.nspname, 'role', role_); end if;
+    end loop;
+  end loop;
+  -- relations
+  for r in select n.nspname, c.relname, c.relkind, pg_get_userbyid(c.relowner) owner, c.oid
+             from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = any(regs) and c.relkind in ('r','p','S','v','m') loop
+    -- 9011 G0R: the owner expected for every relation is the registered owner of its schema (bnx_auth for auth,
+    -- balnexa_audit_owner for bnx_audit, bnx_definer for the others; identical to the 9002 rule for the 9002 schemas)
+    if r.owner <> (select g.owner from bnx.schema_registry g where g.nspname = r.nspname) then
+      v := v || jsonb_build_object('rule', 'OWNER', 'object', r.nspname || '.' || r.relname, 'owner', r.owner); end if;
+    if r.relkind in ('r','p','S') and not has_table_privilege('bnx_backup', r.oid, 'SELECT') then
+      v := v || jsonb_build_object('rule', 'BACKUP_CANNOT_READ', 'object', r.nspname || '.' || r.relname); end if;
+    foreach p in array array['INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] loop
+      if r.relkind <> 'S' and has_table_privilege('bnx_backup', r.oid, p) then
+        v := v || jsonb_build_object('rule', 'BACKUP_WRITE', 'object', r.relname, 'priv', p); end if;
+    end loop;
+    if r.relkind = 'S' and has_sequence_privilege('bnx_backup', r.oid, 'USAGE,UPDATE') then
+      v := v || jsonb_build_object('rule', 'BACKUP_SEQUENCE_WRITE', 'object', r.relname); end if;
+    foreach role_ in array array['bnx_app','bnx_worker','bnx_authn','bnx_migrator','bnx_stager','bnx_fed_reader'] loop
+      if r.relkind <> 'S' and (has_table_privilege(role_, r.oid, 'SELECT') or has_table_privilege(role_, r.oid, 'INSERT')
+          or has_table_privilege(role_, r.oid, 'UPDATE') or has_table_privilege(role_, r.oid, 'DELETE')
+          or has_table_privilege(role_, r.oid, 'TRUNCATE')) then
+        v := v || jsonb_build_object('rule', 'RUNTIME_TABLE_PRIVILEGE', 'object', r.nspname || '.' || r.relname, 'role', role_); end if;
+      if r.relkind = 'S' and has_sequence_privilege(role_, r.oid, 'USAGE,SELECT,UPDATE') then
+        v := v || jsonb_build_object('rule', 'RUNTIME_SEQUENCE_PRIVILEGE', 'object', r.relname, 'role', role_); end if;
+      -- column-level grants are invisible to has_table_privilege (same-family review finding 7)
+      if r.relkind <> 'S' and has_any_column_privilege(role_, r.oid, 'SELECT,INSERT,UPDATE,REFERENCES') then
+        v := v || jsonb_build_object('rule', 'RUNTIME_COLUMN_PRIVILEGE', 'object', r.nspname || '.' || r.relname, 'role', role_); end if;
+    end loop;
+    if r.relkind <> 'S' and has_any_column_privilege('bnx_backup', r.oid, 'INSERT,UPDATE,REFERENCES') then
+      v := v || jsonb_build_object('rule', 'BACKUP_WRITE', 'object', r.relname, 'priv', 'COLUMN'); end if;
+  end loop;
+  -- 9011 G0R (G0 finding F-01): the audit chain is a table in bnx_audit; bnx_definer, which bnx_migrator can SET ROLE to,
+  -- may only read and append it; both append-only triggers are present and enabled; bnx.audit_event is only a view
+  if to_regclass('bnx_audit.audit_event') is null or (select relkind from pg_class where oid = to_regclass('bnx_audit.audit_event')) <> 'r' then
+    v := v || jsonb_build_object('rule', 'AUDIT_TABLE_OWNER', 'object', 'bnx_audit.audit_event', 'missing', true);
+  else
+    if not has_table_privilege('bnx_definer', 'bnx_audit.audit_event', 'SELECT') or not has_table_privilege('bnx_definer', 'bnx_audit.audit_event', 'INSERT') then
+      v := v || jsonb_build_object('rule', 'AUDIT_TABLE_PRIVILEGE', 'role', 'bnx_definer', 'missing', 'SELECT,INSERT'); end if;
+    foreach p in array array['UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] loop
+      if has_table_privilege('bnx_definer', 'bnx_audit.audit_event', p) then
+        v := v || jsonb_build_object('rule', 'AUDIT_TABLE_PRIVILEGE', 'role', 'bnx_definer', 'priv', p); end if;
+    end loop;
+    if has_any_column_privilege('bnx_definer', 'bnx_audit.audit_event', 'UPDATE,REFERENCES') then
+      v := v || jsonb_build_object('rule', 'AUDIT_TABLE_PRIVILEGE', 'role', 'bnx_definer', 'priv', 'COLUMN'); end if;
+    for r in select t.tgname from (values ('t_append_only'), ('t_chain_version')) t(tgname)
+              where not exists (select 1 from pg_trigger g where g.tgrelid = 'bnx_audit.audit_event'::regclass and g.tgname = t.tgname
+                                  and g.tgenabled = 'O') loop
+      v := v || jsonb_build_object('rule', 'AUDIT_TRIGGER', 'trigger', r.tgname); end loop;
+  end if;
+  if coalesce((select relkind from pg_class where oid = to_regclass('bnx.audit_event')), 'v') <> 'v' then
+    v := v || jsonb_build_object('rule', 'AUDIT_TABLE_OWNER', 'object', 'bnx.audit_event', 'kind', 'not a view'); end if;
+  -- nothing owned by a bnx_* role may live in schema public (excluded from the schema loop because extensions live there):
+  -- a SECURITY DEFINER function there would run with bnx privileges outside every rule above
+  for r in select 'function' k, p.proname nm, pg_get_userbyid(p.proowner) owner from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and pg_get_userbyid(p.proowner) like 'bnx\_%'
+           union all
+           select 'relation', c.relname, pg_get_userbyid(c.relowner) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and pg_get_userbyid(c.relowner) like 'bnx\_%' loop
+    v := v || jsonb_build_object('rule', 'PUBLIC_SCHEMA_OBJECT', 'kind', r.k, 'object', 'public.' || r.nm, 'owner', r.owner);
+  end loop;
+  -- functions in every registered schema except auth (auth functions are owned by bnx_auth and never granted)
+  for r in select n.nspname, p.oid, p.proname, p.prosecdef, p.proconfig, pg_get_userbyid(p.proowner) owner,
+                  has_function_privilege('public', p.oid, 'EXECUTE') pub,
+                  has_function_privilege('bnx_app', p.oid, 'EXECUTE') app,
+                  has_function_privilege('bnx_worker', p.oid, 'EXECUTE') wrk,
+                  has_function_privilege('bnx_authn', p.oid, 'EXECUTE') authn,
+                  has_function_privilege('bnx_backup', p.oid, 'EXECUTE') bak,
+                  has_function_privilege('bnx_stager', p.oid, 'EXECUTE') stg,
+                  has_function_privilege('bnx_fed_reader', p.oid, 'EXECUTE') fed
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = any(regs) and n.nspname <> 'auth' loop
+    if r.pub then v := v || jsonb_build_object('rule', 'PUBLIC_EXECUTE', 'function', r.proname); end if;
+    if r.prosecdef and not coalesce('search_path=pg_catalog, pg_temp' = any(r.proconfig), false) then
+      v := v || jsonb_build_object('rule', 'DEFINER_SEARCH_PATH', 'function', r.proname); end if;
+    if r.owner <> 'bnx_definer' then v := v || jsonb_build_object('rule', 'FUNCTION_OWNER', 'function', r.proname); end if;
+    if r.app <> (r.proname like 'cmd\_%' or r.proname like 'q\_%') or r.wrk <> (r.proname like 'wrk\_%')
+       or r.authn <> (r.proname like 'authn\_%') or r.bak or r.fed <> (r.proname like 'fed\_%') then
+      v := v || jsonb_build_object('rule', 'EXECUTE_GRANT', 'function', r.nspname || '.' || r.proname, 'app', r.app,
+                                   'worker', r.wrk, 'authn', r.authn, 'backup', r.bak, 'fed_reader', r.fed); end if;
+    if r.stg <> (r.proname like 'stg\_%') then
+      v := v || jsonb_build_object('rule', 'STAGER_NO_POSTING', 'function', r.nspname || '.' || r.proname, 'stager', r.stg); end if;
+  end loop;
+  -- default privileges must cover future tables and sequences of both creators in every registered schema
+  for r in select g.nspname, g.owner, k.kind from bnx.schema_registry g cross join (values ('r'), ('S')) k(kind) loop
+    if not exists (select 1 from pg_default_acl d join pg_namespace n on n.oid = d.defaclnamespace
+                    where pg_get_userbyid(d.defaclrole) = r.owner and n.nspname = r.nspname and d.defaclobjtype = r.kind::"char"
+                      and exists (select 1 from aclexplode(d.defaclacl) x where x.grantee = 'bnx_backup'::regrole and x.privilege_type = 'SELECT')) then
+      v := v || jsonb_build_object('rule', 'DEFAULT_PRIVILEGE_MISSING', 'entry', r.owner || ':' || r.nspname || ':' || r.kind); end if;
+  end loop;
+  select jsonb_agg(jsonb_build_object('object', n.nspname || '.' || c.relname, 'kind', c.relkind, 'owner', pg_get_userbyid(c.relowner),
+           'backup_select', has_table_privilege('bnx_backup', c.oid, 'SELECT'),
+           'app_any', has_table_privilege('bnx_app', c.oid, 'SELECT,INSERT,UPDATE,DELETE'),
+           'worker_any', has_table_privilege('bnx_worker', c.oid, 'SELECT,INSERT,UPDATE,DELETE'))
+           order by n.nspname, c.relname) into m
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = any(regs) and c.relkind in ('r','p','S','v');
+  return jsonb_build_object('violations', v, 'matrix', coalesce(m, '[]'));
+end $$;
+
+-- F-04: envelope values are printable ASCII only (U+0020..U+007E), independent of the cluster locale. [[:print:]] accepted
+-- invisible format characters such as U+200B under C.UTF-8.
+create or replace function bnx.envelope_value(p_name text) returns text
+language plpgsql stable set search_path = pg_catalog, pg_temp as $$
+declare v text := nullif(current_setting('bnx.' || p_name, true), '');
+begin
+  if v is not null and (length(v) > 100 or v !~ '^[ -~]+$') then          -- 9011 G0R
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'envelope.' || p_name);
+  end if;
+  return v;
+end $$;
+
+-- resolve_actor MODIFY (9005 body; only the envelope rule changed, marked "9011 G0R")
+create or replace function bnx.resolve_actor(cred jsonb) returns bnx.actor
+language plpgsql set search_path = pg_catalog, pg_temp as $$
+declare h bytea; r record; a bnx.actor; k text; val text;
+begin
+  if cred is null or cred->>'secret' is null or length(cred->>'secret') < 32 then
+    perform bnx.fail('UNAUTHENTICATED', 'P0401');
+  end if;
+  h := bnx.h(cred->>'secret');
+  if cred->>'kind' = 'session' then
+    select s.id, s.member_id, s.revoked_at, s.absolute_expires_at, s.last_seen_at, m.state into r
+      from bnx.member_session s join bnx.member m on m.id = s.member_id where s.token_sha256 = h;
+    if not found or r.revoked_at is not null or now() > r.absolute_expires_at
+       or now() > r.last_seen_at + interval '30 days' or r.state <> 'active' then
+      perform bnx.fail('UNAUTHENTICATED', 'P0401');
+    end if;
+    if r.last_seen_at < now() - interval '1 hour' then update bnx.member_session set last_seen_at = now() where id = r.id; end if;
+    a := row(r.member_id, null, 'pwa', r.id, array['read','propose','post'])::bnx.actor;
+  elsif cred->>'kind' = 'bearer' then
+    select c.id cid, c.member_id, c.scopes, c.revoked_at crev, t.expires_at, t.revoked_at trev, m.state into r
+      from bnx.ai_connection_token t join bnx.ai_connection c on c.id = t.connection_id
+      join bnx.member m on m.id = c.member_id where t.token_sha256 = h and t.kind = 'access';
+    if not found or r.trev is not null or r.crev is not null or now() > r.expires_at or r.state <> 'active' then
+      perform bnx.fail('UNAUTHENTICATED', 'P0401');
+    end if;
+    a := row(r.member_id, r.cid, 'mcp', null, r.scopes)::bnx.actor;
+  else
+    perform bnx.fail('UNAUTHENTICATED', 'P0401');
+  end if;
+  perform set_config('bnx.actor_member', a.member_id::text, true);
+  foreach k in array array['host_profile','tool_name','tool_version','trace_id'] loop
+    val := cred->'envelope'->>k;
+    if val is not null and (length(val) > 100 or val !~ '^[ -~]+$') then          -- 9011 G0R
+      perform bnx.fail('VALIDATION_FAILED', 'P0422', 'envelope.' || k);
+    end if;
+    perform set_config('bnx.' || k, coalesce(val, ''), true);
+  end loop;
+  return a;
+end $$;
 
 -- ---------- SIN/ITN detector (Addendum A1 Rev 1 §3; guard C1; spec/sin-detector/sin_detector_v1.json) ----------
 -- Same algorithm as apps/executor/bnx_exec/sin_detector.py and apps/worker/src/sin_detector.js for origins 'native' and
@@ -679,9 +964,9 @@ begin
     perform bnx.fail('SIN_CANDIDATE', 'P0422', p_command);
   end if;
   perform pg_advisory_xact_lock(hashtext('bnx.audit'));
-  select seq, hash into s, prev from bnx.audit_event order by seq desc limit 1;
+  select seq, hash into s, prev from bnx_audit.audit_event order by seq desc limit 1;
   s := coalesce(s, 0) + 1;
-  insert into bnx.audit_event(seq, at, member_id, connection_id, channel, command, subject, payload_sha256, ledger_version, prev_hash,
+  insert into bnx_audit.audit_event(seq, at, member_id, connection_id, channel, command, subject, payload_sha256, ledger_version, prev_hash,
                               hash, chain_version, at_hashed, host_profile, tool_name, tool_version, trace_id)
   values (s, t, a.member_id, a.connection_id, coalesce(a.channel,'system'), p_command, p_subject, ph, p_version, prev,
           sha256(coalesce(prev, '\x'::bytea) || bnx.audit_canonical_v2(s, a.member_id, a.connection_id, coalesce(a.channel,'system'),
