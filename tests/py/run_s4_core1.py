@@ -552,6 +552,13 @@ HELPERS_NOT_IN_DISPOSITION = {
     # docs/s4/S4_9012_Implementation_Notes.md); 9012 is partly implemented, so its disposition rows stay out of scope
     "bnx.cmd_declare_loan", "bnx.r28_basis", "bnx.r28_contract", "bnx.r28_days", "bnx.r28_dec", "bnx.r28_div", "bnx.r28_evaluate",
     "bnx.r28_household_internal", "bnx.r28_require_post", "bnx.r28_round", "bnx.r28_scale", "bnx.trg_account_family_institution",
+    # 9012b FX, investment and card-fee commands, queries and helpers that OBJ-248/249 do not name (register update recorded in
+    # docs/s4/S4_9012_Implementation_Notes.md, L-9012-6)
+    "bnx.investment_lot_disposal", "bnx.q_fx_rate", "bnx.q_investment_position", "bnx.q_card_fee_progress", "bnx.cmd_record_fx_quote",
+    "bnx.cmd_record_investment_lot", "bnx.cmd_record_lot_disposal", "bnx.cmd_record_valuation", "bnx.cmd_record_card_fee_event",
+    "bnx.fin_dec", "bnx.fin_money", "bnx.effective_economic_type", "bnx.journal_counts_at", "bnx.journal_movement", "bnx.fx_rate_at",
+    "bnx.lot_disposals_at", "bnx.card_anniversary", "bnx.card_period", "bnx.card_policy_at", "bnx.card_fee_progress",
+    "bnx.card_require_post",
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",

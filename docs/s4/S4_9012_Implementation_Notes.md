@@ -11,7 +11,7 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 | Sub-stage | Scope (WP-CORE item) | State |
 |---|---|---|
 | **9012a** | R28 intra-household loans: `loan_convention`, `loan`, `loan_term_event`, `loan_payment_link`, the engine, `q_r28_loan_position`, commands, the CI oracle (CORE-5, R28 part) | **Done** (this document) |
-| 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | Not started |
+| 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | **Done** (see "9012b — what was built") |
 | 9012c | Balance observations, reconciliation exceptions RC-01…14, `statement_period` (CORE-4, BAL01–12, AT-P0-R13/R15) | Not started. It depends on statement extraction (WP-DOC), which does not exist yet |
 | 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | Not started |
 
@@ -64,6 +64,57 @@ V0a and V0b must precede V1, but a scale check needs the currency's minor units.
 | D-9012a-8 | Terms are bitemporal by `recorded_at` (`terms_recorded_as_of`); payment links are versioned by ledger version | This matches the signature `q_r28_loan_position(loan_id, as_of, ledger_version, terms_recorded_as_of)` in UA §10 |
 | D-9012a-9 | Accrued interest is never posted automatically. Reconciling posted interest journals against the accrual (BNX-S2-08 §1.6) is left for the F3/F5 report work | No report family exists yet (9013/9015) |
 
+## 9012b — what was built
+
+Authority: UA V1.2 §5.7 ("as V1.0"), UA V1.0 §5.7, BNX-S2-02 §4.7 and BNX-S2-14 (OR-R-07, OR-R-08, OR-R-09). The R1 tables
+`bnx.fx_override_event` (OBJ-081) and `bnx.valuation` (OBJ-083) are reused unchanged, as the disposition says.
+
+| Object | Content |
+|---|---|
+| `bnx.fx_quote` (class F, append-only) | base, quote, rate (null exactly when the quality is `MISSING`), `as_of`, source, quality in `REFERENCE`, `EVIDENCED_SETTLEMENT`, `MISSING`, `STALE`. A settlement rate needs evidence or a posted journal. Versioned by `recorded_version` |
+| `bnx.fx_rate_at(base, quote, date, V)` | The only rate selection (D-9012b-1). Order: Owner override for that date → evidenced settlement for that date → latest reference on or before the date (`STALE` when older than 7 days or recorded as stale) → `MISSING` with a null rate. Each quality is tried directly, then as the inverse pair (1 / rate at 10 decimals, HALF_EVEN). The same currency is `IDENTITY` |
+| `q_fx_rate`, `cmd_record_fx_quote`, `cmd_fx_override` | The query returns the rate, its quality, its date, its source or override id, and `fx_policy`. Recording is tier 2. The override is tier 3 (owner or admin, PWA only, as `fin.fx.override`), needs a reason and is audited; it writes the R1 `bnx.fx_override_event` |
+| `bnx.investment_lot`, `bnx.investment_lot_disposal` (class F, append-only) | A lot: investment account-currency, instrument id, units (8 decimals), cost, acquisition date, optional source journal. A disposal: units of one lot, proceeds, `ESTIMATED` or `CONFIRMED` (needs the posted journal), optionally superseding one `ESTIMATED` disposal of the same lot. Disposed units never exceed the lot (`UNITS_EXCEEDED`) |
+| `cmd_record_investment_lot`, `cmd_record_lot_disposal`, `cmd_record_valuation` | Tier 2; post rights on the account-currency. A valuation is a price for an instrument held in a lot the actor can post on (R1 `bnx.valuation`) |
+| `q_investment_position(account_currency_id, as_of, ledger_version, reporting_currency)` | Per instrument: units held and disposed, remaining cost, realized gain split into confirmed and estimated, the latest NAV on or before `as_of`, market value and unrealized gain. `MISSING_NAV`, `NAV_FX_MISSING`, `NAV_FX_STALE`, `FX_STALE`, `ESTIMATED_PROCEEDS` and `STALE_NAV` (older than 31 days) are flagged; a figure that cannot be computed is null, never zero, and the totals are then null too. With a reporting currency: cost at each lot's acquisition-date rate, proceeds at the disposal-date rate, market value at the `as_of` rate, and the FX effect shown separately for unrealized and realized gains (D-9012b-3) |
+| `bnx.card_fee_policy` (class F, append-only) | Versions per card: `effective_from`/`effective_to`, annual fee and currency, `CARD_YEAR` (with an anniversary) or `CALENDAR_YEAR`, closed criteria (`qualifying_spend`, `qualifying_count`, `excluded_economic_types`, `combine` ALL/ANY), `issuer_confirmed`, evidence |
+| `bnx.card_fee_event` (class F, append-only) | `CALCULATED_QUALIFICATION` (the server's own calculation, stored with its ledger version), `ISSUER_CONFIRMED_WAIVER` (needs evidence), `FEE_POSTED` / `FEE_REFUNDED` (link a posted fee / refund journal on the card; the amount is the journal's movement). One journal links to one event. R19 ≠ R20 ≠ posting |
+| `q_card_fee_progress(card_account_id, as_of, ledger_version, period_start)` | Spend, purchase and refund totals and counts, targets and what remains; then three separate blocks: `calculated` (QUALIFIED / NOT_YET_QUALIFIED / NOT_QUALIFIED / NO_CRITERIA), `issuer` (waiver confirmed or not) and `fee` (NOT_POSTED / POSTED / PARTIALLY_REFUNDED / REFUNDED), plus the last recorded calculation and warnings (`POLICY_NOT_ISSUER_CONFIRMED`, `QUALIFICATION_NOT_CONFIRMED_BY_ISSUER`, `FEE_POSTED_DESPITE_QUALIFICATION_OR_WAIVER`) |
+| `cmd_set_card_fee_policy`, `cmd_record_card_fee_event` | Tier 2; post rights on every currency of the card |
+| Module flags (F-C2-07) | `t_scope_flag_*` on `investment_lot` (mode `account_currency_id`), `investment_lot_disposal` (new mode `lot_id`), `card_fee_policy` and `card_fee_event` (new mode `card_fee`). `card_fee_event` is a UA §4.4.1 table. The FX tables are household reference data and carry no account scope |
+| Function catalog | `q_fx_rate`, `q_investment_position`, `q_card_fee_progress` are `finance.read` (`fin.fx.rate`, `fin.investments.holdings`, `fin.cards.fee_eligibility`); the two position queries need an account-currency subset on an MCP connection. Commands are tier ≥ 2 and therefore never available to MCP |
+
+### 9012b decisions — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9012b-1 | One function selects every rate, with the order override → settlement (same date only) → reference (on or before; stale after 7 days) → missing; quality first, then direct before inverse | OR-R-09 "evidenced settlement authoritative", "override audited", quotes labelled. A settlement rate belongs to its transaction date, so it is not carried to other days. Seven days covers weekends and holidays of reference feeds |
+| D-9012b-2 | `STALE` is both a recordable quality (a source may say so) and derived from age; `MISSING` is never replaced by 1 or 0 | UA lists STALE among the qualities; OR-L-03 style "null, never zero" |
+| D-9012b-3 | Cost of disposed units is pro rata within the lot named by the disposal (specific identification); FX effect = translation difference of the remaining cost (as_of rate minus acquisition rate) and of the disposed cost (disposal rate minus acquisition rate) | Lots are recorded individually (S2 `investment_lot`), so the disposal names its lot; tax cost methods (for example Canadian average cost) belong to the CRA module, not to this report |
+| D-9012b-4 | A NAV older than 31 days is `STALE_NAV` (computed, flagged); a NAV in another currency is converted at the valuation date's rate, and a stale rate is used but flagged (`NAV_FX_STALE`; `FX_STALE` for the reporting rate) | Monthly fund statements are the slowest normal NAV source; a labelled stale rate is more useful than no figure, and the label keeps it visible (OR-R-09) |
+| D-9012b-5 | Card spend counts `card_spend` and `consumption_expense` purchases minus `refund` journals on the card in the policy currency, by effective posting date; repayments, transfers, fees, interest, FX, clearing and openings never count; journals linked to a fee event do not count; a correction counts by its replacement's original type | OR-R-07 "refund regresses progress"; a fee refund is not a purchase refund |
+| D-9012b-6 | The policy in force on the `as_of` (or `period_start`) date governs the period that contains it; a later policy version affects only periods that start under it | Effective-dated policies (OR-R-07); avoids re-judging a period mid-way |
+| D-9012b-7 | The count criterion counts purchase journals; refunds reduce spend, not the count | Issuers count qualifying transactions; a partial refund does not undo a transaction |
+| D-9012b-8 | A 29 February anniversary falls on 28 February in other years | Card-year arithmetic must be total |
+| D-9012b-9 | `CALCULATED_QUALIFICATION` is computed by the server when recorded; the client cannot supply its figures | A recorded calculation must be reproducible from the ledger at its version |
+| D-9012b-10 | Test ids: AT-FX-01, AT-INVL-01 (BNX-S2-14 names it AT-INV-01, which is already the catalog inventory test of core1), AT-P0-R19, AT-9012b-CAT, in the new suite `tests/py/run_s4_core9.py` | Avoids an id collision |
+
+### 9012b test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+New suite `tests/py/run_s4_core9.py` (CI runs it with the other `run_s4_core*.py`). Every expected figure is computed in the
+test with Python `Decimal` and HALF_EVEN, never read back from the database.
+
+| Test | Shows |
+|---|---|
+| AT-FX-01 (OR-R-09) | No quote → `MISSING`, rate null. A reference quote is `REFERENCE` for 7 days, then `STALE`. The inverse pair is 1/rate at 10 decimals. A settlement rate wins over the reference on its own date only. The Owner override wins over both, is audited and is versioned (the earlier ledger version still answers the settlement rate). Same currency → `IDENTITY`. Member override `FORBIDDEN_ROLE`; a viewer reads but cannot record. Six malformed quotes refused. An override reason that holds a SIN candidate is refused and nothing is stored. `fx_quote` is append-only |
+| AT-INVL-01 (OR-R-08) | Two lots, 40 units of the first sold. Without a NAV: market value and unrealized gain null, `MISSING_NAV`. With a NAV of 12.50: cost 1200.00, market value 1375.00, unrealized 175.00; in USD unrealized 96.00 of which FX −30.00, realized FX −4.00. The estimate (520.00) superseded by confirmed proceeds (515.00) from the posted redemption; the earlier version still shows the estimate. `STALE_NAV`, `NAV_FX_MISSING` (totals null), `NAV_FX_STALE`. Six invalid commands refused; no grant → `NOT_FOUND` / `NOT_POSTABLE` |
+| AT-P0-R19 (OR-R-07, R20) | Card year from 15 February: purchases 550.00 → `QUALIFIED` (a purchase before the year, a repayment and the fee excluded). A refund of 100.00 regresses it to 450.00 `NOT_YET_QUALIFIED`; the earlier version still answers 550.00. A corrected purchase counts by its replacement. The recorded calculation, the issuer's waiver and the posted fee are three separate blocks and events; "posted despite qualified" is warned; the fee refund is not a purchase refund. A new policy version governs the next year only. 29 February anniversaries. Nine invalid or unauthorised commands refused; a view grant reads but cannot record |
+| AT-9012b-CAT | Append-only and `t_scope_flag_*` triggers, enforcement points, function catalog rows, table classes, grants (10 commands and queries to `bnx_app`, internal helpers not granted). `bnx.journal_counts_at` equals the R1 rule (`visible_at`, not corrected) on every (journal, version) pair, including a plan posting and a correction. With the region disabled, the lot and the disposal are `SCOPE_DISABLED` and the position is `NOT_FOUND` (9007 visibility) |
+
+Local full regression on PG16.15 and PG17.11: R1 40/0/0 and 38/0/2 (pg_dump 17 is not installed locally), core1–core8 and
+core_9011r unchanged and green, core9 4/0/0 on both majors, black-box 8/8, simulation exit 0. `core1` (AT-INV-01) declares the
+new helpers and `core2` (AT-FLG-11) the three new enforcement points beyond §4.4.1.
+
 ## Owner decisions — `OWNER_DECISION`
 
 | ID | Decision | Implementation |
@@ -107,4 +158,6 @@ Local runs on PG16.15 and PG17.11:
 | L-9012-3 | F3/F5 consolidation and interest reconciliation are not implemented (AT-R28-CONS covers only the flag) | Report families (9013/9015) |
 | L-9012-4 | AT-R28-09/11 "on the plan path" (approval through posting plans) is not covered: loan commands are direct tier-2 commands | Plan kinds for loans need a design decision; recorded for the plan work |
 | L-9012-5 | AT-INV-01 still scopes the disposition register up to 9010; the 9012 objects are not yet checked against OBJ-248/249. The engine helpers and `cmd_declare_loan` are declared in its helper list, and AT-FLG-11 lists the two loan tables that are enforcement points beyond §4.4.1 | When 9012 is complete (after 9012d), 9011 and 9012 join the inventory scope |
-| L-9012-6 | Disposition register gap: OBJ-249 does not name `cmd_declare_loan`, although a loan must be declared before its terms can be. OBJ-248 does not name `loan_term_event`'s retraction rule | Register update proposed for the next design revision |
+| L-9012-6 | Disposition register gap: OBJ-249 does not name `cmd_declare_loan`, although a loan must be declared before its terms can be. OBJ-248 does not name `loan_term_event`'s retraction rule. 9012b adds `investment_lot_disposal` and the commands and queries that OBJ-248/249 do not name (`q_fx_rate`, `q_investment_position`, `q_card_fee_progress`, `cmd_record_fx_quote`, `cmd_record_investment_lot`, `cmd_record_lot_disposal`, `cmd_record_valuation`, `cmd_record_card_fee_event`) | Register update proposed for the next design revision; declared in AT-INV-01's helper list meanwhile |
+| L-9012-7 | No instrument registry: `instrument_id` is the caller's identifier, shared by `investment_lot` and the R1 `valuation` (which has no foreign key) | An instrument registry belongs to the F4 report work (9013) |
+| L-9012-8 | No automatic FX feed (`fx_selection_log`, R1, stays unused) and no automatic card-fee evaluation job | Feeds and jobs need cloud egress and scheduling, outside this stage |
