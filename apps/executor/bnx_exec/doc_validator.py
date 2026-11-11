@@ -315,7 +315,10 @@ def ocr_image(sc, img, loc, origin="ocr", require_text=False, orientations=True)
                 lines = _ocr_run(sc, v)
                 if lines is None:
                     return
-                best = max(best, _confident_words(lines))
+                cw = _confident_words(lines)
+                best = max(best, cw)
+                if cw < 3:
+                    continue                                                 # this orientation reads as noise: not judged
                 for text, cf in lines:
                     sc.check(text, {**loc, "kind": "ocr", "part": loc.get("part", "image")}, origin=origin,
                              confidences=cf if origin == "ocr" else None)
