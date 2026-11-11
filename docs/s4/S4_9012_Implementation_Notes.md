@@ -13,8 +13,8 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 | **9012a** | R28 intra-household loans: `loan_convention`, `loan`, `loan_term_event`, `loan_payment_link`, the engine, `q_r28_loan_position`, commands, the CI oracle (CORE-5, R28 part) | **Done** (this document) |
 | 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | **Done** (see "9012b — what was built") |
 | 9012c-1 | Balance observations, `statement_period`, the reconciliation exception structure (rule-independent part of 9012c) | **Done** (`OWNER_DECISION` 2026-11-11, option 2; see "9012c-1 — what was built") |
-| 9012c-2 | RC-01…RC-14 evaluation, D5 classification, D7 resolution actions, BAL01–12, AT-P0-R13/R15 | **Blocked (2026-11-11):** the Draft-04 §D1–§D7 rule texts and the BAL01–12 cases are referenced by UA V1.2, ADO-039 and DIF-092 but are not in the repository or the design packages available to the implementer. It also needs statement rows from document extraction (WP-DOC), which does not exist yet |
-| 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | **Blocked (2026-11-11):** needs Draft-04 §C4 (matching rules MR-01…13) and §C5 (onboarding ONB-*, SF-*, AH-* states), not available to the implementer |
+| 9012c-2 | RC-01…RC-14 evaluation, D5 classification, D7 lifecycle, coverage (AT-P0-R13/R15 inputs) | **Done** (see "9012c-2 — what was built"). Source located 2026-11-11: Draft-04 Unified Architecture (SHA-256 `4ad49225…`, the baseline named in `docs/R1_Doc_Delta.md`), in the Owner's S3 package; not committed |
+| 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | Not started. Source: Draft-04 §C4 (MR-01…13) and §C5 (onboarding), same file |
 
 **Why R28 first:**
 
@@ -128,8 +128,7 @@ rule texts). Nothing here evaluates a reconciliation rule; no test claims a BAL0
 | `cmd_record_observation` (RC-POST, tier 2) | Post rights on the account-currency. A `MEMBER` observation also inserts the R1 `balance_checkpoint` row (kind `member_spot_check`, `as_of` = the local date of `observed_at` in `tz`). Idempotent, audited (the SIN guard covers the evidence), versioned |
 | `q_balance_observations` | The observations in effect (optionally all, with `current` flags) at a ledger version, and the instants where the in-effect observations disagree (`conflicts`). Nothing is compared with the ledger |
 | `bnx.statement_period` (view) and `bnx.statement_period_at(V)` | One row per statement not withdrawn at V: account-currency (printed or from the latest `assigned` event), period, printed balances, `confirmed`, latest version role, `partial` (a bound or the closing balance missing) and `final` (= confirmed and not partial: a partial period is never final). No runtime role reads the view directly |
-| `bnx.reconciliation_exception`, `bnx.reconciliation_exception_event` (class F, append-only) | The finding: account-currency, `as_of_at`, observed, ledger, difference (= observed − ledger when all three are present), `rule_code` constrained to `RC-01`…`RC-14` by format only, class `CONFIRMED` / `PROBABLE`, the observation it came from, the ledger version. State is an event: `OPEN` first; `OPEN` → `EXPLAINED` / `RESOLVED`; `EXPLAINED` → `OPEN` / `RESOLVED`; `RESOLVED` → `OPEN` (reopen). `RESOLVED` needs a `resolution_action` (upper-case code, format only until D7 is available). Trigger `t_reconciliation_exception_state` |
-| `q_reconciliation_exceptions` (OBJ-249) | Exceptions on the actor's visible account-currencies with their current state at a ledger version; `rules_implemented: false` until 9012c-2 |
+| Reconciliation exceptions | Superseded by 9012c-2 (the provisional structure of 9012c-1 was replaced by the Draft-04 §D5/§D7 one before any merge) |
 | Module flags, catalog | Enforcement points on `balance_observation_event` (a UA §4.4.1 table) and `reconciliation_exception`; both queries `finance.read` with an account-currency subset |
 
 ### 9012c-1 decisions — `DELEGATED_DECISION`
@@ -138,7 +137,6 @@ rule texts). Nothing here evaluates a reconciliation rule; no test claims a BAL0
 |---|---|---|
 | D-9012c-1 | Observations carry a `sign_convention` (defaulting to `owed_positive` for credit-card and loan-payable accounts, otherwise `asset_positive`) instead of being normalised to the ledger sign | Statements print balances in either convention (R1 `statement` has the same column); normalising belongs to the RC rules |
 | D-9012c-2 | A revision must name an earlier observation of the same account-currency and source | A correction of a statement balance is a statement fact; a member cannot revise a bank's printed value |
-| D-9012c-3 | Exceptions have no writer yet; the structure, the state machine and the reader exist, and tests insert findings directly as the definer | The writer is the RC rule engine (9012c-2). A state-change command waits for D7 (who may resolve, with which actions) |
 | D-9012c-4 | `statement_period` is a view at the current version plus a function at any version | UA names a view; reports need the same rows at their ledger version |
 | D-9012c-5 | Test ids AT-OBS-01, AT-STP-01, AT-RCX-01, AT-9012c-CAT in the new suite `tests/py/run_s4_core10.py` | The design's ids (BAL01–12, AT-P0-R13/R15) belong to the rule work and are not claimed |
 
@@ -153,6 +151,47 @@ rule texts). Nothing here evaluates a reconciliation rule; no test claims a BAL0
 
 Local full regression on PG16.15 and PG17.11 with 9012a–c-1: R1 40/0/0 and 38/0/2, core1–core9 and core_9011r green, the new
 core10 4/0/0 on both majors, black-box 8/8, simulation exit 0.
+
+## 9012c-2 — what was built
+
+Authority: Draft-04 Unified Architecture §D1–§D7 (`Balnexa_Unified_Architecture_V1.0_R6.2_Draft04.md`, SHA-256 `4ad49225…`),
+mapped onto the V1.2 objects of UA §5.6 and BNX-S2-02 (`reconciliation_exception` with `rule_code`; states OPEN / EXPLAINED /
+RESOLVED). The source file stays outside the repository.
+
+| Object | Content |
+|---|---|
+| `bnx.reconciliation_run` (class F) | One engine evaluation of a subject (a statement, or a balance observation as a §D3 "checkpoint" case): stage-1 state and checks, stage-2 state (`not_evaluated`, `no_opening`, `before_opening`, `incomplete_history`, `matched`, `difference_open`), observed, ledger, difference, pending batches (counted, never summed), conflicting observations, the evaluated ledger version. The result in force at V is the subject's latest run recorded at or before V (§D7 Δ3) |
+| `bnx.reconciliation_exception` (class F) | A finding: `rule_code` RC-01…14 (null only for an unresolved remainder), `classification` confirmed / probable / unresolved / ruled_out, `confirmation` deterministic / member / resolved_by_action, `source` deterministic / ai_hypothesis / member, `criteria` (C1–C5), `amount_effect`, `evidence` (cited statement rows, journals, clearing items, the anchor), `conflicting_observation_event_seqs`, `supersedes_id`. CHECKs: an AI hypothesis is at most probable; a deterministic confirmation needs all five criteria stored and true; a confirmed finding names its confirmation |
+| `bnx.reconciliation_exception_event` | S2 state plus the §D7 phase: OPEN (`open`, `investigating`, `findings_ready`, `unresolved_parked`), EXPLAINED (`resolved_explained` + one of the five reason kinds, no journal), RESOLVED (`resolved_matched` + a §D7 action, or `RERUN_MATCHED` written by the engine). Trigger: OPEN first, no gaps, RESOLVED only reopens, EXPLAINED does not repeat |
+| `bnx.recon_evaluate_statement(statement, V, accept_stage1_fail)` | **Stage 1** (§D2): S1-ARITH (opening + Σ rows = closing in ledger sign), S1-CHAIN (previous final statement's closing = this opening; first / pass / gap / overlap / opening_differs), S1-PERIOD and S1-CURRENCY by construction, S1-RUNBAL `not_available`; missing opening or closing → `insufficient_data`. **Stage 2** (§D3): only for a confirmed statement with role sole/authoritative and stage 1 pass or member-accepted failure; difference = statement in ledger sign − `balance_at(period_end, V)`; a day after the anchor that no final statement covers → `incomplete_history`. **Rules** (§D4): RC-01 / RC-05 (fee or interest wording) row not posted; RC-02 a second unlinked journal for one row; RC-03 ledger leg without row; RC-04 row and journal on opposite sides of the period end; RC-06 open clearing item; RC-07 the same amount and date on another account-currency; RC-08 a foreign-currency journal whose amount differs from the row; RC-09 stage-1 failure; RC-10 first statement's opening against the ledger the day before; RC-11 coverage gap or broken chain; RC-12 difference = 2 × a row; RC-13 adjacent-digit swap (difference divisible by 9); RC-14 subset (≤ 20 candidates, Gray-code walk) of the unmatched items. **Classification** (§D5): confirmed only for RC-01/02/04/05/08/10 with C2 (confirmed, sole/authoritative statement on verified evidence), C3 (stage 1 pass, chain first/pass, no gap), C4 (the item findings close the difference exactly) and C5 (no RC-07/12/13 alternative, at most one closing subset); otherwise probable; RC-11 and the remainder are unresolved |
+| `bnx.recon_evaluate_observation` | The same comparison for a balance observation on its local date; the difference is an unresolved remainder; conflicting observations at the same instant are carried |
+| `cmd_run_reconciliation` (RC-POST, tier 2) | Runs the engine at the current version and records the run and its findings (OPEN / `findings_ready`). When the run is `matched`, the subject's earlier open findings become RESOLVED / `RERUN_MATCHED` (§D5 "resolution by action") |
+| `cmd_set_reconciliation_exception_state` (tier 2) | The member actions of §D7 (investigate, park, explain with a reason kind, resolve with a §D7 action, reopen) and §D5 member confirmation (needs evidence; writes a member-confirmed finding that supersedes the probable one) |
+| `q_reconciliation_exceptions`, `q_reconciliation_coverage` (OBJ-249) | Findings in force (latest run per subject, superseded findings replaced) with their current state; coverage per account-currency (statements with their latest run, gaps after the anchor date not covered by a final statement) |
+
+### 9012c-2 decisions — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9012c2-1 | Statement rows are R1 `source_txn` rows of the account-currency with a posting date in the statement period; a row's journal is its R1 `source_link_event` link in force at the version | V1.2 carries no Draft-04 `staged_row` table; `source_txn` is the R1 row a statement's lines become. When document extraction (WP-DOC) links rows to statements, the selection narrows to the statement's own rows |
+| D-9012c2-2 | C2's "page reference" is satisfied at document granularity (the statement's document) | `source_txn` has no page number; recorded in each finding as `granularity: document` (limit L-9012-9) |
+| D-9012c2-3 | Draft-04 `recon_case` / `recon_finding` / `recon_case_result` map to the V1.2 `reconciliation_run` (case result, versioned) and `reconciliation_exception` (finding) | UA V1.2 names `reconciliation_exception` with `rule_code`; Draft-04 Δ3 versioned results are kept by the run table |
+| D-9012c2-4 | The §D7 lifecycle is stored as a phase inside the S2 states (OPEN: open / investigating / findings_ready / unresolved_parked; EXPLAINED: resolved_explained; RESOLVED: resolved_matched) | Keeps both sources without losing either vocabulary |
+| D-9012c2-5 | RC-05 recognises fee or interest rows by wording (`fee`, `interest`, `service charge`, `frais`, `intérêts`) | §D4 defines RC-05 as the fee/interest subtype of RC-01 without a classifier; the category of an unposted row is unknown |
+| D-9012c2-6 | RC-14 is emitted as a finding only when the item findings do not already close the difference; the subset search always feeds C5 | Otherwise RC-14 repeats RC-01/03/05 as a second explanation of the same items |
+| D-9012c2-7 | Hypotheses RC-12/13/14 run on `difference_open` and `incomplete_history`; the unresolved remainder is written only for `difference_open` | Under incomplete history the gap (RC-11) already makes the difference unresolved |
+| D-9012c2-8 | A run is started by the member (`cmd_run_reconciliation`); the outbox trigger of §D1 (after statement confirmation, plan activation, corrections) is not wired yet | The outbox events exist for plans; wiring them to reconciliation belongs with WP-DOC statement confirmation |
+| D-9012c2-9 | BAL01–12 are not individually defined in any available source; AT-RCN-01…03, AT-RCX-01 and AT-OBS-01 cover the summary of S2-14 OR-B-03 (observations, cut-off, missing baseline → no comparison, conflicts kept) | The ids are not claimed |
+
+### 9012c test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+| Test | Shows |
+|---|---|
+| AT-RCN-01 | An unposted fee row is RC-05, **confirmed** by the engine with C1–C5 stored and true. The member investigates, posts and links the fee; the re-run is `matched` and the finding becomes RESOLVED / `RERUN_MATCHED`. The earlier version still shows the open finding. Coverage shows the statement final and matched, no gap |
+| AT-RCN-02 | Difference −155.00 closed exactly by RC-01 (−200.00) and RC-03 (+45.00), but RC-07 (same amount and date on another account) competes: C5 fails, every finding **probable**. Next month the part not explained (−155.00) is an unresolved remainder |
+| AT-RCN-03 | Stage-1 failure stops stage 2 until accepted (RC-09, C3 false); an uncovered month → `incomplete_history`, RC-11 unresolved, RC-13 transposition; RC-10 on unverified evidence (C2 false); RC-12 sign; an `owed_positive` card statement matches; an observation carries its conflict; an unconfirmed statement is not evaluated |
+| AT-RCX-01 | Six invalid findings refused by CHECKs; the §D7 lifecycle and its refusals; member confirmation needs evidence and supersedes; append-only |
+| AT-OBS-01, AT-STP-01, AT-9012c-CAT | As 9012c-1, the catalog test extended to the run table and the five commands and queries |
 
 ## Owner decisions — `OWNER_DECISION`
 
@@ -199,4 +238,6 @@ Local runs on PG16.15 and PG17.11:
 | L-9012-5 | AT-INV-01 still scopes the disposition register up to 9010; the 9012 objects are not yet checked against OBJ-248/249. The engine helpers and `cmd_declare_loan` are declared in its helper list, and AT-FLG-11 lists the two loan tables that are enforcement points beyond §4.4.1 | When 9012 is complete (after 9012d), 9011 and 9012 join the inventory scope |
 | L-9012-6 | Disposition register gap: OBJ-249 does not name `cmd_declare_loan`, although a loan must be declared before its terms can be. OBJ-248 does not name `loan_term_event`'s retraction rule. 9012b adds `investment_lot_disposal` and the commands and queries that OBJ-248/249 do not name (`q_fx_rate`, `q_investment_position`, `q_card_fee_progress`, `cmd_record_fx_quote`, `cmd_record_investment_lot`, `cmd_record_lot_disposal`, `cmd_record_valuation`, `cmd_record_card_fee_event`) | Register update proposed for the next design revision; declared in AT-INV-01's helper list meanwhile |
 | L-9012-7 | No instrument registry: `instrument_id` is the caller's identifier, shared by `investment_lot` and the R1 `valuation` (which has no foreign key) | An instrument registry belongs to the F4 report work (9013) |
+| L-9012-9 | Reconciliation reads `source_txn` rows by period and cites the statement at document granularity; no running balances (S1-RUNBAL `not_available`), no page numbers, no OCR confidence for RC-09 | Narrowed when WP-DOC writes statement rows |
+| L-9012-10 | The AI investigator tools of §D6 and `NO_EVIDENCE_FOR_CORRECTION` are not built | MCP read/propose tools for reconciliation belong to the MCP work package |
 | L-9012-8 | No automatic FX feed (`fx_selection_log`, R1, stays unused) and no automatic card-fee evaluation job | Feeds and jobs need cloud egress and scheduling, outside this stage |

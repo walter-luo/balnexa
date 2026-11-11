@@ -10,11 +10,13 @@
 --          and events (bnx.card_fee_policy, bnx.card_fee_event, cmd_set_card_fee_policy, cmd_record_card_fee_event,
 --          q_card_fee_progress); module-flag enforcement on the four account-scoped tables.
 --   9012c-1 (OWNER_DECISION 2026-11-11, option 2): bnx.balance_observation_event, cmd_record_observation (RC-POST),
---          q_balance_observations, bnx.statement_period (view) / bnx.statement_period_at, bnx.reconciliation_exception(+event)
---          structure with its state machine, q_reconciliation_exceptions. The RC-01...14 rules, D5 and D7 are NOT implemented
---          (the Draft-04 rule texts are not available); no exception is computed yet.
---   NOT_IMPLEMENTED in this file yet: RC-01...14 evaluation (9012c-2), import_mapping, cross_source_match, payment_attribute,
---          onboarding tables, posting_plan.job_id FK (9012d).
+--          q_balance_observations, bnx.statement_period (view) / bnx.statement_period_at.
+--   9012c-2 (Draft-04 §D1-§D7, located 2026-11-11): bnx.reconciliation_run, bnx.reconciliation_exception(+event) with the
+--          §D5 classification and the §D7 lifecycle, the deterministic engine (bnx.recon_evaluate_statement /
+--          recon_evaluate_observation: stage 1, stage 2, RC-01...RC-14), cmd_run_reconciliation, cmd_set_reconciliation_exception_state,
+--          q_reconciliation_exceptions, q_reconciliation_coverage.
+--   NOT_IMPLEMENTED in this file yet: import_mapping, cross_source_match, payment_attribute, onboarding tables,
+--          posting_plan.job_id FK (9012d).
 -- MODIFY: bnx.trg_scope_flag (9007) adds the modes 'loan', 'loan_id', 'loan_payment_link' (9012a), 'lot_id' and 'card_fee' (9012b).
 -- Requires B003 (G0R) because 9011 does.
 
@@ -1385,48 +1387,463 @@ language sql stable security definer set search_path = pg_catalog, pg_temp as $$
 $$;
 create view bnx.statement_period as select * from bnx.statement_period_at((select version from bnx.ledger_state));
 
--- reconciliation exceptions: computed by the RC rules (not yet implemented), never posted. The row is the finding; its state
--- lives in reconciliation_exception_event (append-only): OPEN first, then EXPLAINED / RESOLVED, a reopen back to OPEN.
-create table bnx.reconciliation_exception(
-  id uuid primary key, account_currency_id uuid not null references bnx.account_currency, as_of_at timestamptz not null,
-  observed numeric(20,4), ledger numeric(20,4), difference numeric(20,4),
-  rule_code text not null check (rule_code ~ '^RC-(0[1-9]|1[0-4])$'),
-  class text not null check (class in ('CONFIRMED','PROBABLE')),
-  observation_event_seq int, ledger_version bigint not null, detail jsonb check (detail is null or jsonb_typeof(detail) = 'object'),
-  created_at timestamptz not null default now(),
+-- ---------- 9012c-2: deterministic reconciliation (Draft-04 §D1-§D7 as carried by UA V1.2 §5.6 and BNX-S2-02) ----------
+-- Authority: Balnexa_Unified_Architecture_V1.0_R6.2_Draft04.md (SHA-256 4ad49225...) §D1-§D7, mapped onto the V1.2 objects
+-- (reconciliation_exception with rule_code; S2 states OPEN/EXPLAINED/RESOLVED). Statement rows are R1 bnx.source_txn rows of the
+-- account-currency inside the statement period (V1.2 carries no staged_row table; D-9012c2-1). Only journals visible at the
+-- ledger version and not corrected take part; pending batches are counted, never summed (§D1, INV-27).
+
+-- the journal a statement row is linked to at version v (R1 source_link_event: the latest event of the pair is 'linked')
+create function bnx.source_link_at(p_src uuid, p_v bigint) returns uuid
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select x.journal_id from (
+    select distinct on (e.journal_id) e.journal_id, e.event from bnx.source_link_event e
+     where e.source_txn_id = p_src and e.recorded_version <= p_v order by e.journal_id, e.event_id desc) x
+   where x.event = 'linked' and bnx.journal_counts_at(x.journal_id, p_v) limit 1
+$$;
+
+-- one engine evaluation (class F, append-only): the subject is a statement or a balance observation; the result in force at V
+-- is the latest run of the subject evaluated at or before V (Draft-04 §D7 Δ3 recon_result_at)
+create table bnx.reconciliation_run(
+  id uuid primary key, account_currency_id uuid not null references bnx.account_currency,
+  subject_kind text not null check (subject_kind in ('statement','observation')),
+  statement_id uuid references bnx.statement, observation_event_seq int,
+  period_start date, period_end date not null,
+  stage1_state text not null check (stage1_state in ('pass','fail','fail_accepted_by_member','insufficient_data','not_applicable')),
+  stage1 jsonb not null,
+  stage2_state text not null check (stage2_state in ('not_evaluated','no_opening','before_opening','incomplete_history','matched','difference_open')),
+  observed numeric(20,4), ledger numeric(20,4), difference numeric(20,4), pending_batch_count int not null,
+  conflicting_observation_event_seqs int[], evaluated_at_version bigint not null, actor uuid references bnx.member,
+  recorded_version bigint not null, recorded_at timestamptz not null default now(),
   foreign key (account_currency_id, observation_event_seq) references bnx.balance_observation_event(account_currency_id, event_seq),
-  check (difference is null or (observed is not null and ledger is not null and difference = observed - ledger)));
+  check ((subject_kind = 'statement') = (statement_id is not null)), check ((subject_kind = 'observation') = (observation_event_seq is not null)),
+  check (difference is null or difference = observed - ledger));
+create index reconciliation_run_subject on bnx.reconciliation_run(account_currency_id, statement_id, observation_event_seq, evaluated_at_version);
+
+-- a finding (Draft-04 recon_finding as a V1.2 reconciliation_exception): computed, never posted
+create table bnx.reconciliation_exception(
+  id uuid primary key, run_id uuid not null references bnx.reconciliation_run, account_currency_id uuid not null references bnx.account_currency,
+  as_of_at timestamptz not null, observed numeric(20,4), ledger numeric(20,4), difference numeric(20,4),
+  rule_code text check (rule_code ~ '^RC-(0[1-9]|1[0-4])$'),
+  classification text not null check (classification in ('confirmed','probable','unresolved','ruled_out')),
+  confirmation text check (confirmation in ('deterministic','member','resolved_by_action')),
+  source text not null check (source in ('deterministic','ai_hypothesis','member')),
+  criteria jsonb not null check (jsonb_typeof(criteria) = 'object'), amount_effect numeric(20,4),
+  evidence jsonb not null check (jsonb_typeof(evidence) = 'object'),
+  conflicting_observation_event_seqs int[], supersedes_id uuid unique references bnx.reconciliation_exception,
+  author_member uuid references bnx.member, ledger_version bigint not null, created_at timestamptz not null default now(),
+  check (difference is null or (observed is not null and ledger is not null and difference = observed - ledger)),
+  check (rule_code is not null or classification = 'unresolved'),                       -- an unexplained remainder has no rule
+  check (source <> 'ai_hypothesis' or classification in ('probable','unresolved','ruled_out')),   -- §D5: AI at most probable
+  check (classification <> 'confirmed' or confirmation is not null),
+  check (confirmation is distinct from 'deterministic'
+         or coalesce(criteria->>'C1' = 'true' and criteria->'C2'->>'ok' = 'true' and criteria->'C3'->>'ok' = 'true'
+                     and criteria->'C4'->>'ok' = 'true' and criteria->'C5'->>'ok' = 'true', false)));   -- §D5: all five stored and true
+-- the state of a finding (S2 OPEN/EXPLAINED/RESOLVED) with the Draft-04 §D7 lifecycle phase and actions
 create table bnx.reconciliation_exception_event(
   exception_id uuid not null references bnx.reconciliation_exception, seq int not null,
   state text not null check (state in ('OPEN','EXPLAINED','RESOLVED')),
-  resolution_action text check (resolution_action is null or resolution_action ~ '^[A-Z][A-Z0-9_]{1,40}$'),
+  phase text not null check (phase in ('open','investigating','findings_ready','unresolved_parked','resolved_explained','resolved_matched')),
+  explanation_kind text check (explanation_kind in ('timing_in_transit','issuer_error_disputed','missing_history_accepted','bridge_accepted','other')),
+  resolution_action text check (resolution_action in ('POST_MISSING_ROW','REVERSE_DUPLICATE','CONFIRM_POSTING_DATE','REMAP_ACCOUNT',
+                                                      'REVISE_ANCHOR','RERUN_MATCHED')),
   note jsonb check (note is null or jsonb_typeof(note) = 'object'),
   actor uuid references bnx.member, recorded_version bigint not null, recorded_at timestamptz not null default now(),
-  primary key (exception_id, seq), check ((state = 'RESOLVED') = (resolution_action is not null)));
+  primary key (exception_id, seq),
+  check ((state = 'OPEN') = (phase in ('open','investigating','findings_ready','unresolved_parked'))),
+  check ((state = 'EXPLAINED') = (phase = 'resolved_explained')), check ((state = 'RESOLVED') = (phase = 'resolved_matched')),
+  check ((state = 'EXPLAINED') = (explanation_kind is not null)), check ((state = 'RESOLVED') = (resolution_action is not null)));
+create trigger t_append_only before update or delete on bnx.reconciliation_run for each row execute function bnx.trg_append_only();
 create trigger t_append_only before update or delete on bnx.reconciliation_exception for each row execute function bnx.trg_append_only();
 create trigger t_append_only before update or delete on bnx.reconciliation_exception_event for each row execute function bnx.trg_append_only();
-insert into bnx.table_class values ('reconciliation_exception','F'), ('reconciliation_exception_event','F');
+insert into bnx.table_class values ('reconciliation_run','F'), ('reconciliation_exception','F'), ('reconciliation_exception_event','F');
 
--- state machine of an exception (restore replays are exempt as for the 9006 triggers)
+-- state machine: OPEN first; OPEN -> OPEN (another phase), EXPLAINED, RESOLVED; EXPLAINED -> OPEN, RESOLVED; RESOLVED -> OPEN
+-- (a later visible change re-opens, §D7). Restore replays are exempt.
 create function bnx.trg_reconciliation_exception_state() returns trigger
 language plpgsql set search_path = pg_catalog, pg_temp as $$
-declare prev text;
+declare prev record;
 begin
   if bnx.restore_mode() then return new; end if;
-  select e.state into prev from bnx.reconciliation_exception_event e where e.exception_id = new.exception_id order by e.seq desc limit 1;
-  if new.seq <> coalesce((select max(seq) from bnx.reconciliation_exception_event where exception_id = new.exception_id), 0) + 1
-     or (prev is null and new.state <> 'OPEN')
-     or (prev = 'OPEN' and new.state not in ('EXPLAINED','RESOLVED'))
-     or (prev = 'EXPLAINED' and new.state not in ('OPEN','RESOLVED'))
-     or (prev = 'RESOLVED' and new.state <> 'OPEN') then
-    raise exception 'EXCEPTION_STATE' using errcode = 'P0409', detail = coalesce(prev, 'none') || ' -> ' || new.state;
+  select e.seq, e.state, e.phase into prev from bnx.reconciliation_exception_event e where e.exception_id = new.exception_id
+   order by e.seq desc limit 1;
+  if new.seq <> coalesce(prev.seq, 0) + 1
+     or (prev.state is null and new.state <> 'OPEN')
+     or (prev.state = 'OPEN' and new.state = 'OPEN' and new.phase = prev.phase)
+     or (prev.state = 'EXPLAINED' and new.state = 'EXPLAINED')
+     or (prev.state = 'RESOLVED' and new.state <> 'OPEN') then
+    raise exception 'EXCEPTION_STATE' using errcode = 'P0409',
+      detail = coalesce(prev.state || '/' || prev.phase, 'none') || ' -> ' || new.state || '/' || new.phase;
   end if;
   return new;
 end $$;
 create trigger t_reconciliation_exception_state before insert on bnx.reconciliation_exception_event
   for each row execute function bnx.trg_reconciliation_exception_state();
 
--- exceptions on the actor's visible account-currencies with their current state (OBJ-249); optional filters
+-- the statement-to-ledger sign (§D3): asset_positive as printed; owed_positive is negated
+create function bnx.recon_eq(p_amount numeric, p_sign text) returns numeric
+language sql immutable set search_path = pg_catalog, pg_temp as $$
+  select case when p_amount is null then null when p_sign = 'owed_positive' then -p_amount else p_amount end $$;
+
+-- RC-13 helper: |a| in minor units with two adjacent digits swapped differs from |a| by exactly |d|
+create function bnx.recon_transposes(p_a numeric, p_d numeric, mu int) returns boolean
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare s text := (abs(p_a) * 10 ^ mu)::numeric(30,0)::text; d numeric := abs(p_d) * 10 ^ mu; i int; t text;
+begin
+  if d = 0 or d % 9 <> 0 then return false; end if;
+  for i in 1 .. length(s) - 1 loop
+    if substr(s, i, 1) <> substr(s, i + 1, 1) then
+      t := substr(s, 1, i - 1) || substr(s, i + 1, 1) || substr(s, i, 1) || substr(s, i + 2);
+      if abs(t::numeric - s::numeric) = d then return true; end if;
+    end if;
+  end loop;
+  return false;
+end $$;
+
+-- RC-14 helper: the subsets (at most 20 candidates; Gray-code walk) whose effects sum to p_target; returns up to 2 subsets as
+-- arrays of candidate indexes (1-based), so a second subset shows that the explanation is not unique (§D5 C5)
+create function bnx.recon_subset_sum(p_effects numeric[], p_target numeric) returns jsonb
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare n int := coalesce(array_length(p_effects, 1), 0); mask bigint := 0; g bigint; prevg bigint := 0; bit int; s numeric := 0;
+        found jsonb := '[]'; k int; sub int[];
+begin
+  if n = 0 or n > 20 or p_target = 0 then return jsonb_build_object('searched', n between 1 and 20, 'candidates', n, 'subsets', found); end if;
+  for mask in 1 .. (1::bigint << n) - 1 loop
+    g := mask # (mask >> 1);
+    bit := 0;
+    while ((g # prevg) >> bit) & 1 = 0 loop bit := bit + 1; end loop;
+    if (g >> bit) & 1 = 1 then s := s + p_effects[bit + 1]; else s := s - p_effects[bit + 1]; end if;
+    prevg := g;
+    if s = p_target then
+      sub := '{}';
+      for k in 0 .. n - 1 loop if (g >> k) & 1 = 1 then sub := sub || (k + 1); end if; end loop;
+      found := found || jsonb_build_array(to_jsonb(sub));
+      exit when jsonb_array_length(found) >= 2;
+    end if;
+  end loop;
+  return jsonb_build_object('searched', true, 'candidates', n, 'subsets', found);
+end $$;
+
+-- coverage (R15, §D3 incomplete_history): the days after the anchor date up to p_end that no final statement covers
+create function bnx.recon_coverage_gap(p_ac uuid, p_from date, p_end date, p_v bigint) returns boolean
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select case when p_from is null or p_from >= p_end then false else not coalesce(
+    daterange(p_from + 1, p_end, '[]')::datemultirange <@
+      (select range_agg(daterange(s.period_start, s.period_end, '[]')) from bnx.statement_period_at(p_v) s
+        where s.account_currency_id = p_ac and s.final and coalesce(s.version_role, 'sole') in ('sole','authoritative')), false) end
+$$;
+
+-- the deterministic engine for one statement at version v (§D2-§D5). Pure: returns the run and its findings as JSON.
+create function bnx.recon_evaluate_statement(p_statement uuid, p_v bigint, p_accept_stage1_fail boolean default false) returns jsonb
+language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $$
+declare st record; sp record; prev record; ac record; mu int; eo text; bal bnx.balance_result; pre bnx.balance_result;
+        rows_sum numeric; arith_diff numeric; s1 text; s1j jsonb; s2 text := 'not_evaluated'; why text; cmpv numeric; ledg numeric; d numeric;
+        pend int; gap boolean := false; chain text; f jsonb := '[]'; r record; j uuid; mv numeric; other uuid; rem numeric;
+        det_sum numeric := 0; det_n int := 0; cands numeric[] := '{}'; cand_ref jsonb := '[]'; ss jsonb; c2 jsonb; c3 jsonb; c4ok boolean;
+        c5 jsonb; x jsonb; out jsonb := '[]'; competing boolean := false;
+begin
+  select * into sp from bnx.statement_period_at(p_v) x where x.statement_id = p_statement;
+  if sp.statement_id is null then return jsonb_build_object('error', 'STATEMENT_NOT_AVAILABLE'); end if;
+  select ac0.id, ac0.currency, ac0.ledger_account_id, cu.minor_units into ac from bnx.account_currency ac0
+    join bnx.currency cu on cu.code = ac0.currency where ac0.id = sp.account_currency_id;
+  mu := ac.minor_units;
+  select e.integrity_state into eo from bnx.document dct join bnx.evidence_object e on e.id = dct.evidence_object_id where dct.id = sp.document_id;
+  -- ---------- stage 1 (§D2) ----------
+  select coalesce(sum(t.amount), 0) into rows_sum from bnx.source_txn t
+   where t.account_currency_id = ac.id and t.posting_date between sp.period_start and sp.period_end;
+  select p.* into prev from bnx.statement_period_at(p_v) p
+   where p.account_currency_id = ac.id and p.final and coalesce(p.version_role, 'sole') in ('sole','authoritative')
+     and p.statement_id <> p_statement and p.period_end < coalesce(sp.period_end, 'infinity')
+   order by p.period_end desc limit 1;
+  chain := case when prev.statement_id is null then 'first'
+                when sp.period_start is null or sp.opening_balance is null then 'insufficient_data'
+                when prev.period_end + 1 < sp.period_start then 'gap'
+                when prev.period_end >= sp.period_start then 'overlap'
+                when bnx.recon_eq(prev.closing_balance, prev.sign_convention) = bnx.recon_eq(sp.opening_balance, sp.sign_convention) then 'pass'
+                else 'opening_differs' end;
+  if sp.opening_balance is null or sp.closing_balance is null or sp.period_start is null or sp.period_end is null then
+    s1 := 'insufficient_data';
+  else
+    arith_diff := bnx.recon_eq(sp.opening_balance, sp.sign_convention) + rows_sum - bnx.recon_eq(sp.closing_balance, sp.sign_convention);
+    s1 := case when arith_diff = 0 then 'pass' when p_accept_stage1_fail then 'fail_accepted_by_member' else 'fail' end;
+  end if;
+  s1j := jsonb_build_object('S1-ARITH', case when arith_diff is null then 'insufficient_data' when arith_diff = 0 then 'pass' else 'fail' end,
+                            'arith_difference', arith_diff::text, 'S1-RUNBAL', 'not_available', 'S1-CHAIN', chain,
+                            'previous_statement_id', prev.statement_id, 'S1-PERIOD', 'pass', 'S1-CURRENCY', 'pass', 'rows', rows_sum::text);
+  select count(distinct je.posting_batch_id) into pend from bnx.journal_entry je join bnx.journal_line jl on jl.journal_id = je.id
+   where jl.ledger_account_id = ac.ledger_account_id and je.posting_batch_id is not null and not bnx.journal_counts_at(je.id, p_v)
+     and not exists (select 1 from bnx.posting_batch_event ev where ev.batch_id = je.posting_batch_id and ev.event = 'voided');
+  -- ---------- stage 2 (§D3) ----------
+  if not sp.confirmed then why := 'not_confirmed';
+  elsif coalesce(sp.version_role, 'sole') not in ('sole','authoritative') then why := 'version_role';
+  elsif s1 not in ('pass','fail_accepted_by_member') then why := 'stage1_' || s1;
+  else
+    cmpv := bnx.recon_eq(sp.closing_balance, sp.sign_convention);
+    bal := bnx.balance_at(ac.id, sp.period_end, p_v);
+    if bal.status = 'NO_OPENING' then s2 := 'no_opening';
+    elsif bal.status = 'BEFORE_OPENING' then s2 := 'before_opening';
+    else
+      ledg := bal.amount; d := cmpv - ledg;
+      gap := bnx.recon_coverage_gap(ac.id, (bal.anchor).anchor_date, sp.period_end, p_v);
+      s2 := case when gap then 'incomplete_history' when d = 0 then 'matched' else 'difference_open' end;
+    end if;
+  end if;
+  -- ---------- deterministic rules (§D4) ----------
+  if s2 in ('difference_open','incomplete_history','matched') then
+    -- RC-01 / RC-05 (subtype) missing in ledger, RC-07 same amount and date on another account-currency, RC-08 FX settlement,
+    -- RC-04 (b) row linked to a journal posted after the period, RC-02 duplicate journal
+    for r in select t.* from bnx.source_txn t where t.account_currency_id = ac.id and t.posting_date between sp.period_start and sp.period_end
+               order by t.posting_date, t.id loop
+      j := bnx.source_link_at(r.id, p_v);
+      if j is null then
+        f := f || jsonb_build_object('rule', case when r.normalized_description ~* '\m(fee|fees|interest|service charge|frais|interets|intérêts)\M'
+                                                  then 'RC-05' else 'RC-01' end, 'effect', r.amount, 'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id)));
+        for other in select je.id from bnx.journal_entry je join bnx.journal_line jl on jl.journal_id = je.id
+                       join bnx.account_currency oac on oac.ledger_account_id = jl.ledger_account_id and oac.id <> ac.id and oac.currency = ac.currency
+                      where jl.amount = r.amount and bnx.effective_posting_date(je.id, p_v) = r.posting_date and bnx.journal_counts_at(je.id, p_v)
+                        and not exists (select 1 from bnx.source_link_event e where e.journal_id = je.id and e.recorded_version <= p_v
+                                          and e.event = 'linked') loop
+          f := f || jsonb_build_object('rule', 'RC-07', 'effect', r.amount, 'alternative', true,
+                                       'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id), jsonb_build_object('journal_id', other)));
+        end loop;
+      else
+        mv := bnx.journal_movement(j, ac.id);
+        if bnx.effective_posting_date(j, p_v) > sp.period_end then
+          f := f || jsonb_build_object('rule', 'RC-04', 'effect', r.amount, 'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id),
+                                       jsonb_build_object('journal_id', j)), 'timing', 'ledger_after_period');
+        elsif mv is distinct from r.amount and (select je.original_currency from bnx.journal_entry je where je.id = j) is not null then
+          f := f || jsonb_build_object('rule', 'RC-08', 'effect', r.amount - coalesce(mv, 0), 'items',
+                                       jsonb_build_array(jsonb_build_object('source_txn_id', r.id), jsonb_build_object('journal_id', j)));
+        end if;
+        for other in select je.id from bnx.journal_entry je join bnx.journal_line jl on jl.journal_id = je.id
+                      where jl.ledger_account_id = ac.ledger_account_id and je.id <> j and jl.amount = r.amount
+                        and bnx.effective_posting_date(je.id, p_v) = bnx.effective_posting_date(j, p_v) and bnx.journal_counts_at(je.id, p_v)
+                        and not exists (select 1 from bnx.source_link_event e where e.journal_id = je.id and e.recorded_version <= p_v and e.event = 'linked')
+                        and (select count(*) from bnx.source_txn t2 where t2.account_currency_id = ac.id and t2.amount = r.amount
+                               and t2.posting_date = r.posting_date) = 1 loop
+          f := f || jsonb_build_object('rule', 'RC-02', 'effect', -r.amount, 'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id),
+                                       jsonb_build_object('journal_id', j), jsonb_build_object('journal_id', other)), 'duplicate_journal_id', other);
+        end loop;
+      end if;
+    end loop;
+    -- RC-03 ledger legs in the period with no statement row (RC-04 (a) when the row is in a later statement; RC-02 duplicates excluded)
+    for r in select je.id jid, bnx.journal_movement(je.id, ac.id) amt from bnx.journal_entry je
+              where exists (select 1 from bnx.journal_line jl where jl.journal_id = je.id and jl.ledger_account_id = ac.ledger_account_id)
+                and bnx.journal_counts_at(je.id, p_v) and bnx.effective_posting_date(je.id, p_v) between sp.period_start and sp.period_end
+                and not exists (select 1 from bnx.source_txn t where t.account_currency_id = ac.id and t.posting_date between sp.period_start
+                                  and sp.period_end and bnx.source_link_at(t.id, p_v) = je.id)
+                and not exists (select 1 from jsonb_array_elements(f) y where y->>'duplicate_journal_id' = je.id::text)
+                and je.economic_type <> 'opening_balance'
+              order by je.posting_date, je.id loop
+      if exists (select 1 from bnx.source_txn t where t.account_currency_id = ac.id and t.posting_date > sp.period_end
+                   and bnx.source_link_at(t.id, p_v) = r.jid) then
+        f := f || jsonb_build_object('rule', 'RC-04', 'effect', -r.amt, 'items', jsonb_build_array(jsonb_build_object('journal_id', r.jid)),
+                                     'timing', 'row_in_later_statement');
+      else
+        f := f || jsonb_build_object('rule', 'RC-03', 'effect', -r.amt, 'items', jsonb_build_array(jsonb_build_object('journal_id', r.jid)));
+      end if;
+    end loop;
+    -- RC-06 open clearing items (transfer legs) on the account-currency
+    for r in select c.id, c.amount from bnx.clearing_item c where c.account_currency_id = ac.id and bnx.journal_counts_at(c.opened_journal, p_v)
+               and not exists (select 1 from bnx.clearing_item_event e where e.clearing_item_id = c.id and e.event = 'resolved'
+                                 and e.recorded_version <= p_v) loop
+      f := f || jsonb_build_object('rule', 'RC-06', 'effect', null, 'items', jsonb_build_array(jsonb_build_object('clearing_item_id', r.id)),
+                                   'clearing_amount', r.amount);
+    end loop;
+    -- RC-10 the first statement's opening against the ledger on the day before the period
+    if chain = 'first' and sp.opening_balance is not null then
+      pre := bnx.balance_at(ac.id, sp.period_start - 1, p_v);
+      if pre.status = 'ok' and bnx.recon_eq(sp.opening_balance, sp.sign_convention) <> pre.amount then
+        f := f || jsonb_build_object('rule', 'RC-10', 'effect', bnx.recon_eq(sp.opening_balance, sp.sign_convention) - pre.amount,
+                                     'items', jsonb_build_array(jsonb_build_object('statement_opening', p_statement), jsonb_build_object('anchor_id', (pre.anchor).id)));
+      end if;
+    end if;
+  end if;
+  if s1 in ('fail','fail_accepted_by_member') then
+    f := f || jsonb_build_object('rule', 'RC-09', 'effect', null, 'items', jsonb_build_array(jsonb_build_object('statement_id', p_statement)),
+                                 'arith_difference', arith_diff::text);
+  end if;
+  if s2 = 'incomplete_history' or chain in ('gap','overlap') then
+    f := f || jsonb_build_object('rule', 'RC-11', 'effect', null, 'items', jsonb_build_array(jsonb_build_object('statement_id', p_statement)),
+                                 'chain', chain);
+  end if;
+  -- hypotheses on the open difference: RC-12 sign, RC-13 transposition, RC-14 subset sum of the unmatched items
+  if s2 in ('difference_open','incomplete_history') and d <> 0 then
+    for r in select t.id, t.amount from bnx.source_txn t where t.account_currency_id = ac.id and t.posting_date between sp.period_start and sp.period_end
+               and abs(2 * t.amount) = abs(d) loop
+      f := f || jsonb_build_object('rule', 'RC-12', 'effect', d, 'alternative', true, 'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id)));
+    end loop;
+    for r in select t.id, t.amount from bnx.source_txn t where t.account_currency_id = ac.id and t.posting_date between sp.period_start and sp.period_end
+               and bnx.recon_transposes(t.amount, d, mu) loop
+      f := f || jsonb_build_object('rule', 'RC-13', 'effect', d, 'alternative', true, 'items', jsonb_build_array(jsonb_build_object('source_txn_id', r.id)));
+    end loop;
+    for x in select y from jsonb_array_elements(f) y where y->>'rule' in ('RC-01','RC-03','RC-05') loop
+      cands := cands || (x->>'effect')::numeric; cand_ref := cand_ref || jsonb_build_array(x->'items');
+    end loop;
+    ss := bnx.recon_subset_sum(cands, d);
+    -- RC-14 is a hypothesis only when the item findings do not already close the difference (otherwise it repeats them)
+    if jsonb_array_length(ss->'subsets') > 0 and (select coalesce(sum((y->>'effect')::numeric), 0) from jsonb_array_elements(f) y
+                                                  where y->>'rule' in ('RC-01','RC-02','RC-03','RC-04','RC-05','RC-08','RC-10')) <> d then
+      f := f || jsonb_build_object('rule', 'RC-14', 'effect', d, 'alternative', true, 'subset_search', ss,
+                                   'items', (select jsonb_agg(cand_ref->(i::int - 1)) from jsonb_array_elements_text(ss->'subsets'->0) i));
+    end if;
+  end if;
+  -- ---------- classification (§D5) ----------
+  select coalesce(sum((y->>'effect')::numeric), 0), count(*) into det_sum, det_n from jsonb_array_elements(f) y
+   where y->>'rule' in ('RC-01','RC-02','RC-03','RC-04','RC-05','RC-08','RC-10') and y->>'effect' is not null;
+  competing := exists (select 1 from jsonb_array_elements(f) y where (y->>'alternative')::boolean is true and y->>'rule' <> 'RC-14')
+               or jsonb_array_length(coalesce(ss->'subsets', '[]')) > 1;
+  c2 := jsonb_build_object('ok', sp.confirmed and coalesce(sp.version_role, 'sole') in ('sole','authoritative') and eo = 'verified',
+                           'statement_confirmed', sp.confirmed, 'version_role', coalesce(sp.version_role, 'sole'), 'evidence_integrity', eo,
+                           'page_reference', jsonb_build_object('document_id', sp.document_id, 'granularity', 'document'));
+  c3 := jsonb_build_object('ok', s1 = 'pass' and not gap and chain in ('first','pass'), 'stage1', s1, 'chain', chain, 'coverage_gap', gap);
+  c4ok := d is not null and det_n > 0 and det_sum = d;
+  c5 := jsonb_build_object('ok', not competing, 'competing_explanations', competing, 'subset_search', ss);
+  for x in select y from jsonb_array_elements(f) y loop
+    if x->>'rule' in ('RC-01','RC-02','RC-04','RC-05','RC-08','RC-10') and (c2->>'ok')::boolean and (c3->>'ok')::boolean and c4ok
+       and (c5->>'ok')::boolean and (x->>'rule' <> 'RC-04' or x->>'timing' = 'row_in_later_statement' or x->>'timing' = 'ledger_after_period') then
+      x := x || jsonb_build_object('classification', 'confirmed', 'confirmation', 'deterministic');
+    elsif x->>'rule' = 'RC-11' then x := x || jsonb_build_object('classification', 'unresolved');
+    else x := x || jsonb_build_object('classification', 'probable');
+    end if;
+    out := out || jsonb_build_array(x || jsonb_build_object('criteria', jsonb_build_object(
+             'C1', x->>'rule' in ('RC-01','RC-02','RC-04','RC-05','RC-08','RC-10'), 'C2', c2, 'C3', c3,
+             'C4', jsonb_build_object('ok', c4ok, 'deterministic_sum', det_sum::text, 'difference', d::text), 'C5', c5)));
+  end loop;
+  rem := case when s2 = 'difference_open' then d - det_sum end;
+  if rem is not null and rem <> 0 then
+    out := out || jsonb_build_array(jsonb_build_object('rule', null, 'effect', rem, 'classification', 'unresolved', 'items', '[]'::jsonb,
+             'remainder', true, 'criteria', jsonb_build_object('C1', false, 'remainder_of', d::text, 'explained', det_sum::text)));
+  end if;
+  return jsonb_build_object('statement_id', p_statement, 'account_currency_id', ac.id, 'period_start', sp.period_start, 'period_end', sp.period_end,
+    'stage1_state', s1, 'stage1', s1j, 'stage2_state', s2, 'not_evaluated_reason', why, 'observed', cmpv::text, 'ledger', ledg::text,
+    'difference', d::text, 'pending_batch_count', pend, 'ledger_version', p_v, 'findings', out);
+end $$;
+
+-- a balance observation compared with the ledger on its local date (§D3 "checkpoint" cases: same comparison, member-reported
+-- or document evidence). Only the remainder is reported; rules that need statement rows do not apply.
+create function bnx.recon_evaluate_observation(p_ac uuid, p_seq int, p_v bigint) returns jsonb
+language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $$
+declare o bnx.balance_observation_event; dt date; bal bnx.balance_result; cmpv numeric; d numeric; s2 text; conf int[]; out jsonb := '[]';
+begin
+  select x.* into o from bnx.observations_at(p_ac, p_v) x where x.event_seq = p_seq;
+  if o.event_seq is null then return jsonb_build_object('error', 'OBSERVATION_NOT_IN_EFFECT'); end if;
+  dt := (o.observed_at at time zone o.tz)::date; cmpv := bnx.recon_eq(o.amount, o.sign_convention);
+  conf := array(select c.event_seq from bnx.observations_at(p_ac, p_v) c where c.observed_at = o.observed_at and c.event_seq <> o.event_seq
+                  and bnx.recon_eq(c.amount, c.sign_convention) <> cmpv order by 1);
+  bal := bnx.balance_at(p_ac, dt, p_v);
+  s2 := case when bal.status = 'NO_OPENING' then 'no_opening' when bal.status = 'BEFORE_OPENING' then 'before_opening'
+             when cmpv = bal.amount then 'matched' else 'difference_open' end;
+  if s2 = 'difference_open' then d := cmpv - bal.amount;
+    out := jsonb_build_array(jsonb_build_object('rule', null, 'effect', d, 'classification', 'unresolved', 'items',
+             jsonb_build_array(jsonb_build_object('observation_event_seq', p_seq)), 'remainder', true,
+             'criteria', jsonb_build_object('C1', false, 'evidence', case o.source when 'MEMBER' then 'member_reported' else 'document' end)));
+  end if;
+  return jsonb_build_object('account_currency_id', p_ac, 'observation_event_seq', p_seq, 'period_end', dt, 'stage1_state', 'not_applicable',
+    'stage1', '{}'::jsonb, 'stage2_state', s2, 'observed', cmpv::text, 'ledger', bal.amount::text, 'difference', d::text,
+    'pending_batch_count', 0, 'conflicting_observation_event_seqs', to_jsonb(conf), 'ledger_version', p_v, 'findings', out);
+end $$;
+
+-- RC-POST (tier 2; post rights on the account-currency): run the engine for one subject at the current version and record the
+-- run and its findings (each OPEN / findings_ready). Open findings of earlier runs of the same subject get RESOLVED / RERUN_MATCHED
+-- when this run is matched, otherwise they stay as they are (the newest run's findings are the ones in force).
+create function bnx.cmd_run_reconciliation(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; sid uuid; acid uuid; seq_ int; vnow bigint; res jsonb; v bigint; rid uuid := gen_random_uuid();
+        x jsonb; xid uuid; n int := 0; old record;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'run_reconciliation', cmd); if rc is not null then return rc; end if;
+  begin sid := (cmd->>'statement_id')::uuid; acid := (cmd->>'account_currency_id')::uuid; seq_ := (cmd->>'observation_event_seq')::int;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'statement_id, account_currency_id or observation_event_seq'); end;
+  if (sid is null) = (seq_ is null) or (seq_ is not null and acid is null) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'one subject: statement_id, or account_currency_id with observation_event_seq'); end if;
+  select version into vnow from bnx.ledger_state;
+  if sid is not null then
+    select s.account_currency_id into acid from bnx.statement_period_at(vnow) s where s.statement_id = sid;
+    if acid is null then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  end if;
+  if not bnx.actor_can_post(a, acid) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  perform pg_advisory_xact_lock(hashtext('bnx.recon:' || acid));
+  res := case when sid is not null then bnx.recon_evaluate_statement(sid, vnow, coalesce((cmd->>'accept_stage1_fail')::boolean, false))
+              else bnx.recon_evaluate_observation(acid, seq_, vnow) end;
+  if res ? 'error' then perform bnx.fail('NOT_FOUND', 'P0404', res->>'error'); end if;
+  v := bnx.next_version();
+  insert into bnx.reconciliation_run(id, account_currency_id, subject_kind, statement_id, observation_event_seq, period_start, period_end,
+                                     stage1_state, stage1, stage2_state, observed, ledger, difference, pending_batch_count,
+                                     conflicting_observation_event_seqs, evaluated_at_version, actor, recorded_version)
+  values (rid, acid, case when sid is not null then 'statement' else 'observation' end, sid, seq_, (res->>'period_start')::date,
+          (res->>'period_end')::date, res->>'stage1_state', res->'stage1', res->>'stage2_state', (res->>'observed')::numeric,
+          (res->>'ledger')::numeric, (res->>'difference')::numeric, (res->>'pending_batch_count')::int,
+          array(select jsonb_array_elements_text(coalesce(res->'conflicting_observation_event_seqs', '[]'))::int), vnow, a.member_id, v);
+  for x in select y from jsonb_array_elements(res->'findings') y loop
+    xid := gen_random_uuid(); n := n + 1;
+    insert into bnx.reconciliation_exception(id, run_id, account_currency_id, as_of_at, observed, ledger, difference, rule_code, classification,
+                                             confirmation, source, criteria, amount_effect, evidence, conflicting_observation_event_seqs, ledger_version)
+    values (xid, rid, acid, ((res->>'period_end')::date + 1)::timestamptz, (res->>'observed')::numeric, (res->>'ledger')::numeric,
+            (res->>'difference')::numeric, x->>'rule', x->>'classification', x->>'confirmation', 'deterministic', x->'criteria',
+            (x->>'effect')::numeric, jsonb_build_object('items', x->'items') || (x - 'rule' - 'classification' - 'confirmation' - 'criteria' - 'effect' - 'items'),
+            array(select jsonb_array_elements_text(coalesce(res->'conflicting_observation_event_seqs', '[]'))::int), vnow);
+    insert into bnx.reconciliation_exception_event(exception_id, seq, state, phase, actor, recorded_version) values (xid, 1, 'OPEN', 'findings_ready', a.member_id, v);
+  end loop;
+  if res->>'stage2_state' = 'matched' then
+    for old in select x.id, (select max(e.seq) from bnx.reconciliation_exception_event e where e.exception_id = x.id) s
+                 from bnx.reconciliation_exception x join bnx.reconciliation_run r on r.id = x.run_id
+                where r.account_currency_id = acid and r.id <> rid and r.statement_id is not distinct from sid
+                  and r.observation_event_seq is not distinct from seq_
+                  and (select e.state from bnx.reconciliation_exception_event e where e.exception_id = x.id order by e.seq desc limit 1) = 'OPEN' loop
+      insert into bnx.reconciliation_exception_event(exception_id, seq, state, phase, resolution_action, actor, recorded_version)
+      values (old.id, old.s + 1, 'RESOLVED', 'resolved_matched', 'RERUN_MATCHED', a.member_id, v);
+    end loop;
+  end if;
+  perform bnx.audit(a, 'run_reconciliation', jsonb_build_object('run_id', rid, 'account_currency_id', acid), cmd, v);
+  return bnx.idem_end(a, 'run_reconciliation', cmd, jsonb_build_object('run_id', rid, 'stage1_state', res->>'stage1_state',
+           'stage2_state', res->>'stage2_state', 'difference', res->>'difference', 'findings', n, 'ledger_version', v));
+end $$;
+
+-- a member action on a finding (§D7, PWA, tier 2): investigate, park, explain (reason kind, no journal), mark resolved by one of
+-- the D7 actions, or reopen; member confirmation (§D5) records a member-confirmed copy that supersedes the finding
+create function bnx.cmd_set_reconciliation_exception_state(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; x bnx.reconciliation_exception; ph text := cmd->>'phase'; st text; s int; v bigint;
+        nid uuid;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'set_reconciliation_exception_state', cmd); if rc is not null then return rc; end if;
+  begin select * into x from bnx.reconciliation_exception where id = (cmd->>'exception_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'exception_id'); end;
+  if x.id is null then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, x.account_currency_id) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  if (cmd ? 'note' and jsonb_typeof(cmd->'note') <> 'object') then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'note'); end if;
+  v := bnx.next_version();
+  if ph = 'member_confirmed' then                       -- §D5 member confirmation: needs cited evidence; never for a remainder
+    if x.rule_code is null or jsonb_typeof(cmd->'evidence_ref') is distinct from 'object' or x.classification = 'confirmed' then
+      perform bnx.fail('VALIDATION_FAILED', 'P0422', 'member confirmation needs evidence_ref and a probable rule finding'); end if;
+    nid := gen_random_uuid();
+    insert into bnx.reconciliation_exception(id, run_id, account_currency_id, as_of_at, observed, ledger, difference, rule_code, classification,
+                                             confirmation, source, criteria, amount_effect, evidence, conflicting_observation_event_seqs, supersedes_id,
+                                             author_member, ledger_version)
+    values (nid, x.run_id, x.account_currency_id, x.as_of_at, x.observed, x.ledger, x.difference, x.rule_code, 'confirmed', 'member', 'member',
+            x.criteria, x.amount_effect, x.evidence || jsonb_build_object('member_evidence', cmd->'evidence_ref'), x.conflicting_observation_event_seqs,
+            x.id, a.member_id, v);
+    insert into bnx.reconciliation_exception_event(exception_id, seq, state, phase, actor, recorded_version) values (nid, 1, 'OPEN', 'findings_ready', a.member_id, v);
+  else
+    st := case when ph in ('open','investigating','unresolved_parked','findings_ready') then 'OPEN' when ph = 'resolved_explained' then 'EXPLAINED'
+               when ph = 'resolved_matched' then 'RESOLVED' end;
+    if st is null or (st = 'RESOLVED' and cmd->>'resolution_action' = 'RERUN_MATCHED') then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'phase'); end if;
+    s := coalesce((select max(seq) from bnx.reconciliation_exception_event where exception_id = x.id), 0) + 1;
+    begin
+      insert into bnx.reconciliation_exception_event(exception_id, seq, state, phase, explanation_kind, resolution_action, note, actor, recorded_version)
+      values (x.id, s, st, ph, cmd->>'explanation_kind', cmd->>'resolution_action', cmd->'note', a.member_id, v);
+    exception when check_violation then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'explanation_kind or resolution_action for the phase');
+    end;
+  end if;
+  perform bnx.audit(a, 'set_reconciliation_exception_state', jsonb_build_object('exception_id', x.id, 'phase', ph), cmd, v);
+  return bnx.idem_end(a, 'set_reconciliation_exception_state', cmd, jsonb_build_object('exception_id', coalesce(nid, x.id), 'phase', ph, 'ledger_version', v));
+end $$;
+
+-- findings in force on the actor's visible account-currencies (OBJ-249): the latest run of each subject at V, each finding with its
+-- current state; superseded (member-confirmed) findings are replaced by their successor
 create function bnx.q_reconciliation_exceptions(cred jsonb, q jsonb) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
 declare a bnx.actor := bnx.resolve_actor(cred); acid uuid; st text := q->>'state'; v bigint; vnow bigint;
@@ -1438,32 +1855,77 @@ begin
   select version into vnow from bnx.ledger_state;
   v := coalesce(v, vnow);
   if v > vnow or v < 0 then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'ledger_version'); end if;
-  if acid is not null and not exists (select 1 from bnx.actor_visible_acs(a) x where x = acid) then
-    perform bnx.fail('NOT_FOUND', 'P0404'); end if;
-  return jsonb_build_object('ledger_version', v, 'rules_implemented', false, 'exceptions', coalesce((
-    select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('exception_id', x.id, 'account_currency_id', x.account_currency_id,
-             'as_of_at', x.as_of_at, 'observed', x.observed::text, 'ledger', x.ledger::text, 'difference', x.difference::text,
-             'rule_code', x.rule_code, 'class', x.class, 'state', coalesce(cur.state, 'OPEN'), 'resolution_action', cur.resolution_action,
-             'detected_at_version', x.ledger_version)) order by x.as_of_at, x.id)
+  if acid is not null and not exists (select 1 from bnx.actor_visible_acs(a) x where x = acid) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  return jsonb_build_object('ledger_version', v, 'exceptions', coalesce((
+    select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('exception_id', x.id, 'run_id', x.run_id, 'account_currency_id', x.account_currency_id,
+             'subject', case when r.statement_id is not null then jsonb_build_object('statement_id', r.statement_id)
+                             else jsonb_build_object('observation_event_seq', r.observation_event_seq) end,
+             'stage2_state', r.stage2_state, 'observed', x.observed::text, 'ledger', x.ledger::text, 'difference', x.difference::text,
+             'rule_code', x.rule_code, 'classification', x.classification, 'confirmation', x.confirmation, 'source', x.source,
+             'amount_effect', x.amount_effect::text, 'criteria', x.criteria, 'evidence', x.evidence,
+             'conflicting_observation_event_seqs', to_jsonb(x.conflicting_observation_event_seqs),
+             'state', cur.state, 'phase', cur.phase, 'explanation_kind', cur.explanation_kind, 'resolution_action', cur.resolution_action))
+             order by r.period_end, x.rule_code nulls last, x.id)
       from bnx.reconciliation_exception x
+      join bnx.reconciliation_run r on r.id = x.run_id
       join bnx.actor_visible_acs(a) vis on vis = x.account_currency_id
-      left join lateral (select e.state, e.resolution_action from bnx.reconciliation_exception_event e
-                          where e.exception_id = x.id and e.recorded_version <= v order by e.seq desc limit 1) cur on true
-     where x.ledger_version <= v and (acid is null or x.account_currency_id = acid)
-       and (st is null or coalesce(cur.state, 'OPEN') = st)), '[]'));
+      cross join lateral (select e.state, e.phase, e.explanation_kind, e.resolution_action from bnx.reconciliation_exception_event e
+                           where e.exception_id = x.id and e.recorded_version <= v order by e.seq desc limit 1) cur
+     where x.ledger_version <= v and (acid is null or x.account_currency_id = acid) and (st is null or cur.state = st)
+       and not exists (select 1 from bnx.reconciliation_exception s where s.supersedes_id = x.id and s.ledger_version <= v)
+       and r.id = (select r2.id from bnx.reconciliation_run r2 where r2.account_currency_id = r.account_currency_id
+                     and r2.statement_id is not distinct from r.statement_id and r2.observation_event_seq is not distinct from r.observation_event_seq
+                     and r2.recorded_version <= v order by r2.recorded_version desc limit 1)), '[]'));
+end $$;
+
+-- statement coverage and reconciliation state per account-currency (OBJ-249 q_reconciliation_coverage; R15): every final or
+-- partial statement at V with its latest run, and the gaps after the anchor date that no final statement covers
+create function bnx.q_reconciliation_coverage(cred jsonb, q jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); acid uuid; v bigint; vnow bigint; an bnx.opening_anchor_version; last_end date;
+begin
+  perform bnx.require(a, 0);
+  begin acid := (q->>'account_currency_id')::uuid; v := (q->>'ledger_version')::bigint;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'account_currency_id or ledger_version'); end;
+  select version into vnow from bnx.ledger_state;
+  v := coalesce(v, vnow);
+  if v > vnow or v < 0 then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'ledger_version'); end if;
+  if not exists (select 1 from bnx.actor_visible_acs(a) x where x = acid) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  perform bnx.pol_require_module_for_ac(acid);
+  an := bnx.anchor_at(acid, v);
+  select max(s.period_end) into last_end from bnx.statement_period_at(v) s where s.account_currency_id = acid and s.final;
+  return jsonb_build_object('account_currency_id', acid, 'ledger_version', v, 'anchor_date', an.anchor_date,
+    'statements', coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('statement_id', s.statement_id, 'period_start', s.period_start,
+                     'period_end', s.period_end, 'partial', s.partial, 'final', s.final, 'version_role', s.version_role,
+                     'stage1_state', r.stage1_state, 'stage2_state', r.stage2_state, 'difference', r.difference::text,
+                     'evaluated_at_version', r.evaluated_at_version)) order by s.period_start nulls last, s.statement_id)
+               from bnx.statement_period_at(v) s
+               left join lateral (select r0.* from bnx.reconciliation_run r0 where r0.statement_id = s.statement_id and r0.recorded_version <= v
+                                   order by r0.recorded_version desc limit 1) r on true
+              where s.account_currency_id = acid), '[]'),
+    'gaps', coalesce((select jsonb_agg(jsonb_build_object('from', lower(g), 'to', upper(g) - 1) order by lower(g))
+               from unnest(case when an.id is not null and last_end is not null and last_end > an.anchor_date then
+                             daterange(an.anchor_date + 1, last_end, '[]')::datemultirange
+                             - coalesce((select range_agg(daterange(s.period_start, s.period_end, '[]')) from bnx.statement_period_at(v) s
+                                          where s.account_currency_id = acid and s.final), '{}'::datemultirange)
+                           else '{}'::datemultirange end) g), '[]'));
 end $$;
 
 -- module flags (F-C2-07; balance_observation_event is a UA §4.4.1 table)
 insert into bnx.flag_enforcement_point values
  ('balance_observation_event','account_currency_id','INSERT','9012','bnx'),
+ ('reconciliation_run','account_currency_id','INSERT','9012','bnx'),
  ('reconciliation_exception','account_currency_id','INSERT','9012','bnx');
 create trigger t_scope_flag_balance_observation_event before insert on bnx.balance_observation_event
+  for each row execute function bnx.trg_scope_flag('account_currency_id');
+create trigger t_scope_flag_reconciliation_run before insert on bnx.reconciliation_run
   for each row execute function bnx.trg_scope_flag('account_currency_id');
 create trigger t_scope_flag_reconciliation_exception before insert on bnx.reconciliation_exception
   for each row execute function bnx.trg_scope_flag('account_currency_id');
 
 insert into bnx.function_scope values
  ('q_balance_observations', 'finance.read', false, false, true, 'fin.balances.observations'),
- ('q_reconciliation_exceptions', 'finance.read', false, false, true, 'fin.reconciliation.exceptions');
+ ('q_reconciliation_exceptions', 'finance.read', false, false, true, 'fin.reconciliation.exceptions'),
+ ('q_reconciliation_coverage', 'finance.read', false, false, true, 'fin.reconciliation.coverage');
 
 select bnx.apply_grants();
