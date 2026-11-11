@@ -12,7 +12,8 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 |---|---|---|
 | **9012a** | R28 intra-household loans: `loan_convention`, `loan`, `loan_term_event`, `loan_payment_link`, the engine, `q_r28_loan_position`, commands, the CI oracle (CORE-5, R28 part) | **Done** (this document) |
 | 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | **Done** (see "9012b — what was built") |
-| 9012c | Balance observations, reconciliation exceptions RC-01…14, `statement_period` (CORE-4, BAL01–12, AT-P0-R13/R15) | **Blocked (2026-11-11):** the rule texts it must implement — Draft-04 §D1–§D7 (RC-01…RC-14, classification policy D5, resolution actions D7) and the BAL01–12 acceptance cases — are referenced by UA V1.2, ADO-039 and DIF-092 but are not in the repository or the design packages available to the implementer. It also needs statement rows from document extraction (WP-DOC), which does not exist yet |
+| 9012c-1 | Balance observations, `statement_period`, the reconciliation exception structure (rule-independent part of 9012c) | **Done** (`OWNER_DECISION` 2026-11-11, option 2; see "9012c-1 — what was built") |
+| 9012c-2 | RC-01…RC-14 evaluation, D5 classification, D7 resolution actions, BAL01–12, AT-P0-R13/R15 | **Blocked (2026-11-11):** the Draft-04 §D1–§D7 rule texts and the BAL01–12 cases are referenced by UA V1.2, ADO-039 and DIF-092 but are not in the repository or the design packages available to the implementer. It also needs statement rows from document extraction (WP-DOC), which does not exist yet |
 | 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | **Blocked (2026-11-11):** needs Draft-04 §C4 (matching rules MR-01…13) and §C5 (onboarding ONB-*, SF-*, AH-* states), not available to the implementer |
 
 **Why R28 first:**
@@ -114,6 +115,44 @@ test with Python `Decimal` and HALF_EVEN, never read back from the database.
 Local full regression on PG16.15 and PG17.11: R1 40/0/0 and 38/0/2 (pg_dump 17 is not installed locally), core1–core8 and
 core_9011r unchanged and green, core9 4/0/0 on both majors, black-box 8/8, simulation exit 0. `core1` (AT-INV-01) declares the
 new helpers and `core2` (AT-FLG-11) the three new enforcement points beyond §4.4.1.
+
+## 9012c-1 — what was built
+
+Authority: UA V1.2 §5.6 and `OWNER_DECISION` 2026-11-11 ("2": build the parts of 9012c that do not depend on the Draft-04
+rule texts). Nothing here evaluates a reconciliation rule; no test claims a BAL01–12 or AT-P0-R13/R15 id.
+
+| Object | Content |
+|---|---|
+| `bnx.balance_observation_event` (class F, append-only) | Key (account-currency, `event_seq`). Fields: `source` in `MEMBER`, `STATEMENT`, `EXPORT`, `EMAIL_NOTICE`; `observed_at` with `tz`; amount and currency (must be the account-currency's); `sign_convention` (as R1 `statement`); `evidence_ref` (required except for `MEMBER`); `revision_of` (an earlier event of the same account-currency and source); `checkpoint_id` (exactly for `MEMBER`). R1 `balance_checkpoint` is untouched (S4B-F04) |
+| `bnx.observations_at(ac, V)` | The observations in effect at ledger version V. `superseded_by` is derived, never stored: an event is superseded by a later event of the same instant and source, or by a revision that names it. Different sources at one instant all stay in effect |
+| `cmd_record_observation` (RC-POST, tier 2) | Post rights on the account-currency. A `MEMBER` observation also inserts the R1 `balance_checkpoint` row (kind `member_spot_check`, `as_of` = the local date of `observed_at` in `tz`). Idempotent, audited (the SIN guard covers the evidence), versioned |
+| `q_balance_observations` | The observations in effect (optionally all, with `current` flags) at a ledger version, and the instants where the in-effect observations disagree (`conflicts`). Nothing is compared with the ledger |
+| `bnx.statement_period` (view) and `bnx.statement_period_at(V)` | One row per statement not withdrawn at V: account-currency (printed or from the latest `assigned` event), period, printed balances, `confirmed`, latest version role, `partial` (a bound or the closing balance missing) and `final` (= confirmed and not partial: a partial period is never final). No runtime role reads the view directly |
+| `bnx.reconciliation_exception`, `bnx.reconciliation_exception_event` (class F, append-only) | The finding: account-currency, `as_of_at`, observed, ledger, difference (= observed − ledger when all three are present), `rule_code` constrained to `RC-01`…`RC-14` by format only, class `CONFIRMED` / `PROBABLE`, the observation it came from, the ledger version. State is an event: `OPEN` first; `OPEN` → `EXPLAINED` / `RESOLVED`; `EXPLAINED` → `OPEN` / `RESOLVED`; `RESOLVED` → `OPEN` (reopen). `RESOLVED` needs a `resolution_action` (upper-case code, format only until D7 is available). Trigger `t_reconciliation_exception_state` |
+| `q_reconciliation_exceptions` (OBJ-249) | Exceptions on the actor's visible account-currencies with their current state at a ledger version; `rules_implemented: false` until 9012c-2 |
+| Module flags, catalog | Enforcement points on `balance_observation_event` (a UA §4.4.1 table) and `reconciliation_exception`; both queries `finance.read` with an account-currency subset |
+
+### 9012c-1 decisions — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9012c-1 | Observations carry a `sign_convention` (defaulting to `owed_positive` for credit-card and loan-payable accounts, otherwise `asset_positive`) instead of being normalised to the ledger sign | Statements print balances in either convention (R1 `statement` has the same column); normalising belongs to the RC rules |
+| D-9012c-2 | A revision must name an earlier observation of the same account-currency and source | A correction of a statement balance is a statement fact; a member cannot revise a bank's printed value |
+| D-9012c-3 | Exceptions have no writer yet; the structure, the state machine and the reader exist, and tests insert findings directly as the definer | The writer is the RC rule engine (9012c-2). A state-change command waits for D7 (who may resolve, with which actions) |
+| D-9012c-4 | `statement_period` is a view at the current version plus a function at any version | UA names a view; reports need the same rows at their ledger version |
+| D-9012c-5 | Test ids AT-OBS-01, AT-STP-01, AT-RCX-01, AT-9012c-CAT in the new suite `tests/py/run_s4_core10.py` | The design's ids (BAL01–12, AT-P0-R13/R15) belong to the rule work and are not claimed |
+
+### 9012c-1 test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+| Test | Shows |
+|---|---|
+| AT-OBS-01 | A `MEMBER` observation writes one `balance_checkpoint` (local date 2026-03-31 for 23:30 in Toronto). Other sources need evidence. Supersession by a later event of the same instant and source, and by an explicit revision, is derived; the earlier ledger version still shows the superseded value. Two sources disagreeing at one instant are both kept and listed as a conflict. A card observation defaults to `owed_positive`. Eight invalid or unauthorised calls refused; evidence holding a SIN candidate is refused with nothing stored; append-only |
+| AT-STP-01 | Final vs partial (a partial period is never final), version role, withdrawal hidden from its version on, account-currency from the `assigned` event |
+| AT-RCX-01 | `rule_code` outside RC-01…RC-14, an unknown class and an inconsistent difference refused by CHECKs; the state machine (OPEN first, action needed for RESOLVED, no gaps, no RESOLVED → EXPLAINED, reopen allowed); append-only; the reader shows current state, `rules_implemented: false`, and only visible account-currencies |
+| AT-9012c-CAT | Triggers, enforcement points, catalog rows, grants (the view is not granted to runtime roles); with the region disabled an observation is `SCOPE_DISABLED` |
+
+Local full regression on PG16.15 and PG17.11 with 9012a–c-1: R1 40/0/0 and 38/0/2, core1–core9 and core_9011r green, the new
+core10 4/0/0 on both majors, black-box 8/8, simulation exit 0.
 
 ## Owner decisions — `OWNER_DECISION`
 

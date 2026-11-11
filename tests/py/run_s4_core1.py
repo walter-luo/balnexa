@@ -559,6 +559,9 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.fin_dec", "bnx.fin_money", "bnx.effective_economic_type", "bnx.journal_counts_at", "bnx.journal_movement", "bnx.fx_rate_at",
     "bnx.lot_disposals_at", "bnx.card_anniversary", "bnx.card_period", "bnx.card_policy_at", "bnx.card_fee_progress",
     "bnx.card_require_post",
+    # 9012c-1 observations, statement periods and the exception structure (OWNER_DECISION 2026-11-11 option 2)
+    "bnx.observations_at", "bnx.q_balance_observations", "bnx.statement_period_at", "bnx.reconciliation_exception_event",
+    "bnx.trg_reconciliation_exception_state",
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",
