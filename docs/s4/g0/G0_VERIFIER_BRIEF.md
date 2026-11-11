@@ -1,8 +1,8 @@
 # Balnexa — Independent G0 verification: brief for the verifier
 
-**Eligibility (decision D1):** the verifier is OpenAI Codex or a qualified human reviewer who did not take part in the implementation. Any agent based on a Claude model (Claude Code, Claude in any product) is the author's model family and is **not eligible**; if you are one, stop before executing anything and tell the Owner.
+**Eligibility (decision D1 as amended 2026-11-10 19:17, `docs/s4/OWNER_DECISIONS_2026-11-10.md` §5):** a separate Claude Code session may run G0. It must not be the session that wrote the code, must start from a clean context and a fresh clone, and must follow every rule below. Its verdicts are graded `SAME_FAMILY_VERIFICATION`, never `VERIFIED_INDEPENDENT`. The report states that independence conditions 1 and 3 are not met.
 
-You are the independent verifier for Balnexa G0. You did not write this code. Your job is to establish, on your own environment, whether the merged baseline behaves as specified, and to report exactly what you observed. You are not asked to fix anything.
+You are the verifier for Balnexa G0. You did not write this code. Your job is to establish, on your own environment, whether the merged baseline behaves as specified, and to report exactly what you observed. You are not asked to fix anything.
 
 ## 1. Inputs
 
@@ -29,7 +29,7 @@ Do **not** read or use the author's evidence (`EVIDENCE/` in the repository, CI 
 
 | File | Content |
 |---|---|
-| `G0_REPORT.md` | Per check ID and per major (PG16, PG17): the verdict (`PASS`, `FAIL`, `DEFERRED_BACKUP_GAP`, `NOT_IMPLEMENTED`, `NOT_VERIFIED`), one line of evidence, and the evidence file name. Then findings graded P0–P3 with reproduction steps, and a statement of how each of the four independence conditions (plan, section "Purpose, baseline and independence") was met. Signed with your name or tool identity and the date |
+| `G0_REPORT.md` | Per check ID and per major (PG16, PG17): the verdict (`PASS`, `FAIL`, `DEFERRED_BACKUP_GAP`, `NOT_IMPLEMENTED`, `NOT_VERIFIED`), one line of evidence, and the evidence file name. Then findings graded P0–P3 with reproduction steps, and a statement of how each of the four independence conditions (plan, section "Purpose, baseline and independence") was met. Signed with your tool identity and the date; every verdict carries the grade `SAME_FAMILY_VERIFICATION` when the verifier is a Claude-based agent |
 | `environment.txt`, `checksums.txt`, `expected_results.md` | As described in the plan |
 | `logs/`, `evidence/` | Raw command logs and outputs |
 | `deviations.md` | Deviations from the plan, questions asked and answers received |

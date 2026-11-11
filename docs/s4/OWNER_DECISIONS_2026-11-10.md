@@ -54,3 +54,14 @@ Required independent reviews: G0 (Codex or a human, D1) before real data. A Chat
 | D-G0-2 | The G0 plan Rev 1 is accepted for execution. A self-contained verifier brief (`docs/s4/g0/G0_VERIFIER_BRIEF.md`) is prepared; the Owner hands it to Codex or a human verifier. That hand-off and the sign-off of the result are the Owner's only G0 tasks | D1 requires a verifier independent of Claude |
 | D-ST-1 | Next stage: 9011 starts now on its own branch from `main`, in parallel with G0 and with synthetic data only. Any G0 finding is fixed in a separate PR and 9011 is rebased on it | 9011 is additive and G0 verifies a frozen baseline; waiting would serialise two independent pieces of work |
 | D-ST-2 | 9011 is split into sub-stages, each completed in one step: 9011a shared detector, corpus and database guards (including the DOC-SIN-10 MODIFY of the 9010 objects); 9011b document intake states, the declaration command and the admission check; 9011c Executor validators (PDF, images and OCR, XLSX, EML, CSV, OFX). A Codex review follows 9011c, before the merge recommendation | Each sub-stage stays reviewable and testable on its own; the security review covers the whole control at once |
+
+## 5. Amendment of D1 (Owner, 2026-11-10 19:17 America/Toronto) — `OWNER_DECISION`
+
+Instruction, translated from Chinese: "Codex does not take part; everything is done in Claude Code."
+
+Effect:
+
+1. G0 is executed by a **separate Claude Code session**. That session did not write the code, works from a clean context and a fresh clone, and follows the G0 plan and brief unchanged: expected results are written and hashed before execution, verdicts are recorded before any comparison with the author's evidence, and there is no push or PR.
+2. Because that session uses the author's model family, its results are graded **`SAME_FAMILY_VERIFICATION`**, never `VERIFIED_INDEPENDENT`. The G0 report states which of the four independence conditions were met (2 and 4) and which were not (1 and 3).
+3. The external reviews planned for later stages (9011c, 9014, 9016) are also done by separate Claude Code sessions under the same grade.
+4. Material consequence, recorded at the Owner's instruction: no result in Balnexa will carry `VERIFIED_INDEPENDENT`. Before real data (gate O-8), the Owner either accepts this residual explicitly or commissions an independent reviewer then. The gate itself is unchanged.
