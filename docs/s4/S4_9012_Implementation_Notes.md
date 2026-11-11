@@ -12,8 +12,8 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 |---|---|---|
 | **9012a** | R28 intra-household loans: `loan_convention`, `loan`, `loan_term_event`, `loan_payment_link`, the engine, `q_r28_loan_position`, commands, the CI oracle (CORE-5, R28 part) | **Done** (this document) |
 | 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | **Done** (see "9012b — what was built") |
-| 9012c | Balance observations, reconciliation exceptions RC-01…14, `statement_period` (CORE-4, BAL01–12, AT-P0-R13/R15) | Not started. It depends on statement extraction (WP-DOC), which does not exist yet |
-| 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | Not started |
+| 9012c | Balance observations, reconciliation exceptions RC-01…14, `statement_period` (CORE-4, BAL01–12, AT-P0-R13/R15) | **Blocked (2026-11-11):** the rule texts it must implement — Draft-04 §D1–§D7 (RC-01…RC-14, classification policy D5, resolution actions D7) and the BAL01–12 acceptance cases — are referenced by UA V1.2, ADO-039 and DIF-092 but are not in the repository or the design packages available to the implementer. It also needs statement rows from document extraction (WP-DOC), which does not exist yet |
+| 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | **Blocked (2026-11-11):** needs Draft-04 §C4 (matching rules MR-01…13) and §C5 (onboarding ONB-*, SF-*, AH-* states), not available to the implementer |
 
 **Why R28 first:**
 
