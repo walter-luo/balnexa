@@ -499,4 +499,33 @@ create trigger t_scope_flag_loan_payment_link before insert on bnx.loan_payment_
 
 insert into bnx.function_scope values ('q_r28_loan_position', 'finance.read', false, false, true, 'fin.loans.position');
 
+-- FAMILY pseudo-institution (OWNER_DECISION 2026-11-11, L-9012-1 option 2): loan accounts between family members name the
+-- registry institution FAMILY instead of a bank. It has no jurisdiction, so such an account declares its region_scope
+-- (cmd_create_account, F-C2-05 path). It is eligible only for loan_receivable and loan_payable accounts, on every writer of
+-- bnx.account (create, reassignment, any later kind change); restore replays are exempt as for the 9006 triggers.
+insert into bnx.institution(id, name_en, name_zh, country, code, kind, jurisdiction, classification, seed_set, status, verification_provenance)
+select gen_random_uuid(), 'Family', '家庭', null, 'FAMILY', 'other', null, 'HOUSEHOLD_PSEUDO_INSTITUTION', null, 'ACTIVE_SEED',
+       jsonb_build_object('source', 'migration:9012', 'decision', 'OWNER_DECISION 2026-11-11 L-9012-1 option 2',
+                          'scope', 'loan_receivable and loan_payable accounts only')
+ where not exists (select 1 from bnx.institution where code = 'FAMILY');
+insert into bnx.institution_name(institution_id, name_kind, lang, value, normalized, verification, source)
+select i.id, 'display', x.lang, x.val, bnx.normalize_institution_name(x.val), 'VERIFIED', '{"source":"OWNER_DECISION 2026-11-11 L-9012-1"}'
+  from bnx.institution i cross join lateral (values ('en', 'Family'), ('zh-CN', '家庭')) x(lang, val)
+ where i.code = 'FAMILY' and bnx.normalize_institution_name(x.val) is not null
+   and not exists (select 1 from bnx.institution_name n where n.institution_id = i.id and n.lang = x.lang and n.name_kind = 'display');
+
+create function bnx.trg_account_family_institution() returns trigger
+language plpgsql set search_path = pg_catalog, pg_temp as $$
+begin
+  if bnx.restore_mode() then return new; end if;
+  if new.institution_id is not null and new.kind not in ('loan_receivable','loan_payable')
+     and exists (select 1 from bnx.institution where id = new.institution_id and code = 'FAMILY') then
+    raise exception 'INSTITUTION_NOT_ELIGIBLE' using errcode = 'P0422',
+          detail = 'FAMILY is for loan_receivable and loan_payable accounts only';
+  end if;
+  return new;
+end $$;
+create trigger t_account_family_institution before insert or update of institution_id, kind on bnx.account
+  for each row execute function bnx.trg_account_family_institution();
+
 select bnx.apply_grants();

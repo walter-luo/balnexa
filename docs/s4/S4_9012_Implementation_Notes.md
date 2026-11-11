@@ -35,6 +35,7 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 | `bnx.r28_contract(loan, as_of, V, T)` | Builds the engine input from stored facts:<br>• terms recorded at or before T, minus retracted ones;<br>• payments linked at or before ledger version V, from journals visible at V and not corrected at or before V |
 | `bnx.q_r28_loan_position(cred, {loan_id, as_of, ledger_version?, terms_recorded_as_of?})` | Returns status `OK` / `TERMS_UNVERIFIED` / `REJECTED` with the refusal code. The position is null when it is not computed, never zero (OR-L-03). Also returns the rounding events, `payments_counted`, `partial_view` (OR-L-05) and `household_internal` (OR-L-06). Visibility follows the account grants; an invisible or unknown loan is `NOT_FOUND`. It is in the function catalog as `finance.read` with an account-currency subset |
 | `cmd_declare_loan`, `cmd_declare_loan_terms`, `cmd_link_loan_payment` | Tier 2 (no MCP writes). Rules:<br>• the actor must be able to post on every household side of the loan;<br>• commands are idempotent and audited;<br>• a term batch is all or nothing;<br>• one journal can pay only one loan;<br>• link and unlink alternate (`LINK_STATE`) |
+| FAMILY pseudo-institution (L-9012-1, `OWNER_DECISION`) | Registry row `FAMILY`, seeded by 9012:<br>• kind `other`, no jurisdiction, status `ACTIVE_SEED`, classification `HOUSEHOLD_PSEUDO_INSTITUTION`;<br>• display names "Family" (en) and "家庭" (zh-CN).<br>A loan account on FAMILY declares its `region_scope`, through the existing path for institutions without a jurisdiction (F-C2-05). The trigger `t_account_family_institution` (`bnx.trg_account_family_institution`, before insert or update of `institution_id` or `kind` on `bnx.account`) refuses FAMILY for any kind other than `loan_receivable` and `loan_payable`, with `INSTITUTION_NOT_ELIGIBLE`. It covers every writer: create, reassignment, and a kind change |
 | Module flags (F-C2-07) | `flag_enforcement_point` rows and `t_scope_flag_*` triggers on the three account-scoped tables. `bnx.trg_scope_flag` MODIFY adds the modes `loan`, `loan_id` and `loan_payment_link` |
 
 ### Validation order (UA V1.2 §10.4)
@@ -63,6 +64,12 @@ V0a and V0b must precede V1, but a scale check needs the currency's minor units.
 | D-9012a-8 | Terms are bitemporal by `recorded_at` (`terms_recorded_as_of`); payment links are versioned by ledger version | This matches the signature `q_r28_loan_position(loan_id, as_of, ledger_version, terms_recorded_as_of)` in UA §10 |
 | D-9012a-9 | Accrued interest is never posted automatically. Reconciling posted interest journals against the accrual (BNX-S2-08 §1.6) is left for the F3/F5 report work | No report family exists yet (9013/9015) |
 
+## Owner decisions — `OWNER_DECISION`
+
+| ID | Decision | Implementation |
+|---|---|---|
+| L-9012-1 (2026-11-11 08:00) | Option 2: create a "Family" pseudo-institution for loan accounts between family members. The Owner chose this over option 1 (a declared region with no institution) | See FAMILY in the table above. Loans with a real lender, such as a mortgage, still name the bank. FAMILY is not restricted to loans whose counterparty is inside the household; `household_internal` still comes only from ownership facts (D-9012a-7). The seed is a migration-seeded row of `bnx.institution`, as the 9006 seeds are |
+
 ## Hand checks of the new fixtures
 
 | Fixture | Computation | Expected |
@@ -88,12 +95,13 @@ Local runs on PG16.15 and PG17.11:
 | AT-R28-09 | No grant → `NOT_FOUND`, the same answer as an unknown id. A view grant on one side gives `partial_view`. Terms need post rights on every household side. Revoking the grants hides the loan. A viewer cannot declare |
 | AT-R28-11 | Idempotency: replaying the same key returns the same result, and a different payload under that key is `IDEMPOTENCY_CONFLICT`. A failed term batch writes nothing. `INVALID_PRINCIPAL` on scale. Versioned links (0 / 1 / 0 payments). A loan without terms is `TERMS_UNVERIFIED` with null figures |
 | AT-R28-CONS | `household_internal` comes only from ownership facts. The three `t_scope_flag_*` triggers are present |
+| AT-R28-FAM | The FAMILY seed row and its names. Loan accounts on FAMILY are refused without a declared region. `bank_deposit`, `credit_card`, `e_wallet` and `investment` on FAMILY are refused at create; a reassignment to FAMILY and a kind change of a FAMILY loan account are refused by the trigger. A proposal named "Family" resolves to the seed. A loan between the two FAMILY accounts evaluates `OK` with `household_internal` true. The other core8 tests now use FAMILY loan accounts |
 
 ## Limits
 
 | ID | Item | Handling |
 |---|---|---|
-| L-9012-1 | Loan accounts (`loan_receivable` and `loan_payable`) need a registry institution, because 9006 requires one for every account except cash and other assets. A loan between family members has no institution; the tests use the synthetic bank | Needs an Owner decision: either allow region `NONE` or a declared region for loan accounts, or accept an "intra-household" pseudo-institution |
+| L-9012-1 | Loan accounts need a registry institution (9006), and a loan between family members has none | **Resolved** by `OWNER_DECISION` 2026-11-11 (option 2): the FAMILY pseudo-institution (see "Owner decisions") |
 | L-9012-2 | No exception queue for `REJECTED` loans yet (BNX-S2-08 §1.2) | It comes with the reconciliation and exception work (9012c) |
 | L-9012-3 | F3/F5 consolidation and interest reconciliation are not implemented (AT-R28-CONS covers only the flag) | Report families (9013/9015) |
 | L-9012-4 | AT-R28-09/11 "on the plan path" (approval through posting plans) is not covered: loan commands are direct tier-2 commands | Plan kinds for loans need a design decision; recorded for the plan work |

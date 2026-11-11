@@ -57,11 +57,13 @@ def household(server, db):
     H = C4.v2_full(server, db)
     H.lender = H.cmd(H.owner, "create_party", kind="person", display_name="Synthetic Lender")["party_id"]
     H.borrower = H.cmd(H.owner, "create_party", kind="person", display_name="Synthetic Borrower")["party_id"]
-    # private accounts: only the owner holds a grant until the tests add one (household accounts are granted to every member)
-    rec = H.cmd(H.owner, "create_account", kind="loan_receivable", **H.inst("Synthetic Bank"), label="Loan to borrower", currencies=["CAD"],
-                visibility="private")
-    pay = H.cmd(H.owner, "create_account", kind="loan_payable", **H.inst("Synthetic Bank"), label="Loan from lender", currencies=["CAD"],
-                visibility="private")
+    # private accounts: only the owner holds a grant until the tests add one (household accounts are granted to every member).
+    # Intra-family loan accounts name the FAMILY pseudo-institution (OWNER_DECISION 2026-11-11, L-9012-1 option 2), which has
+    # no jurisdiction, so the account declares its region.
+    rec = H.cmd(H.owner, "create_account", kind="loan_receivable", institution_code="FAMILY", region_scope="CA",
+                label="Loan to borrower", currencies=["CAD"], visibility="private")
+    pay = H.cmd(H.owner, "create_account", kind="loan_payable", institution_code="FAMILY", region_scope="CA",
+                label="Loan from lender", currencies=["CAD"], visibility="private")
     H.rec_acc, H.rec = rec["account_id"], rec["account_currencies"][0]
     H.pay_acc, H.pay = pay["account_id"], pay["account_currencies"][0]
     for acc, party in ((H.rec_acc, H.lender), (H.pay_acc, H.borrower)):
@@ -303,6 +305,61 @@ def t_cons(server, ev):
     return ("household_internal is true only when both sides are household accounts whose recorded ownership names the lender "
             "and the borrower; false for an external borrower and for a payable account owned by another party; the three "
             "loan tables carry their t_scope_flag triggers")
+
+
+@test("AT-R28-FAM", "L-9012-1 OWNER_DECISION 2026-11-11 option 2: FAMILY pseudo-institution for intra-family loan accounts")
+def t_family(server, ev):
+    H = household(server, "bnx_r28fam")
+    out = {}
+    with C1.migrator(server, H.db) as cx:
+        out["seed"] = list(cx.execute("select code, kind, jurisdiction, status, seed_set, classification from bnx.institution "
+                                      "where code = 'FAMILY'").fetchone())
+        out["names"] = sorted(r[0] for r in cx.execute("select n.lang || ':' || n.value || ':' || n.verification from bnx.institution_name n "
+                                                        "join bnx.institution i on i.id = n.institution_id where i.code = 'FAMILY'"))
+        out["loan accounts on FAMILY"] = cx.execute(
+            "select count(*) from bnx.account a join bnx.institution i on i.id = a.institution_id "
+            "where i.code = 'FAMILY' and a.kind in ('loan_receivable','loan_payable') and a.region_scope = 'CA'").fetchone()[0]
+    out["loan account without region"] = expect_err(H.cmd, "JURISDICTION_REQUIRED", H.owner, "create_account", kind="loan_payable",
+                                                    institution_code="FAMILY", label="no region", currencies=["CAD"])
+    for k in ("bank_deposit", "credit_card", "e_wallet", "investment"):
+        out[f"{k} on FAMILY"] = expect_err(H.cmd, "INSTITUTION_NOT_ELIGIBLE", H.owner, "create_account", kind=k,
+                                           institution_code="FAMILY", region_scope="CA", label=k, currencies=["CAD"])
+    out["cash with FAMILY"] = expect_err(H.cmd, "VALIDATION_FAILED", H.owner, "create_account", kind="cash",
+                                         institution_code="FAMILY", label="cash", currencies=["CAD"])
+    # a proposal named "Family" resolves to the seed instead of creating a second institution
+    out["proposal"] = H.cmd(H.owner, "propose_institution_candidate", name_en="Family", jurisdiction="CA",
+                            evidence=[{"kind": "synthetic_fixture"}]).get("result")
+    # every other writer of bnx.account: a reassignment (the RR-02 GUC set as the reassignment command sets it) and a kind change
+    bank = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Chequing 2", currencies=["CAD"])
+    with C1.migrator(server, H.db) as cx:
+        fam = cx.execute("select id from bnx.institution where code = 'FAMILY'").fetchone()[0]
+        cx.execute("set role bnx_definer")
+        for label, stmts in (
+                ("reassign bank_deposit to FAMILY", [("select set_config('bnx.institution_reassign', pg_current_xact_id()::text, true)", ()),
+                                                     ("update bnx.account set institution_id = %s where id = %s", (fam, bank["account_id"]))]),
+                ("loan account kind changed to bank_deposit", [("update bnx.account set kind = 'bank_deposit' where id = %s", (H.rec_acc,))])):
+            try:
+                for sql, args in stmts:
+                    cx.execute(sql, args)
+                out[label] = "ACCEPTED"
+            except psycopg.Error as e:
+                out[label] = e.diag.message_primary
+            cx.rollback(); cx.execute("set role bnx_definer")
+    loan = declare(H)
+    terms(H, loan, TERMS + [{"term_kind": "RATE", "value": {"annual_rate": "0.02"}, "effective_from": "2026-01-01"}])
+    p = position(H, loan, as_of="2026-07-01")
+    out["position"] = {k: p.get(k) for k in ("status", "household_internal")}
+    H.close()
+    json.dump(out, open(os.path.join(ev, "AT-R28-FAM.json"), "w"), indent=1, ensure_ascii=False)
+    check(out["seed"] == ["FAMILY", "other", None, "ACTIVE_SEED", None, "HOUSEHOLD_PSEUDO_INSTITUTION"]
+          and out["names"] == ["en:Family:VERIFIED", "zh-CN:家庭:VERIFIED"] and out["loan accounts on FAMILY"] == 2
+          and out["proposal"] == "MATCHED" and out["reassign bank_deposit to FAMILY"] == "INSTITUTION_NOT_ELIGIBLE"
+          and out["loan account kind changed to bank_deposit"] == "INSTITUTION_NOT_ELIGIBLE"
+          and out["position"] == {"status": "OK", "household_internal": True}, f"{out}")
+    return ("FAMILY seeded (kind other, no jurisdiction, ACTIVE_SEED, display names en/zh-CN); loan accounts on FAMILY declare "
+            "their region (refused without one); bank_deposit, credit_card, e_wallet and investment refused on create, on "
+            "reassignment and by a kind change; a 'Family' proposal resolves to the seed; a loan between FAMILY accounts "
+            "evaluates OK and household_internal")
 
 
 def main():
