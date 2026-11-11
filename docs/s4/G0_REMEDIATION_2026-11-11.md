@@ -131,3 +131,16 @@ These errata apply to `Balnexa_S4_G0_Independent_Verification_Plan_Rev1.md`:
    - The product now has ten roles: nine `bnx_*` roles plus `balnexa_audit_owner`.
    - It also has eight registered schemas: `bnx_audit` is new.
    - This changes CROSS-01's "nine roles / seven schemas".
+
+### 7.1 Owner decisions, 2026-11-11 06:59 America/Toronto — `OWNER_DECISION`
+
+The Owner replied "同意" ("agreed") to the items above. Claude recorded it as follows and told the Owner so, with an
+invitation to correct it:
+
+| Item | Decision |
+|---|---|
+| 1 | F-01 is graded **P1** |
+| 3 | DEV-13 is accepted: a session configured for Opus 5.5 and served by Sonnet 5.5 counts as a Sonnet 5.5 session under D1 as amended. The re-run selects Sonnet 5.5 when the session is created |
+| 4 | The role model change is accepted: nine `bnx_*` roles plus `balnexa_audit_owner`, and eight registered schemas including `bnx_audit` |
+| 2 | Open. The Owner received no request, because the agent proxy refuses with HTTP 403 and shows no prompt. Claude sent the steps to the Owner: in the re-run session's cloud environment, set **Network access** to **Custom**, allow `apt.postgresql.org` and `www.postgresql.org`, and keep the default package-manager list. Source: code.claude.com/docs/en/cloud-environments |
+
