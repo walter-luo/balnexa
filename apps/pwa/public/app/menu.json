@@ -168,6 +168,8 @@
     "bnx.cmd_declare_financial_policy",
     "bnx.cmd_fx_override",
     "bnx.cmd_register_mail_source",
+    "bnx.cmd_set_mail_route",
+    "bnx.q_mail_routes",
     "bnx.cmd_register_index_source",
     "bnx.q_doc_redaction_queue",
     "bnx.cmd_doc_declare_redacted",

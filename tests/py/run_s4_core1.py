@@ -611,6 +611,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.wrk_exec_due", "bnx.mail_route_folder",
     # 9027 CORE-9 onboarding job list (D-ONB-1)
     "bnx.q_onboarding_jobs",
+    # 9028 mail routes (D-MRT-1)
+    "bnx.cmd_set_mail_route", "bnx.q_mail_routes",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

@@ -28,7 +28,9 @@
   "q_cost_status": "Usage, ceilings, capacity state and admissions of a billing month",
   "cmd_post_transaction": "Post a balanced journal (PWA only)",
   "cmd_create_account": "Create an account with its account-currencies",
-  "q_onboarding_jobs": "Onboarding jobs the caller may see, newest first: kind, title, start policy and state (PWA only)"
+  "q_onboarding_jobs": "Onboarding jobs the caller may see, newest first: kind, title, start policy and state (PWA only)",
+  "cmd_set_mail_route": "Owner: file a mailbox's verified statement mail into a folder, by institution or as the coverage-home catch-all, from a date (append-only)",
+  "q_mail_routes": "Owner: the mail folder routes of every mailbox, newest first (no address)"
  },
  "names": {
   "q_ai_connections": "sys.ai_connections",
