@@ -38,7 +38,7 @@
 | 9029 | `9029_s4_deploy_rule.sql` | function | — | `install_activate_config` | D-DPL-1 | INS-1 deploy rule (B3 against the Worker's stated schema range); #28 |
 | 9030 | `9030_s4_audit_subject_ids.sql` | function | — | `cmd_correct_transaction` | D-AUD-1 | F-AUD-01: journal UUIDs under `*_id` keys in the audit subject; #29 |
 | 9031 | `9031_s4_curated_read_tools.sql` | catalog delta (28) | — | — | D-SCH-1 | 2.8 part 2: descriptions for every MCP read tool; PR from `s4/tool-schemas-2` |
-| 9032 | `9032_s4_curated_output_schemas.sql` | catalog delta (8) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 3: curated output schemas, enforced by the Gateway; PR from `s4/next-work` |
+| 9032 | `9032_s4_curated_output_schemas.sql` | catalog delta (18) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 3: curated output schemas, enforced by the Gateway; PR from `s4/next-work` |
 
 ## 3. Proposed disposition rows
 
