@@ -282,7 +282,7 @@ export default {
           const t = MCP_TOOLS[rpc.params && rpc.params.name];
           if (!t) return fail(-32602, 'unknown tool');
           const args = { ...(rpc.params.arguments || {}) };
-          if (t.cmd) args.idempotency_key = args.idempotency_key || crypto.randomUUID();
+          if (t.cmd) args.idempotency_key = await gatewayKey(typeof args.idempotency_key === 'string' ? args.idempotency_key : crypto.randomUUID());   // D-CORE10-3
           try {
             const r = await env.db.one('bnx_app', `select bnx.${t.cmd ? 'cmd_' + t.cmd : 'q_' + t.q}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(args)]);
             // guard C4 (Addendum A1 Rev 1, 9011b): an AI host never receives a SIN/ITN candidate; refused, audited without the value
