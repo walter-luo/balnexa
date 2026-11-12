@@ -29,6 +29,8 @@ export const query = (name, body = {}) => send(`/api/v1/queries/${name}`, { body
 export const command = (name, body = {}, key = newKey()) => send(`/api/v1/commands/${name}`, { body, headers: { 'idempotency-key': key } });
 export const catalog = () => send('/api/v1/catalog', { method: 'GET' });
 export const config = () => send('/app/config.json', { method: 'GET' });
+// CORE-9 upload widget: a presigned direct-to-R2 PUT for an evidence file registered first (UA §8.1)
+export const uploadTarget = (evidenceFileId) => send('/api/v1/uploads', { body: { evidence_file_id: evidenceFileId } });
 export const signIn = (idToken) => send('/auth/google/callback', { body: { id_token: idToken } });
 export const signOut = () => send('/auth/logout', { body: {} });
 // AI-host consent (AIH-1): describe | deny | approve; the Gateway re-checks the client and its redirect URI every time

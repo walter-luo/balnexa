@@ -356,6 +356,9 @@ test('BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for
   const up = (b2, body, o = {}) => callAt(b2, '/api/v1/uploads', { body, cookie: S.owner, headers: { origin: ORIGIN }, ...o });
   const off = await up(base, { evidence_file_id: reg.json.evidence_file_id });
   assert.deepEqual([off.status, off.json.error], [503, 'UPLOADS_NOT_CONFIGURED']);
+  const cfgOff = await call('/app/config.json', { method: 'GET' });
+  assert.equal(cfgOff.json.uploads, false);                               // CORE-9 upload widget: the PWA shows "not set up"
+  assert.match(cfgOff.headers.get('content-security-policy'), /connect-src 'self' https:\/\/accounts\.google\.com\/gsi\/;/);
   // synthetic R2 settings (no real account; nothing is contacted)
   await at({ ...env, KV: makeKv(), R2_ACCOUNT_ID: 'synthaccount', R2_BUCKET: 'bnx-evidence', R2_ACCESS_KEY_ID: 'synthetic-key-id', R2_SECRET_ACCESS_KEY: 'synthetic-value' }, async (b2) => {
     const r = await up(b2, { evidence_file_id: reg.json.evidence_file_id });
@@ -368,6 +371,10 @@ test('BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for
     assert.deepEqual([nf.status, nf.json.error], [404, 'NOT_AVAILABLE']);
     assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, bearer: S.bearer })).status, 401);
     assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, cookie: S.owner })).status, 403);
+    // CORE-9: with uploads configured, exactly the account's R2 endpoint joins connect-src, so the browser may PUT there
+    const cfgOn = await callAt(b2, '/app/config.json', { method: 'GET' });
+    assert.equal(cfgOn.json.uploads, true);
+    assert.match(cfgOn.headers.get('content-security-policy'), /connect-src 'self' https:\/\/synthaccount\.r2\.cloudflarestorage\.com https:\/\/accounts\.google\.com\/gsi\/;/);
   });
 });
 

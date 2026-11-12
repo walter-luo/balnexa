@@ -29,7 +29,8 @@ function screen(titleKey, ...kids) {
 
 // tasks with a dedicated screen; every other task uses the generic renderers
 const DEDICATED = { 'bnx.q_handoff_status': 'handoff', 'bnx.cmd_handoff_prepare': 'handoff/prepare', 'bnx.cmd_handoff_import': 'handoff/import',
-  'bnx.q_ai_connections': 'connections', 'bnx.q_doc_redaction_queue': 'documents' };
+  'bnx.q_ai_connections': 'connections', 'bnx.q_doc_redaction_queue': 'documents',
+  'bnx.cmd_register_evidence': 'upload' };
 const visible = (e) => !!e && e.channels.includes('pwa') && (e.tier === null || e.tier <= S.tier);
 const entry = (fn) => { const e = S.cat.get(fn); return visible(e) ? e : null; };
 
@@ -489,13 +490,47 @@ async function consentScreen(params) {
   screen('consent.title', f);
 }
 
+// ---------------------------------------------------------------------------------------- evidence upload (CORE-9; UA §8.1)
+// The file never passes through the Gateway: the browser hashes it, registers it (name, type, size, declared SHA-256), asks
+// for a 15-minute presigned PUT and sends the bytes straight to the instance's bucket. The Executor verifies the hash later
+// (EVIDENCE_VERIFY); until then the evidence is unverified. Upload needs the bucket (O-7); without it the screen says so.
+const MAX_UPLOAD = 25 * 1024 * 1024;
+async function sha256Hex(buf) {
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+function upload() {
+  const input = h('input', { type: 'file', id: 'upload-file', accept: '.pdf,.png,.jpg,.jpeg,.csv,.txt,.md,.eml,.ofx,.qfx,.xlsx' });
+  const out = h('p', { id: 'upload-result', role: 'status' });
+  const go = async () => {
+    const f = input.files && input.files[0];
+    if (!f) return status(t('upload.choose'), 'error');
+    if (f.size < 1 || f.size > MAX_UPLOAD) return status(t('upload.too_large'), 'error');
+    try {
+      const buf = await f.arrayBuffer();
+      const sha = await sha256Hex(buf);
+      const reg = await api.command('register_evidence', { name: f.name, mime: f.type || 'application/octet-stream', size: f.size, sha256_declared: sha });
+      const tgt = await api.uploadTarget(reg.evidence_file_id);
+      let r;
+      try { r = await fetch(tgt.url, { method: 'PUT', headers: tgt.headers, body: buf, credentials: 'omit' }); }
+      catch { throw new api.ApiError(0, 'NETWORK'); }
+      if (!r.ok) throw new api.ApiError(r.status, 'UPLOAD_FAILED');
+      out.textContent = t('upload.done', { id: reg.evidence_file_id.slice(0, 8), sha: sha.slice(0, 12) });
+      status(t('upload.ok'), 'ok');
+    } catch (e) { fail(e); }
+  };
+  screen('upload.title', h('p', { class: 'hint' }, t('upload.explain')),
+    S.cfg && S.cfg.uploads === false ? h('p', { class: 'note' }, t('upload.not_configured')) : '',
+    h('label', { for: 'upload-file' }, t('upload.file')), input,
+    h('button', { type: 'button', id: 'upload-go', onclick: go, disabled: S.cfg && S.cfg.uploads === false ? true : null }, t('upload.send')), out);
+}
+
 // ------------------------------------------------------------------------------------------- documents (DOC-2; A1 Rev 1 §5)
 // The Owner's redaction queue: documents waiting for a declaration, quarantined, incompletely scanned or admissible. The
 // declaration binds to the exact bytes (sha256) the scan saw; the screen shows a short fingerprint so the Owner can compare
 // it with the file in the Inbox. No content, value or locator is ever shown (the query returns none).
 async function documents() {
   let r;
-  try { r = await api.query('doc_redaction_queue'); } catch (e) { return fail(e); }
+  try { r = await api.query('doc_redaction_queue'); } catch (e) { screen('documents.title'); return fail(e); }   // Owner only: others see the refusal
   const act = (label, cmd, body, ok) => h('button', { type: 'button', onclick: async () => {
     try { await api.command(cmd, body); status(t(ok), 'ok'); documents(); } catch (e) { fail(e); } } }, t(label));
   const rows = r.items.map((d) => h('tr', {},
@@ -584,6 +619,7 @@ async function render() {
     if (r === 'task') return await task(decodeURIComponent(arg), params);
     if (r === 'settings') return await settings();
     if (r === 'documents') return await documents();
+    if (r === 'upload') return upload();
     if (r === 'handoff' && arg === 'prepare') return await handoffPrepare(params);
     if (r === 'handoff' && arg === 'import') return await handoffImport();
     if (r === 'handoff') return await handoff();

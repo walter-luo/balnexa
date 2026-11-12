@@ -365,5 +365,14 @@
  "documents.declare": "Declare redacted",
  "documents.tag": "Tag as carrying a SIN",
  "documents.declared_ok": "Declared. The document will be archived on the next run.",
- "documents.tagged_ok": "Tagged. It now needs your declaration."
+ "documents.tagged_ok": "Tagged. It now needs your declaration.",
+ "upload.title": "Upload evidence",
+ "upload.explain": "Add a statement, receipt or letter as evidence. The file goes straight to your household's storage; Balnexa records its name, type, size and fingerprint, and checks the fingerprint later.",
+ "upload.file": "File",
+ "upload.send": "Upload",
+ "upload.choose": "Choose a file first.",
+ "upload.too_large": "The file must be between 1 byte and 25 MB.",
+ "upload.ok": "Uploaded.",
+ "upload.done": "Evidence {id}… uploaded; fingerprint {sha}… (verified on the next check).",
+ "upload.not_configured": "Uploads are not set up on this instance yet."
 }

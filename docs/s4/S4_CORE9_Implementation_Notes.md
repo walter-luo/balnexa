@@ -101,3 +101,14 @@ refusal.
 | L-CORE9-7 | Server error texts are localized by code. Free-text database details are not shown, by design. Generic-form field labels without a catalog key fall back to the English key. | Extend `field.*` keys as screens are dedicated. |
 | L-CORE9-9 | The database's audit guard scans the client-chosen `idempotency_key`; a client whose keys contain digit runs (an AI host, a script) is randomly refused (F-CORE9-1). | Exempt `idempotency_key` from the C2 scan, provided it matches the key pattern and is stored only as a hash, or have the Gateway normalize keys; decide with AIH-2. |
 | L-CORE9-8 | AT-NOAI covers the eight items with representative tasks, not every one of the 114 tasks. AT-NOAI-09/10, the remaining TST-3 rows, and CORE-10's dedicated handoff screens are not done here. | TST-3, CORE-10. |
+
+## Addendum 2026-11-12 — phase 2.5 (part): upload widget and Documents screen
+
+| Item | Content |
+|---|---|
+| Upload widget (`#/upload`, task `register_evidence`) | The browser hashes the file (SHA-256), registers it (name, type, size, declared hash), gets a 15-minute presigned PUT from `POST /api/v1/uploads` and sends the bytes straight to the bucket. Files must be 1 byte to 25 MB. When uploads are not configured (O-7), the screen says so and the button is disabled |
+| CSP | When `R2_*` is configured, exactly `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` joins `connect-src`; otherwise the policy is unchanged. `/app/config.json` adds `uploads: true\|false` (no secret) |
+| Documents screen (`#/documents`, task `q_doc_redaction_queue`) | The Owner's redaction queue with Declare redacted / Tag as carrying a SIN; a short fingerprint and the source-fidelity label; no content (DOC-2) |
+| Tests | AT-UP-01 / AT-DOC-UI-01 (PWA, 20/20), BB-UP-01 extended (CSP and config flag, both states), AT-UI-00 (config keys) |
+| Remaining from 2.5 | Dedicated onboarding screens (the generic renderers still serve them), linking an upload to an onboarding job (`onboarding_add_file` needs the evidence object id, which exists only after verification), and the IndexedDB offline queue (deferred: replay semantics for commands created offline need an Owner rule; drafts only is the proposed default) |
+| Not tested | A real PUT to R2: M0-B (bucket, CORS rule allowing the Worker origin) |
