@@ -1,16 +1,25 @@
-// Balnexa Worker — M0 vertical slice. Thin transport: every financial and authorization decision is made inside
-// PostgreSQL by bnx.cmd_* / bnx.q_* / bnx.authn_* / bnx.wrk_* (SECURITY DEFINER) under the matching login role.
+// Balnexa Worker (Gateway). Thin transport: every financial and authorization decision is made inside PostgreSQL by
+// bnx.cmd_* / bnx.q_* / bnx.authn_* / bnx.wrk_* (SECURITY DEFINER) under the matching login role.
 // Routes: POST /auth/google/callback, POST /auth/logout, POST /api/v1/commands/:name, POST /api/v1/queries/:name,
-//         POST /oauth/authorize (PWA consent), POST /oauth/token, POST /mcp (JSON-RPC 2.0, read tools only),
+//         GET /api/v1/catalog, GET /api/v1/health, POST /api/v1/uploads, POST /oauth/authorize (PWA consent),
+//         POST /oauth/token, POST /mcp (JSON-RPC 2.0, read tools only; replaced by the catalog MCP server in AIH-2),
 //         POST /exec/v1/lease, POST /exec/v1/complete (Executor lease model, S4 9010; the Executor holds no DB credential).
-import { verifyGoogleIdToken, verifyJobToken, AuthError } from './jwt.js';
+// CORE-7 (UA V1.2 §8; OBJ-260, OBJ-263, OBJ-264, OBJ-269, OBJ-270, OBJ-271): binding checks B1/B2/B3/B8 gate every route except /api/v1/health
+// (503, fail closed); B7 audience is passed to bnx.resolve_actor; commands and queries resolve through the bnx-tools/1.0
+// catalog read from the Core (unknown -> 404; schema-qualified dispatch) and the body is validated against its
+// input_schema before the database call (VALIDATION_FAILED, the database's own code).
+import { verifyGoogleIdToken, verifyJobToken, jwksResolver, AuthError } from './jwt.js';
 import { dispatch } from './dispatch.js';
 import { scanJson, scrub } from './sin_detector.js';
+import { bindings } from './binding.js';
+import { validate } from './schema.js';
+import { presignR2Put } from './r2presign.js';
+import { RELEASE } from './release.js';
 
 // guard C3 (Addendum A1 Rev 1): every log line passes the SIN/ITN scrubber
 const log = (...parts) => console.log(parts.map((x) => scrub(typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
 
-const NAME = /^[a-z][a-z_]{2,40}$/;
+const NAME = /^[a-z][a-z_0-9]{2,40}$/;
 const STATUS = { P0401: 401, P0403: 403, P0404: 404, P0409: 409, P0422: 422, '42501': 404, '42883': 404, '22P02': 422, '23503': 422, '23505': 409, '23514': 422 };
 const MCP_TOOLS = {
   get_balances: { q: 'balances', description: 'Balances per account-currency at an optional ledger_version and date',
@@ -37,9 +46,10 @@ function cookie(req, name) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function credential(req) {
+// B7: a bearer credential carries this Gateway's audience; bnx.resolve_actor refuses a token bound to another resource
+function credential(req, env) {
   const auth = req.headers.get('authorization') || '';
-  if (auth.startsWith('Bearer ')) return { kind: 'bearer', secret: auth.slice(7) };
+  if (auth.startsWith('Bearer ')) return { kind: 'bearer', secret: auth.slice(7), ...(env.BNX_RESOURCE ? { audience: env.BNX_RESOURCE } : {}) };
   const s = cookie(req, 'bnx_session');
   return s ? { kind: 'session', secret: s } : null;
 }
@@ -54,17 +64,35 @@ async function body(req) {
   try { return await req.json(); } catch { return null; }
 }
 
+const RESOLVERS = new WeakMap();
+function jwks(env) {
+  if (env.GOOGLE_JWKS) return env.GOOGLE_JWKS;                     // static set (tests) or a resolver function
+  if (!RESOLVERS.has(env)) RESOLVERS.set(env, jwksResolver({ fetchFn: env.JWKS_FETCH }));
+  return RESOLVERS.get(env);
+}
+
+const uploadsConfigured = (env) => !!(env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     const p = url.pathname;
     try {
+      // health answers even when a binding check fails; it reveals no identity value (q_health, 9003)
+      if (req.method === 'GET' && p === '/api/v1/health') {
+        const b = await bindings(env);
+        let h = null;
+        try { h = await env.db.one('bnx_app', "select bnx.q_health(null::jsonb, '{}'::jsonb) r", []); } catch { h = { status: 'unreachable' }; }
+        return json(b.ok ? 200 : 503, { ...h, release: RELEASE.version, bindings: { ok: b.ok, failed: b.failed } });
+      }
+      const b = await bindings(env);
+      if (!b.ok) return json(503, { error: b.error });                // ISO-4: fail closed
       if (req.method === 'POST' && p === '/auth/google/callback') {
         if (!sameOrigin(req, env)) return json(403, { error: 'ORIGIN' });
-        const b = await body(req);
+        const bd = await body(req);
         let claims;
         try {
-          claims = await verifyGoogleIdToken(b && b.id_token, { jwks: env.GOOGLE_JWKS, audience: env.GOOGLE_CLIENT_ID });
+          claims = await verifyGoogleIdToken(bd && bd.id_token, { jwks: jwks(env), audience: env.GOOGLE_CLIENT_ID });
         } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
         const r = await env.db.one('bnx_authn', 'select bnx.authn_begin_session($1::jsonb) r',
           [JSON.stringify({ iss: claims.iss, sub: claims.sub, email_verified: claims.email_verified, aud: claims.aud })]);
@@ -72,7 +100,7 @@ export default {
           'set-cookie': `bnx_session=${encodeURIComponent(r.session_token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=7776000` });
       }
       if (req.method === 'POST' && p === '/auth/logout') {
-        const cred = credential(req);
+        const cred = credential(req, env);
         if (!cred || !sameOrigin(req, env)) return json(401, { error: 'UNAUTHENTICATED' });
         await env.db.one('bnx_app', 'select bnx.cmd_revoke_session($1::jsonb, $2::jsonb) r', [JSON.stringify(cred), '{}']);
         return json(200, { status: 'revoked' }, { 'set-cookie': 'bnx_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0' });
@@ -80,28 +108,50 @@ export default {
       let m = p.match(/^\/api\/v1\/(commands|queries)\/([^/]+)$/);
       if (req.method === 'POST' && m) {
         const [, kind, name] = m;
-        if (!NAME.test(name)) return json(404, { error: 'NOT_FOUND' });
-        const cred = credential(req);
-        if (!cred) return json(401, { error: 'UNAUTHENTICATED' });
+        const entry = NAME.test(name) ? b.catalog.byRest.get(`/api/v1/${kind}/${name}`) : null;
+        if (!entry) return json(404, { error: 'NOT_FOUND' });         // not in the catalog read from the Core
+        const cred = credential(req, env);
+        if (!cred && entry.risk_class !== 'RC-PUBLIC') return json(401, { error: 'UNAUTHENTICATED' });
         if (kind === 'commands' && !sameOrigin(req, env)) return json(403, { error: 'ORIGIN' });
-        const b = (await body(req)) || {};
-        if (kind === 'commands' && req.headers.get('idempotency-key')) b.idempotency_key = req.headers.get('idempotency-key');
-        const fn = (kind === 'commands' ? 'cmd_' : 'q_') + name;
-        const r = await env.db.one('bnx_app', `select bnx.${fn}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(b)]);
+        const bd = (await body(req)) ?? {};                             // R1: an absent or unparsable body is {}
+        if (typeof bd !== 'object' || Array.isArray(bd)) return json(422, { error: 'VALIDATION_FAILED', field: '$' });
+        if (kind === 'commands' && req.headers.get('idempotency-key')) bd.idempotency_key = req.headers.get('idempotency-key');
+        const bad = validate(entry.input_schema, bd);
+        if (bad) return json(422, { error: 'VALIDATION_FAILED', field: bad.path });
+        const r = await env.db.one('bnx_app', `select ${entry.core_function}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(bd)]);
         if (r && r.queue_generation !== undefined) await env.KV.put('bnx:hint', String(r.queue_generation));  // after COMMIT
         return json(200, r);
       }
-      if (req.method === 'POST' && p === '/oauth/authorize') {      // consent submitted by the signed-in PWA
-        const cred = credential(req);
+      if (req.method === 'GET' && p === '/api/v1/catalog') {           // sys.catalog (RC-READ)
+        const cred = credential(req, env);
+        if (!cred) return json(401, { error: 'UNAUTHENTICATED' });
+        await env.db.one('bnx_app', "select bnx.q_whoami($1::jsonb, '{}'::jsonb) r", [JSON.stringify(cred)]);   // credential is live
+        const entries = cred.kind === 'bearer' ? b.catalog.entries.filter((e) => e.channels.includes('mcp')) : b.catalog.entries;
+        return json(200, { format: b.catalog.format, catalog_sha256: b.catalog.sha256, release: RELEASE.version, entries });
+      }
+      if (req.method === 'POST' && p === '/api/v1/uploads') {          // presigned direct-to-R2 PUT (UA §8.1; O-7)
+        const cred = credential(req, env);
         if (!cred || cred.kind !== 'session') return json(401, { error: 'UNAUTHENTICATED' });
         if (!sameOrigin(req, env)) return json(403, { error: 'ORIGIN' });
-        const b = (await body(req)) || {};
-        if (b.code_challenge_method !== 'S256') return json(400, { error: 'invalid_request' });
-        b.idempotency_key = b.idempotency_key || crypto.randomUUID();
-        const r = await env.db.one('bnx_app', 'select bnx.cmd_approve_ai_connection($1::jsonb, $2::jsonb) r', [JSON.stringify(cred), JSON.stringify(b)]);
-        const to = new URL(b.redirect_uri);
+        if (!uploadsConfigured(env)) return json(503, { error: 'UPLOADS_NOT_CONFIGURED' });
+        const bd = (await body(req)) || {};
+        const t = await env.db.one('bnx_app', 'select bnx.q_evidence_upload_target($1::jsonb, $2::jsonb) r',
+          [JSON.stringify(cred), JSON.stringify({ evidence_file_id: bd.evidence_file_id })]);
+        const s = await presignR2Put(env, t.r2_key);
+        return json(200, { evidence_file_id: t.evidence_file_id, method: 'PUT', url: s.url, expires_in: 900,
+                           headers: { 'content-type': t.mime }, size_bytes: t.size_bytes, sha256_declared: t.sha256_declared });
+      }
+      if (req.method === 'POST' && p === '/oauth/authorize') {      // consent submitted by the signed-in PWA
+        const cred = credential(req, env);
+        if (!cred || cred.kind !== 'session') return json(401, { error: 'UNAUTHENTICATED' });
+        if (!sameOrigin(req, env)) return json(403, { error: 'ORIGIN' });
+        const bd = (await body(req)) || {};
+        if (bd.code_challenge_method !== 'S256') return json(400, { error: 'invalid_request' });
+        bd.idempotency_key = bd.idempotency_key || crypto.randomUUID();
+        const r = await env.db.one('bnx_app', 'select bnx.cmd_approve_ai_connection($1::jsonb, $2::jsonb) r', [JSON.stringify(cred), JSON.stringify(bd)]);
+        const to = new URL(bd.redirect_uri);
         to.searchParams.set('code', r.code);
-        if (b.state) to.searchParams.set('state', b.state);
+        if (bd.state) to.searchParams.set('state', bd.state);
         return json(200, { redirect: to.toString() });
       }
       if (req.method === 'POST' && p === '/oauth/token') {
@@ -123,33 +173,33 @@ export default {
       if (req.method === 'POST' && (p === '/exec/v1/lease' || p === '/exec/v1/complete')) {
         const raw = await req.text();
         if (raw.length > 300000) return json(413, { error: 'PAYLOAD_TOO_LARGE' });
-        let b = null; try { b = JSON.parse(raw); } catch { b = null; }
-        if (!b || typeof b.job_kind !== 'string') return json(400, { error: 'VALIDATION_FAILED' });
-        const pin = (env.EXEC_JOBS || {})[b.job_kind];                    // configured job identity per job kind
+        let bd = null; try { bd = JSON.parse(raw); } catch { bd = null; }
+        if (!bd || typeof bd.job_kind !== 'string') return json(400, { error: 'VALIDATION_FAILED' });
+        const pin = (env.EXEC_JOBS || {})[bd.job_kind];                    // configured job identity per job kind
         const auth = req.headers.get('authorization') || '';
         let claims;
         try {
-          claims = await verifyJobToken(auth.startsWith('Bearer ') ? auth.slice(7) : null, { jwks: env.GOOGLE_JWKS, audience: env.EXEC_AUDIENCE, pin });
+          claims = await verifyJobToken(auth.startsWith('Bearer ') ? auth.slice(7) : null, { jwks: jwks(env), audience: env.EXEC_AUDIENCE, pin });
         } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
         if (p === '/exec/v1/lease') {
           const r = await env.db.one('bnx_worker', 'select bnx.wrk_issue_exec_lease($1::jsonb) r', [JSON.stringify({
-            job_kind: b.job_kind, item_id: b.item_id ?? null, sub: claims.sub, email: claims.email, azp: claims.azp })]);
+            job_kind: bd.job_kind, item_id: bd.item_id ?? null, sub: claims.sub, email: claims.email, azp: claims.azp })]);
           return json(200, r);
         }
         // completion: the Gateway writes the staging row as bnx_worker (lease_completions = gateway); never a posting call
         const r = await env.db.one('bnx_worker', 'select bnx.wrk_stage_completion($1::text, $2::text, $3::jsonb) r',
-          [String(b.nonce || ''), String(b.stg_kind || ''), JSON.stringify(b.payload ?? null)]);
+          [String(bd.nonce || ''), String(bd.stg_kind || ''), JSON.stringify(bd.payload ?? null)]);
         if (r && r.queue_generation !== undefined) await env.KV.put('bnx:hint', String(r.queue_generation));
         return json(200, { staging_id: r.staging_id, state: r.state });
       }
       if (req.method === 'POST' && p === '/mcp') {
-        const cred = credential(req);
+        const cred = credential(req, env);
         if (!cred || cred.kind !== 'bearer') return json(401, { error: 'UNAUTHENTICATED' }, { 'www-authenticate': 'Bearer' });
         const rpc = await body(req);
         if (!rpc || rpc.jsonrpc !== '2.0') return json(400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } });
         const reply = (result) => json(200, { jsonrpc: '2.0', id: rpc.id, result });
         const fail = (code, message) => json(200, { jsonrpc: '2.0', id: rpc.id, error: { code, message } });
-        if (rpc.method === 'initialize') return reply({ protocolVersion: '2025-06-18', serverInfo: { name: 'balnexa', version: '0.1.0-r1' }, capabilities: { tools: {} } });
+        if (rpc.method === 'initialize') return reply({ protocolVersion: '2025-06-18', serverInfo: { name: 'balnexa', version: RELEASE.version }, capabilities: { tools: {} } });
         if (rpc.method === 'tools/list') return reply({ tools: Object.entries(MCP_TOOLS).map(([name, t]) => ({ name, description: t.description, inputSchema: t.inputSchema })) });
         if (rpc.method === 'tools/call') {
           const t = MCP_TOOLS[rpc.params && rpc.params.name];
@@ -181,6 +231,9 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
+    // ISO-4: a Worker whose bindings fail never dispatches against the database it is connected to
+    const b = await bindings(env, event.scheduledTime || Date.now());
+    if (!b.ok) { log('dispatch_refused', b.error, b.failed); return { neon: false, processed: 0, binding: b.error }; }
     const work = dispatch(env, event.scheduledTime || Date.now());
     if (ctx && ctx.waitUntil) ctx.waitUntil(work);
     return work;

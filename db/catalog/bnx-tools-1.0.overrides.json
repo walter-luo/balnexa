@@ -1,0 +1,46 @@
+{
+  "format": "bnx-tools-1.0-overrides",
+  "note": "Explicit facts the generator (tools/s4/catalog_build.py) cannot read from a function body. Every cmd_/q_ function whose tier is not visible as bnx.require(a, N) must be listed here, otherwise the generator fails (no silent default).",
+  "tier_helpers": {
+    "backup_owner": 3,
+    "backup_reader": 0
+  },
+  "public": [
+    "q_health"
+  ],
+  "descriptions": {
+    "q_health": "Instance health without identity values; answers while a binding check fails",
+    "q_whoami": "The calling member, channel, connection and scopes",
+    "q_config_status": "Active configuration version, digest, flags, pending versions, identity and schema head",
+    "q_balances": "Balances per account-currency at a date and ledger version (R1 R-BAL)",
+    "q_f1_balances": "F1 balances with statement column, reporting currency and envelope",
+    "q_f2_transactions": "F2 transactions with masked lines and calendar flows",
+    "q_f3_income_expense": "F3 income and expense by flow class",
+    "q_f4_investments": "F4 investment positions and movements",
+    "q_f5_networth": "F5 net worth (book value) with R28 elimination",
+    "q_f6_cards": "F6 cards: owed balance, statements, annual-fee progress",
+    "q_f7_reconciliation": "F7 reconciliation findings and coverage",
+    "q_cashflow_statement": "R09 cash flow by flow class (cash basis)",
+    "q_backup_status": "Backup runs, drills, keys, evidence verification and the O-8 anchor precondition",
+    "q_cost_status": "Usage, ceilings, capacity state and admissions of a billing month",
+    "cmd_post_transaction": "Post a balanced journal (PWA only)",
+    "cmd_create_account": "Create an account with its account-currencies"
+  },
+  "names": {
+    "q_health": "sys.health",
+    "q_whoami": "sys.whoami",
+    "q_config_status": "sys.config_status",
+    "q_replay_snapshot": "fin.reports.replay_snapshot",
+    "cmd_create_report_snapshot": "fin.reports.create_snapshot",
+    "q_institutions_search": "reg.institutions.search",
+    "cmd_propose_institution_candidate": "reg.discovery.propose_candidate",
+    "q_draft_get_for_confirmation": "fin.draft.get_for_confirmation",
+    "cmd_draft_revise": "fin.draft.revise",
+    "cmd_draft_validate": "fin.draft.validate",
+    "cmd_draft_withdraw": "fin.draft.withdraw",
+    "q_account_proposals": "fin.account.proposals",
+    "q_evidence_access": "doc.evidence.access",
+    "cmd_register_evidence": "doc.evidence.register"
+  },
+  "note_names": "AIH V1.2 §2.2 tool names where bnx.function_scope carries none; every other entry is named from function_scope.note or pwa.<rest name>"
+}

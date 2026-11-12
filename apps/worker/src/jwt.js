@@ -1,6 +1,7 @@
 // Google ID-token verification with WebCrypto (available in Cloudflare Workers and Node >= 20).
-// Production: env.GOOGLE_JWKS is refreshed from https://www.googleapis.com/oauth2/v3/certs by the Worker and cached in
-// KV (M0-A); tests inject a synthetic JWKS. Only RS256 is accepted; alg "none" and HS* are rejected.
+// Production: the key set comes from jwksResolver() (Google's JWKS endpoint, cached in isolate memory, refetched on an
+// unknown kid); tests inject a synthetic JWKS or a resolver with a fake fetch. Only RS256 is accepted; alg "none" and HS*
+// are rejected.
 const enc = new TextEncoder();
 
 function b64urlToBytes(s) {
@@ -14,6 +15,34 @@ function b64urlToBytes(s) {
 
 export class AuthError extends Error {}
 
+// CORE-7 (OBJ-258 MODIFY): JWKS fetched and cached with kid rotation. A key set is either a static object (tests; the
+// R1 env.GOOGLE_JWKS) or a resolver made by jwksResolver(). The resolver keeps the last set in isolate memory for the
+// Cache-Control max-age (default 1 h, at most 24 h) and, on an unknown kid, refetches at most once per 60 s, so a rotated
+// Google key is accepted without a redeploy and a flood of forged kids cannot hammer the endpoint.
+export const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+export function jwksResolver({ url = GOOGLE_JWKS_URL, fetchFn = (u) => fetch(u), minRefetchMs = 60_000 } = {}) {
+  let set = null, expires = 0, lastFetch = -Infinity;
+  async function load(now) {
+    lastFetch = now;
+    const r = await fetchFn(url);
+    if (!r.ok) throw new AuthError('jwks');
+    const m = /max-age=(\d+)/.exec((r.headers && r.headers.get && r.headers.get('cache-control')) || '');
+    set = await r.json();
+    expires = now + Math.min(m ? Number(m[1]) : 3600, 86400) * 1000;
+  }
+  return async function keyFor(kid, now = Date.now()) {
+    if (!set || now >= expires) await load(now);
+    let k = (set.keys || []).find((x) => x.kid === kid && x.kty === 'RSA');
+    if (!k && now - lastFetch >= minRefetchMs) { await load(now); k = (set.keys || []).find((x) => x.kid === kid && x.kty === 'RSA'); }
+    return k || null;
+  };
+}
+
+async function keyFor(jwks, kid, now) {
+  if (typeof jwks === 'function') return jwks(kid, now);
+  return ((jwks && jwks.keys) || []).find((k) => k.kid === kid && k.kty === 'RSA') || null;
+}
+
 export async function verifyGoogleIdToken(token, { jwks, audience, now = Date.now() }) {
   if (typeof token !== 'string' || token.split('.').length !== 3) throw new AuthError('malformed');
   const [h64, p64, s64] = token.split('.');
@@ -23,7 +52,7 @@ export async function verifyGoogleIdToken(token, { jwks, audience, now = Date.no
     payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(p64)));
   } catch { throw new AuthError('malformed'); }
   if (header.alg !== 'RS256' || !header.kid) throw new AuthError('alg');
-  const jwk = (jwks.keys || []).find(k => k.kid === header.kid && k.kty === 'RSA');
+  const jwk = await keyFor(jwks, header.kid, now);
   if (!jwk) throw new AuthError('kid');
   const key = await crypto.subtle.importKey('jwk', { kty: 'RSA', n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);

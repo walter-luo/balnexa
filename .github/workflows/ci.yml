@@ -77,7 +77,7 @@ jobs:
             python "$f" --server "$BNX_SERVER" --evidence "ci-evidence/$n" | tee "ci-evidence/$n.txt"
           done
       - name: Black-box API
-        run: BNX_PY="$(which python)" node --test tests/blackbox/api.test.mjs
+        run: BNX_PY="$(which python)" node --test tests/blackbox/api.test.mjs tests/blackbox/unit.test.mjs
       - name: Dispatch simulation
         if: matrix.pg == '16'
         run: node tests/sim/dispatch_sim.mjs

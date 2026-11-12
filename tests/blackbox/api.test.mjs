@@ -35,7 +35,7 @@ async function call(p, { method = 'POST', body, headers = {}, cookie, bearer, fo
 }
 const cmd = (name, body, cookie, extra = {}) => call(`/api/v1/commands/${name}`, { body, cookie, headers: { origin: ORIGIN, ...extra } });
 
-let INST = null;
+let INST = null, INFO = null;
 const EXEC_AUD = 'https://exec.balnexa.test';
 const JOB = { sub: '108000000000000000001', email: 'bnx-executor@synthetic-project.iam.gserviceaccount.com', azp: '108000000000000000001' };
 const CONTRACT = ['File ID', 'Original Name', 'Current Name', 'Document Date', 'Processed Date', 'Domain', 'Type', 'Tags', 'Source',
@@ -48,7 +48,8 @@ before(async () => {
   const jwk = kp.publicKey.export({ format: 'jwk' });
   env = { db: makeDb({ host: info.host, port: info.port, database: info.db }), KV: makeKv(), APP_ORIGIN: ORIGIN,
           GOOGLE_CLIENT_ID: 'test-client', GOOGLE_JWKS: { keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] },
-          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB } };
+          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB }, ...(info.binding || {}) };
+  INFO = info;
   srv = await serve(env);
   base = `http://127.0.0.1:${srv.address().port}`;
 });
@@ -229,6 +230,112 @@ test('BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging on
   const n = await call('/api/v1/queries/notifications', { body: {}, cookie: S.owner });
   assert.equal(n.status, 200, n.text);
   assert.deepEqual(n.json.notifications.map(x => x.kind), ['CRA_CORRESPONDENCE']);
+});
+
+// ------------------------------------------------------------------------------------------------ CORE-7 Gateway
+async function at(e, fn) {                                   // a second Gateway isolate with its own env (own binding cache)
+  const s = await serve(e);
+  try { return await fn(`http://127.0.0.1:${s.address().port}`); } finally { s.close(); }
+}
+async function callAt(b, p, opts) { const o = base; base = b; try { return await call(p, opts); } finally { base = o; } }
+
+test('BB-CAT-01 catalog from the Core: session sees every entry, bearer only MCP entries; REST and MCP give identical results (AT-AIH-01)', async () => {
+  const s = await call('/api/v1/catalog', { method: 'GET', cookie: S.owner });
+  assert.equal(s.status, 200, s.text);
+  assert.equal(s.json.format, 'bnx-tools/1.0');
+  assert.match(s.json.catalog_sha256, /^[0-9a-f]{64}$/);
+  assert.ok(s.json.entries.length > 100 && s.json.entries.every((e) => e.rest && e.core_function && e.input_schema), 'every entry routable');
+  const b = await call('/api/v1/catalog', { method: 'GET', bearer: S.bearer });
+  assert.equal(b.status, 200, b.text);
+  assert.ok(b.json.entries.length > 0 && b.json.entries.every((e) => e.channels.includes('mcp') && ['RC-READ', 'RC-DRAFT'].includes(e.risk_class)));
+  assert.ok(b.json.entries.length < s.json.entries.length);
+  assert.equal((await call('/api/v1/catalog', { method: 'GET' })).status, 401);
+  // equivalence contract: the same actor, input and version give the same structured result on REST and MCP
+  const rest = await call('/api/v1/queries/balances', { body: { as_of: '2026-12-31' }, bearer: S.bearer });
+  const mcp = await call('/mcp', { body: { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'get_balances', arguments: { as_of: '2026-12-31' } } }, bearer: S.bearer });
+  assert.equal(rest.status, 200, rest.text);
+  assert.deepEqual(mcp.json.result.structuredContent, rest.json);
+});
+
+test('BB-SCHEMA-01 body validated against the catalog input schema; error codes are the database codes (AT-AIH-05)', async () => {
+  const q = await call('/api/v1/queries/f1_balances', { body: { as_of: '2026-02-30' }, cookie: S.owner });
+  assert.deepEqual([q.status, q.json.error, q.json.field], [422, 'VALIDATION_FAILED', '$.as_of']);
+  const c = await cmd('post_transaction', { economic_type: 'fee', transaction_date: '2026-02-02', description: 'x', lines: [], settled_rate: 'abc' }, S.owner, { 'idempotency-key': 'bb-sch-0001' });
+  assert.deepEqual([c.status, c.json.error, c.json.field], [422, 'VALIDATION_FAILED', '$.settled_rate']);
+  const arr = await call('/api/v1/queries/f1_balances', { body: [1, 2], cookie: S.owner });
+  assert.deepEqual([arr.status, arr.json.error], [422, 'VALIDATION_FAILED']);
+  // a value the schema does not type is judged by the database, which answers with the same code
+  const db = await cmd('register_evidence', { size: '-1', sha256_declared: '00', name: 'x.pdf' }, S.owner, { 'idempotency-key': 'bb-sch-0002' });
+  assert.deepEqual([db.status, db.json.error, db.json.field], [422, 'VALIDATION_FAILED', undefined]);
+  const noKey = await cmd('create_category', { kind: 'expense', currency: 'CAD', name_en: 'x' }, S.owner);
+  assert.deepEqual([noKey.status, noKey.json.error], [422, 'IDEMPOTENCY_KEY_REQUIRED']);
+  const ok = await call('/api/v1/queries/f1_balances', { body: { as_of: '2026-12-31' }, cookie: S.owner });
+  assert.equal(ok.status, 200, ok.text);
+});
+
+test('BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answers and reveals no identity (AT-ISO-04, AT-CFG-05)', async () => {
+  const cases = [[{ BNX_PROJECT_ID: 'other-household' }, ['B1'], 'BNX_BINDING_MISMATCH'],
+                 [{ BNX_CONFIG_DIGEST: 'f'.repeat(64) }, ['B2'], 'BNX_BINDING_MISMATCH'],
+                 [{ BNX_MODULES: { ...INFO.binding.BNX_MODULES, CRA: 'NO' } }, ['B8'], 'BNX_FLAG_BINDING_MISMATCH']];
+  for (const [over, failed, error] of cases) {
+    const e = { ...env, KV: makeKv(), ...over };
+    await at(e, async (b2) => {
+      const hl = await callAt(b2, '/api/v1/health', { method: 'GET' });
+      assert.deepEqual([hl.status, hl.json.bindings], [503, { ok: false, failed }]);
+      assert.ok(!hl.text.includes(INFO.binding.BNX_INSTANCE_UID) && !hl.text.includes('bb-household'), 'health reveals no identity value');
+      for (const r of [await callAt(b2, '/api/v1/queries/balances', { body: {}, cookie: S.owner }),
+                       await callAt(b2, '/api/v1/commands/create_category', { body: {}, cookie: S.owner, headers: { origin: ORIGIN } }),
+                       await callAt(b2, '/auth/google/callback', { body: { id_token: idToken({ sub: 'g-owner' }) }, headers: { origin: ORIGIN } }),
+                       await callAt(b2, '/oauth/token', { form: { grant_type: 'authorization_code', code: 'x' } })]) {
+        assert.deepEqual([r.status, r.json.error], [503, error]);
+      }
+    });
+    const tick = await worker.scheduled({ scheduledTime: Date.now() }, e, null);
+    assert.deepEqual([tick.neon, tick.binding], [false, error], 'the dispatcher refuses too');
+  }
+  const good = await call('/api/v1/health', { method: 'GET' });
+  assert.deepEqual([good.status, good.json.status, good.json.bindings.ok], [200, 'ok', true]);
+  assert.equal(good.json.identity_present, true);
+});
+
+test('BB-B7-01 a token bound to another resource is refused at this Gateway (B7)', async () => {
+  const R = 'https://bb.balnexa.test/mcp';
+  const verifier = crypto.randomBytes(40).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const az = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
+    code_challenge_method: 'S256', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id], resource: R }, cookie: S.owner, headers: { origin: ORIGIN } });
+  assert.equal(az.status, 200, az.text);
+  const tok = await call('/oauth/token', { form: { grant_type: 'authorization_code', code: new URL(az.json.redirect).searchParams.get('code'),
+    client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_verifier: verifier, resource: R } });
+  assert.equal(tok.status, 200, tok.text);
+  const q = (b2) => callAt(b2, '/api/v1/queries/balances', { body: {}, bearer: tok.json.access_token });
+  await at({ ...env, KV: makeKv(), BNX_RESOURCE: R }, async (b2) => assert.equal((await q(b2)).status, 200));
+  await at({ ...env, KV: makeKv(), BNX_RESOURCE: 'https://other-instance.balnexa.test/mcp' }, async (b2) => {
+    const r = await q(b2);
+    assert.deepEqual([r.status, r.json.error], [401, 'UNAUTHENTICATED']);
+  });
+});
+
+test('BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for R2 (AT-EV-01)', async () => {
+  const reg = await cmd('register_evidence', { size: 2048, sha256_declared: crypto.createHash('sha256').update('stmt').digest('hex'), name: 'stmt.pdf' },
+    S.owner, { 'idempotency-key': 'bb-up-0001' });
+  assert.equal(reg.status, 200, reg.text);
+  const up = (b2, body, o = {}) => callAt(b2, '/api/v1/uploads', { body, cookie: S.owner, headers: { origin: ORIGIN }, ...o });
+  const off = await up(base, { evidence_file_id: reg.json.evidence_file_id });
+  assert.deepEqual([off.status, off.json.error], [503, 'UPLOADS_NOT_CONFIGURED']);
+  // synthetic R2 settings (no real account; nothing is contacted)
+  await at({ ...env, KV: makeKv(), R2_ACCOUNT_ID: 'synthaccount', R2_BUCKET: 'bnx-evidence', R2_ACCESS_KEY_ID: 'synthetic-key-id', R2_SECRET_ACCESS_KEY: 'synthetic-value' }, async (b2) => {
+    const r = await up(b2, { evidence_file_id: reg.json.evidence_file_id });
+    assert.equal(r.status, 200, r.text);
+    const u = new URL(r.json.url);
+    assert.equal(u.host, 'synthaccount.r2.cloudflarestorage.com');
+    assert.match(u.pathname, /^\/bnx-evidence\/orig\/[0-9a-f-]{36}$/);
+    assert.deepEqual([r.json.method, r.json.size_bytes, r.json.expires_in, u.searchParams.get('X-Amz-Expires')], ['PUT', 2048, 900, '900']);
+    const nf = await up(b2, { evidence_file_id: crypto.randomUUID() });
+    assert.deepEqual([nf.status, nf.json.error], [404, 'NOT_AVAILABLE']);
+    assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, bearer: S.bearer })).status, 401);
+    assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, cookie: S.owner })).status, 403);
+  });
 });
 
 test('BB-AUTH-02 logout revokes the session server-side', async () => {

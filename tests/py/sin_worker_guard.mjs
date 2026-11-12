@@ -11,10 +11,18 @@ process.stdin.on('end', async () => {
   const out = { cases: [] };
   for (const label of [...input.values, input.clean]) {
     const audits = [];
+    // CORE-7 re-baseline: the Gateway checks its bindings (B1/B2/B3/B8) before any route, so the mock database answers
+    // the binding facts and an empty catalog consistently with the env, as a correctly deployed Worker would see them
     const env = {
       APP_ORIGIN: 'https://app.balnexa.test',
+      BNX_PROJECT_ID: 'guard-household', BNX_INSTANCE_UID: '00000000-0000-4000-8000-0000000000c4', BNX_CONFIG_DIGEST: 'c'.repeat(64),
+      BNX_MODULES: { Canada: 'YES', International: 'YES', CRA: 'YES' },
       db: {
         one: async (role, sql, params) => {
+          if (sql.includes('wrk_binding_facts')) return { identity: { project_id: 'guard-household', instance_uid: '00000000-0000-4000-8000-0000000000c4' },
+            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9017' },
+            active: { flags: { Canada: 'YES', International: 'YES', CRA: 'YES' } }, catalog_sha256: 'none' };
+          if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', entries: [], uncatalogued: [] };
           if (sql.includes('wrk_audit_sin_refusal')) { audits.push({ role, payload: JSON.parse(params[0]) }); return 1; }
           if (sql.includes('q_balances')) return { balances: [{ label: `Chequing ${label}`, amount: '10.00' }] };
           throw Object.assign(new Error('UNEXPECTED'), { code: 'XX000' });
