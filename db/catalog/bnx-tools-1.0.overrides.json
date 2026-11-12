@@ -414,6 +414,548 @@
      }
     }
    }
+  },
+  "q_account_proposals": {
+   "description": "Account proposals waiting for a decision.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "state": {
+      "description": "Filter by state"
+     }
+    }
+   }
+  },
+  "q_balance_observations": {
+   "description": "Balances observed on statements or by members, per account-currency.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "include_superseded": {
+      "enum": [
+       true,
+       false,
+       "true",
+       "false"
+      ],
+      "type": [
+       "boolean",
+       "string"
+      ],
+      "description": "Also return superseded observations"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     }
+    }
+   }
+  },
+  "q_card_fee_progress": {
+   "description": "Progress towards a credit card's annual-fee waiver in the current period.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "card_account_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A credit-card account"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     },
+     "period_start": {
+      "format": "date",
+      "type": "string",
+      "description": "First day of the card's fee period"
+     }
+    }
+   }
+  },
+  "q_cashflow_statement": {
+   "description": "R09 cash-flow statement: operating flows apart from transfers, investing and financing.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "date_from": {
+      "format": "date",
+      "type": "string",
+      "description": "First day, inclusive"
+     },
+     "date_to": {
+      "format": "date",
+      "type": "string",
+      "description": "Last day, inclusive"
+     }
+    }
+   }
+  },
+  "q_evidence_access": {
+   "description": "A short-lived link to an evidence file, if the connection may open it.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "evidence_file_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An evidence file"
+     },
+     "purpose": {
+      "description": "Why the evidence is opened (recorded)"
+     }
+    }
+   }
+  },
+  "q_evidence_trace": {
+   "description": "R31 trace from a source row or journal to its statement, evidence and corrections.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "journal_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A journal entry"
+     },
+     "source_txn_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A source (statement) transaction"
+     }
+    }
+   }
+  },
+  "q_f1_balances": {
+   "description": "F1 balances report.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_ids": {
+      "type": "array",
+      "description": "Account-currencies to include (default: all visible)"
+     },
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "reporting_currency": {
+      "description": "ISO 4217 code for converted totals (default: the household's)"
+     }
+    }
+   }
+  },
+  "q_f2_transactions": {
+   "description": "F2 transactions of one account-currency in a date range.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "date_from": {
+      "format": "date",
+      "type": "string",
+      "description": "First day, inclusive"
+     },
+     "date_to": {
+      "format": "date",
+      "type": "string",
+      "description": "Last day, inclusive"
+     },
+     "limit": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Maximum rows"
+     }
+    }
+   }
+  },
+  "q_f3_income_expense": {
+   "description": "F3 income and expense by category.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "date_from": {
+      "format": "date",
+      "type": "string",
+      "description": "First day, inclusive"
+     },
+     "date_to": {
+      "format": "date",
+      "type": "string",
+      "description": "Last day, inclusive"
+     }
+    }
+   }
+  },
+  "q_f4_investments": {
+   "description": "F4 investments: holdings, cost and unrealized results.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "date_from": {
+      "format": "date",
+      "type": "string",
+      "description": "First day, inclusive"
+     },
+     "reporting_currency": {
+      "description": "ISO 4217 code for converted totals (default: the household's)"
+     }
+    }
+   }
+  },
+  "q_f5_networth": {
+   "description": "F5 net worth with household-internal loans eliminated.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "reporting_currency": {
+      "description": "ISO 4217 code for converted totals (default: the household's)"
+     }
+    }
+   }
+  },
+  "q_f6_cards": {
+   "description": "F6 credit cards: balances, statements, fee status.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     }
+    }
+   }
+  },
+  "q_f7_reconciliation": {
+   "description": "F7 reconciliation coverage and exceptions of one account-currency.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     }
+    }
+   }
+  },
+  "q_fx_rate": {
+   "description": "The FX rate used for a currency pair on a date.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "base": {
+      "description": "Base currency (ISO 4217)"
+     },
+     "date": {
+      "format": "date",
+      "type": "string",
+      "description": "Rate date"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     },
+     "quote": {
+      "description": "Quote currency (ISO 4217)"
+     }
+    }
+   }
+  },
+  "q_handoff_status": {
+   "description": "Status of project handoff messages.",
+   "input": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  "q_institutions_search": {
+   "description": "Search the institution registry.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "include_pending": {
+      "enum": [
+       true,
+       false,
+       "true",
+       "false"
+      ],
+      "type": [
+       "boolean",
+       "string"
+      ],
+      "description": "Also return candidates not yet verified"
+     },
+     "lang": {
+      "description": "en or zh"
+     },
+     "text": {
+      "description": "Search text (name or code)"
+     }
+    }
+   }
+  },
+  "q_investment_position": {
+   "description": "Holdings of one investment account-currency.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     },
+     "reporting_currency": {
+      "description": "ISO 4217 code for converted totals (default: the household's)"
+     }
+    }
+   }
+  },
+  "q_onboarding_job": {
+   "description": "One onboarding job: files by state, account histories, plans.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "job_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An onboarding job"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     }
+    }
+   }
+  },
+  "q_r28_loan_position": {
+   "description": "R28 position of a loan: principal, interest and schedule.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "type": "string",
+      "description": "Date of the figures (default: today)"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     },
+     "loan_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A declared loan"
+     },
+     "terms_recorded_as_of": {
+      "format": "date-time",
+      "type": "string",
+      "description": "Use the loan terms recorded up to this time"
+     }
+    }
+   }
+  },
+  "q_r30_review_queue": {
+   "description": "R30 review queue: what needs a member's decision.",
+   "input": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  "q_reconciliation_coverage": {
+   "description": "Statement coverage and gaps of one account-currency.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     }
+    }
+   }
+  },
+  "q_reconciliation_exceptions": {
+   "description": "Reconciliation exceptions of one account-currency.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     },
+     "state": {
+      "description": "Filter by state"
+     }
+    }
+   }
+  },
+  "q_replay_snapshot": {
+   "description": "Replay a report snapshot exactly as it was taken.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "snapshot_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A report snapshot (from reports.snapshot.list)"
+     }
+    }
+   }
+  },
+  "q_snapshot_artifact": {
+   "description": "Status of a snapshot's rendered artifact.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "snapshot_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A report snapshot (from reports.snapshot.list)"
+     }
+    }
+   }
+  },
+  "q_snapshot_list": {
+   "description": "Report snapshots, newest first.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "report_code": {
+      "description": "Report code, e.g. R-BAL"
+     }
+    }
+   }
+  },
+  "q_snapshot_status": {
+   "description": "Whether a snapshot is still current.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "snapshot_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "A report snapshot (from reports.snapshot.list)"
+     }
+    }
+   }
+  },
+  "q_transfer_matching": {
+   "description": "Transfer matching between accounts: proposals and decisions.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "account_currency_id": {
+      "format": "uuid",
+      "type": "string",
+      "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     },
+     "date_from": {
+      "format": "date",
+      "type": "string",
+      "description": "First day, inclusive"
+     },
+     "date_to": {
+      "format": "date",
+      "type": "string",
+      "description": "Last day, inclusive"
+     },
+     "ledger_version": {
+      "pattern": "^-?[0-9]{1,18}$",
+      "type": [
+       "integer",
+       "string"
+      ],
+      "description": "Read at this ledger version (replay); default: current"
+     }
+    }
+   }
+  },
+  "q_whoami": {
+   "description": "Who this connection acts for: member, role and consented scopes.",
+   "input": {
+    "type": "object",
+    "properties": {}
+   }
   }
  },
  "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'."

@@ -25,7 +25,11 @@
 - BB-OAUTH-01 extended: `tools/list` shows the required fields, the enum and the description, and a call missing a required field gets `VALIDATION_FAILED`.
 - Full regression: see the PR.
 
+## Second part (migration 9031)
+
+Every MCP-reachable read tool (28 queries) now has a plain-language description of the tool and of each input. Types are unchanged and no `required` lists were added, so the database still reports missing inputs with its own codes.
+
 ## Remaining
 
-- The other 90 MCP-reachable entries keep derived schemas.
+- The MCP-reachable commands other than the draft tools keep derived schemas: they are RC-ADMIN or PWA-first.
 - No output schemas are curated yet.
