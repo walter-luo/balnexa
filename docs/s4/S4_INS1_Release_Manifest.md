@@ -51,7 +51,7 @@ CI runs `--check` in the `secret-scan` job. After adding a migration or changing
 - `--require-signed` also refuses any signature verdict other than `VALID`. `--release-pub` names another public key file.
 - `--plan` prints the release state as step 0.
 
-**CI:** the `secret-scan` job runs `check-files` (blocking) and `verify` (reported only). Every development commit changes the manifest, so the signature gate belongs at install, not on every push.
+**CI:** the `secret-scan` job runs `check-files` (blocking) and `verify` (reported only). The `db-tests` job installs `cryptography==50.0.1` (binary wheel) for AT-SIG-01; it was missing there at first, so AT-SIG-01 failed on #31 with `ModuleNotFoundError` while passing locally. Every development commit changes the manifest, so the signature gate belongs at install, not on every push.
 
 ### Decisions — `DELEGATED_DECISION`
 
