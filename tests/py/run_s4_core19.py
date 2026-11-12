@@ -93,7 +93,8 @@ def catalog_entry(H, fn):
 
 
 @test("AT-OUT-01", "2.8 part 3; MCP tools outputSchema; 9032 (every tool with a curated output schema returns conforming results "
-                   "for an Owner in the PWA and for an AI connection, incl. replay, transfer, revise, validate, withdraw)")
+                   "for an Owner in the PWA and for an AI connection: draft tools incl. replay, transfer, revise, validate, withdraw; "
+                   "balances; whoami; report families F1-F7, R09, R30, R31)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
     curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v)
@@ -112,7 +113,20 @@ def t_output_schemas(server, ev):
         calls.append((who, fn, r))
         return r
 
+    j = H.expense(H.owner, "25.00", date="2026-02-10")["journal_id"]
     for who, cred in (("owner/pwa", H.owner), ("ai/mcp", B)):
+        # the report families (common envelope of bnx.rpt_envelope plus their own keys)
+        run(who, cred, "q_f1_balances", as_of="2026-12-31")
+        run(who, cred, "q_f1_balances", as_of="2026-12-31", reporting_currency="USD")      # a missing rate: null total
+        run(who, cred, "q_f2_transactions", account_currency_id=cad, date_from="2026-01-01", date_to="2026-12-31")
+        run(who, cred, "q_f3_income_expense", date_from="2026-01-01", date_to="2026-12-31")
+        run(who, cred, "q_f4_investments", as_of="2026-12-31")
+        run(who, cred, "q_f5_networth", as_of="2026-12-31")
+        run(who, cred, "q_f6_cards", as_of="2026-12-31")
+        run(who, cred, "q_f7_reconciliation", account_currency_id=cad)
+        run(who, cred, "q_cashflow_statement", date_from="2026-01-01", date_to="2026-12-31")
+        run(who, cred, "q_r30_review_queue")
+        run(who, cred, "q_evidence_trace", journal_id=j)
         run(who, cred, "q_whoami")
         run(who, cred, "q_balances", as_of="2026-12-31")
         k = new_key()

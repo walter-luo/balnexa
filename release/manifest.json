@@ -263,7 +263,7 @@
   {
    "file": "9032_s4_curated_output_schemas.sql",
    "min_worker_release": "0.8.7-p2",
-   "sha256": "7a203c4df0307b97c03c7f9177ca8a2f97d4d93611f96031f37cd24705ac98ee",
+   "sha256": "e450676b46bc9e7ad915a94ff796e68062f95eac751687f174408fbdf41a8819",
    "version": "9032"
   }
  ],
