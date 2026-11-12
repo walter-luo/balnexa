@@ -5,6 +5,11 @@
   "type": "module",
   "description": "Balnexa Cloudflare Worker vertical slice (REST /api/v1, OAuth, MCP, Cron dispatcher). M0 prototype scope.",
   "license": "Apache-2.0",
-  "scripts": { "test": "node --test ../../tests/blackbox/api.test.mjs" },
-  "dependencies": { "pg": "8.13.1" }
+  "scripts": {
+    "test": "node --test ../../tests/blackbox/api.test.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.2.0",
+    "pg": "8.13.1"
+  }
 }

@@ -142,8 +142,20 @@ export default {
         try {
           claims = await verifyGoogleIdToken(bd && bd.id_token, { jwks: jwks(env), audience: env.GOOGLE_CLIENT_ID });
         } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
-        const r = await env.db.one('bnx_authn', 'select bnx.authn_begin_session($1::jsonb) r',
-          [JSON.stringify({ iss: claims.iss, sub: claims.sub, email_verified: claims.email_verified, aud: claims.aud })]);
+        let r;
+        try {
+          r = await env.db.one('bnx_authn', 'select bnx.authn_begin_session($1::jsonb) r',
+            [JSON.stringify({ iss: claims.iss, sub: claims.sub, email_verified: claims.email_verified, aud: claims.aud })]);
+        } catch (e) {
+          // M0-A installer probe (runbook step 6): while BNX_INSTALL_PROBE is set, a verified Google identity that is not a member
+          // is logged with its subject so that the installer can bind the Owner; off in every other deployment
+          // (shown only to the account that just proved it holds that Google identity, and only while the installer keeps the probe on)
+          if (e.code === 'P0401' && env.BNX_INSTALL_PROBE === '1' && claims.email_verified) {
+            log('install_probe_unknown_identity', String(claims.sub).replace(/[0-9]/g, (d) => 'abcdefghij'[d]));   // digits as letters: the log scrubber masks digit runs
+            return json(401, { error: 'UNAUTHENTICATED', install_probe_subject: String(claims.sub) });
+          }
+          throw e;
+        }
         return json(200, { member_id: r.member_id }, {
           'set-cookie': `bnx_session=${encodeURIComponent(r.session_token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=7776000` });
       }

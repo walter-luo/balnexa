@@ -1,0 +1,8 @@
+{
+  "name": "balnexa-deploy-tools",
+  "private": true,
+  "type": "module",
+  "description": "Installer helpers for M0-A (local TCP to Neon WebSocket bridge). Not part of any deployed artifact.",
+  "license": "Apache-2.0",
+  "dependencies": { "ws": "8.18.3", "https-proxy-agent": "7.0.6" }
+}

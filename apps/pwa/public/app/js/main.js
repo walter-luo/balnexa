@@ -521,7 +521,12 @@ function login() {
   if (!S.cfg || !S.cfg.google_client_id) return;
   const go2 = () => {
     window.google.accounts.id.initialize({ client_id: S.cfg.google_client_id, callback: async (r) => {
-      try { await api.signIn(r.credential); boot(); } catch (e) { status(t('login.failed'), 'error'); fail(e); }
+      try { await api.signIn(r.credential); boot(); } catch (e) {
+        status(t('login.failed'), 'error'); fail(e);
+        // installer probe (M0-A runbook): an unknown but verified Google account sees its own subject, to send to the installer
+        const sub = e.body && e.body.install_probe_subject;
+        if (sub) box.after(h('p', { class: 'note', id: 'probe' }, t('login.probe', { sub })));
+      }
     } });
     window.google.accounts.id.renderButton(box, { type: 'standard', locale: i18n.current() === 'zh' ? 'zh_CN' : 'en' });
   };

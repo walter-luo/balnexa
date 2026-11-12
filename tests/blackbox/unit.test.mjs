@@ -12,6 +12,7 @@ import { RELEASE } from '../../apps/worker/src/release.js';
 import * as mcp from '../../apps/worker/src/mcp.js';
 import * as oauth from '../../apps/worker/src/oauth.js';
 import * as card from '../../apps/worker/src/card.js';
+import * as cf from '../../apps/worker/src/cloudflare.js';
 
 test('UT-PRESIGN-01 SigV4 query-string presigning equals the AWS documented example', async () => {
   // AWS S3 API Reference, "Authenticating Requests: Using Query Parameters (AWS Signature Version 4)", worked example 1.
@@ -186,4 +187,17 @@ test('UT-CARD-01 confirmation card (AIH-4): the instance URL cannot break out of
   const d = mcp.describe({ name: 'fin.draft.revise', risk_class: 'RC-DRAFT', version: '1.0.0', description: 'x', kind: 'command', input_schema: { type: 'object' },
     output_schema: { type: 'object' }, mcp: { readOnlyHint: false, ui_resource: card.CARD_URI } });
   assert.deepEqual(d._meta.ui, { resourceUri: 'ui://balnexa/cards/v1' });
+});
+
+test('UT-CF-01 production entry (M0-A): one Neon client per held role from its secret; other roles refused; env wrapped once per isolate', async () => {
+  const seen = [];
+  const connect = (url) => ({ query: async (sql, params) => { seen.push([url, sql, params]); return [{ r: { ok: url } }]; } });
+  const env = { DB_URL_BNX_APP: 'u-app', DB_URL_BNX_AUTHN: 'u-authn', DB_URL_BNX_WORKER: 'u-worker' };
+  const db = cf.makeNeonDb(env, connect);
+  assert.deepEqual(await db.one('bnx_app', 'select 1 r', [1]), { ok: 'u-app' });
+  assert.deepEqual(await db.one('bnx_worker', 'select 2 r'), { ok: 'u-worker' });
+  await assert.rejects(db.one('bnx_migrator', 'select 3 r'), /ROLE_NOT_HELD/);
+  await assert.rejects(cf.makeNeonDb({}, connect).one('bnx_app', 'select 4 r'), /DB_URL_MISSING/);
+  assert.deepEqual(seen.map((s) => s[0]), ['u-app', 'u-worker']);
+  assert.equal(cf.platformEnv(env, connect), cf.platformEnv(env, connect), 'same wrapped env for the same binding object');
 });
