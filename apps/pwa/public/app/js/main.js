@@ -74,8 +74,9 @@ async function home() {
   if (entry('bnx.q_f1_balances')) tasks.push(api.query('f1_balances', { as_of: today() }).then((r) => { bal = r.rows; }));
   try { await Promise.all(tasks); } catch (e) { fail(e); }
   const cols = (r) => ({ account: r.account_label, institution: r.institution, currency: r.currency, balance: r.balance, status: r.status });
+  const none = bal && !bal.length && entry('bnx.cmd_create_account') ? h('p', {}, h('a', { href: '#/setup' }, t('setup.start'))) : '';
   screen('home.title', ...parts, h('h2', {}, t('home.balances')),
-    bal ? renderTable(bal.map(cols), { name: `balances-${today()}` }) : '');
+    bal && bal.length ? renderTable(bal.map(cols), { name: `balances-${today()}` }) : none);
 }
 
 // ------------------------------------------------------------------------------------------------------------- add
@@ -85,7 +86,8 @@ async function add() {
   let L;
   try { L = await ledger(true); } catch (e) { return fail(e); }
   const accs = L.accounts.filter((a) => a.state === 'active');
-  if (!accs.length) return screen('add.title', h('p', {}, t('add.no_accounts')));
+  if (!accs.length) return screen('add.title', h('p', {}, t('add.no_accounts')),
+    entry('bnx.cmd_create_account') ? h('p', {}, h('a', { href: '#/setup' }, t('setup.title'))) : '');
   let key = api.newKey();
   const opt = (a) => h('option', { value: a.account_currency_id }, `${a.label} · ${a.currency}${a.can_post ? '' : ' *'}`);
   const f = h('form', { class: 'task-form', novalidate: true },
@@ -156,6 +158,121 @@ async function add() {
     } catch (e) { fail(e); }
   });
   screen('add.title', f);
+}
+
+// ------------------------------------------------------------------------------------------------------- account setup
+// Draft-04 C1 W-M01 (open an account) as one screen instead of three generic forms with copied ids: find the institution in
+// the registry (or propose it; the Owner verifies it here with an evidence reference), create the account with its
+// currencies, declare the opening balances, and add categories for Quick Entry. Every step is the same catalog command the
+// generic forms use; nothing is decided here that the database does not check again.
+const KINDS = ['bank_deposit', 'cash', 'e_wallet', 'credit_card', 'investment', 'loan_payable', 'loan_receivable', 'other_asset'];
+const CURRENCIES = ['CAD', 'USD', 'CNY', 'HKD', 'JPY', 'EUR', 'GBP'];
+async function setup() {
+  let L;
+  try { L = await ledger(true); } catch (e) { screen('setup.title'); return fail(e); }
+  const owner = S.tier >= 3;
+  let inst = null;                                                      // the chosen institution id
+  const found = h('div', { id: 'su-found', role: 'radiogroup', 'aria-label': t('setup.institution') });
+  const pick = (list) => {
+    found.replaceChildren(...(list.length ? list.map((i, n) => h('label', { class: 'radio' },
+      h('input', { type: 'radio', name: 'su-inst', value: i.institution_id, checked: n === 0 ? true : null, onchange: () => { inst = i.institution_id; } }),
+      `${i.display}${i.code ? ` · ${i.code}` : ''} · ${i.jurisdiction || ''}`)) : [h('p', { class: 'empty' }, t('setup.no_match'))]));
+    inst = list.length ? list[0].institution_id : null;
+  };
+  const search = h('form', { class: 'task-form', id: 'su-search', novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'su-text' }, t('setup.search')), h('input', { id: 'su-text', name: 'text', autocomplete: 'off', required: true })),
+    h('button', { type: 'submit' }, t('setup.find')), found);
+  search.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!search.checkValidity()) { search.reportValidity(); return; }
+    try { pick((await api.query('institutions_search', { text: search.elements.text.value.trim(), lang: i18n.current() === 'zh' ? 'zh-CN' : 'en' })).institutions); }
+    catch (e) { fail(e); }
+  });
+  // not in the registry: propose it; the Owner verifies with an evidence reference (Amendment 02 §3 steps 4 and 6)
+  const prop = h('form', { class: 'task-form', id: 'su-propose', novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'su-name' }, t('setup.inst_name')), h('input', { id: 'su-name', name: 'name', required: true, maxlength: 120 })),
+    h('div', { class: 'field' }, h('label', { for: 'su-jur' }, t('setup.jurisdiction')),
+      h('input', { id: 'su-jur', name: 'jur', required: true, value: 'CA', maxlength: 2, pattern: '[A-Za-z]{2}', autocapitalize: 'characters' })),
+    owner ? h('div', { class: 'field' }, h('label', { for: 'su-ev' }, t('setup.evidence_ref')),
+      h('input', { id: 'su-ev', name: 'ev', required: true, maxlength: 200 }), h('p', { class: 'hint' }, t('setup.evidence_hint'))) : '',
+    h('button', { type: 'submit' }, t(owner ? 'setup.propose_verify' : 'setup.propose')));
+  prop.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!prop.checkValidity()) { prop.reportValidity(); return; }
+    const el = prop.elements, jur = el.jur.value.trim().toUpperCase();
+    try {
+      const c = await api.command('propose_institution_candidate', { name_en: el.name.value.trim(), jurisdiction: jur, evidence: [{ kind: 'member_declaration' }] });
+      let id = c.institution_id || null;
+      if (!id && owner) id = (await api.command('verify_institution', { candidate_id: c.candidate_id, evidence_ref: el.ev.value.trim(), jurisdiction: jur })).institution_id;
+      if (id) { pick([{ institution_id: id, display: el.name.value.trim(), jurisdiction: jur }]); status(t('setup.inst_ready'), 'ok'); }
+      else status(t('setup.inst_pending'), 'ok');
+    } catch (e) { fail(e); }
+  });
+  const cur = h('fieldset', { id: 'su-cur' }, h('legend', {}, t('field.currencies')),
+    CURRENCIES.map((c, i) => h('label', { class: 'radio' }, h('input', { type: 'checkbox', name: 'cur', value: c, checked: i === 0 ? true : null }), c)),
+    h('div', { class: 'field' }, h('label', { for: 'su-cur-other' }, t('setup.other_currency')),
+      h('input', { id: 'su-cur-other', name: 'other', maxlength: 3, pattern: '[A-Za-z]{3}', autocapitalize: 'characters', autocomplete: 'off' })));
+  const acct = h('form', { class: 'task-form', id: 'su-account', novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'su-kind' }, t('setup.kind')),
+      h('select', { id: 'su-kind', name: 'kind' }, KINDS.map((k) => h('option', { value: k }, t(`kind.${k}`))))),
+    h('div', { class: 'field' }, h('label', { for: 'su-label' }, t('setup.label')), h('input', { id: 'su-label', name: 'label', required: true, maxlength: 80 })),
+    cur,
+    h('div', { class: 'field' }, h('label', { for: 'su-open-date' }, t('setup.opening_date')), h('input', { id: 'su-open-date', name: 'odate', type: 'date', value: today() })),
+    h('div', { class: 'field' }, h('label', { for: 'su-open-amt' }, t('setup.opening_amount')),
+      h('input', { id: 'su-open-amt', name: 'oamt', inputmode: 'decimal', autocomplete: 'off', pattern: '^-?[0-9]+(\\.[0-9]{1,4})?$' }),
+      h('p', { class: 'hint' }, t('setup.opening_hint'))),
+    h('button', { type: 'submit', class: 'primary', disabled: entry('bnx.cmd_create_account') ? null : true }, t('setup.create')));
+  let akey = api.newKey();
+  acct.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!acct.checkValidity()) { acct.reportValidity(); return; }
+    if (!inst) return status(t('setup.need_institution'), 'error');
+    const el = acct.elements;
+    const curs = [...acct.querySelectorAll('input[name=cur]:checked')].map((x) => x.value);
+    const other = el.other.value.trim().toUpperCase();
+    if (other && !curs.includes(other)) curs.push(other);
+    if (!curs.length) return status(t('error.VALIDATION_FAILED', { field: t('field.currencies') }), 'error');
+    try {
+      const r = await api.command('create_account', { kind: el.kind.value, label: el.label.value.trim(), institution_id: inst, currencies: curs }, akey);
+      akey = api.newKey();
+      const amt = el.oamt.value.trim();
+      if (amt && entry('bnx.cmd_set_opening')) {
+        for (const ac of r.account_currencies) {
+          await api.command('set_opening', { account_currency_id: ac.account_currency_id, anchor_date: el.odate.value, amount: amt });
+        }
+      }
+      status(t('setup.created', { label: el.label.value.trim() }), 'ok');
+      el.label.value = ''; el.oamt.value = '';
+      setup();
+    } catch (e) { fail(e); }
+  });
+  // categories for Quick Entry
+  const catf = h('form', { class: 'task-form', id: 'su-cat', novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'su-ck' }, t('setup.cat_kind')),
+      h('select', { id: 'su-ck', name: 'kind' }, ['expense', 'income'].map((k) => h('option', { value: k }, t(`add.${k}`))))),
+    h('div', { class: 'field' }, h('label', { for: 'su-cc' }, t('field.currency')),
+      h('select', { id: 'su-cc', name: 'currency' }, [...new Set([...L.accounts.map((a) => a.currency), 'CAD'])].map((c) => h('option', { value: c }, c)))),
+    h('div', { class: 'field' }, h('label', { for: 'su-cen' }, t('setup.cat_name_en')), h('input', { id: 'su-cen', name: 'en', required: true, maxlength: 60 })),
+    h('div', { class: 'field' }, h('label', { for: 'su-czh' }, t('setup.cat_name_zh')), h('input', { id: 'su-czh', name: 'zh', maxlength: 60 })),
+    h('button', { type: 'submit', disabled: entry('bnx.cmd_create_category') ? null : true }, t('setup.add_category')));
+  catf.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!catf.checkValidity()) { catf.reportValidity(); return; }
+    const el = catf.elements;
+    try {
+      await api.command('create_category', { kind: el.kind.value, currency: el.currency.value, name_en: el.en.value.trim(),
+        ...(el.zh.value.trim() ? { name_zh: el.zh.value.trim() } : {}) });
+      status(t('setup.cat_created'), 'ok');
+      setup();
+    } catch (e) { fail(e); }
+  });
+  const accRows = L.accounts.map((a) => ({ account: a.label, currency: a.currency, state: a.state }));
+  const catRows = L.categories.map((c) => ({ kind: t(`add.${c.kind}`), currency: c.currency, name: i18n.current() === 'zh' ? (c.name_zh || c.name_en) : c.name_en }));
+  screen('setup.title', h('p', { class: 'hint' }, t('setup.explain')),
+    h('h2', {}, t('setup.accounts')), accRows.length ? renderTable(accRows, { name: 'accounts' }) : h('p', { class: 'empty' }, t('add.no_accounts')),
+    h('h2', {}, t('setup.step_institution')), search, h('details', {}, h('summary', {}, t('setup.not_listed')), prop),
+    h('h2', {}, t('setup.step_account')), acct,
+    h('h2', {}, t('setup.categories')), catRows.length ? renderTable(catRows, { name: 'categories' }) : h('p', { class: 'empty' }, t('setup.no_categories')), catf);
 }
 
 // --------------------------------------------------------------------------------------------------------- activity
@@ -314,7 +431,9 @@ function menu() {
     const tasks = it.tasks.filter((fn) => entry(fn));
     if (!tasks.length) return null;                                 // an item with nothing the caller may do is not shown
     return h('section', { 'aria-labelledby': `m-${it.id}`, 'data-item': it.id }, h('h2', { id: `m-${it.id}` }, t(`menu.${it.id}`)),
-      h('ul', { class: 'links' }, tasks.map((fn) => h('li', {}, h('a', { href: `#/${DEDICATED[fn] || `task/${fn}`}`, 'data-task': fn }, t(`task.${fn}`))))));
+      h('ul', { class: 'links' }, [
+        ...(it.id === 'accounts' && entry('bnx.cmd_create_account') ? [h('li', {}, h('a', { href: '#/setup', 'data-route': 'setup' }, t('setup.title')))] : []),
+        ...tasks.map((fn) => h('li', {}, h('a', { href: `#/${DEDICATED[fn] || `task/${fn}`}`, 'data-task': fn }, t(`task.${fn}`))))]));
   });
   screen('menu.title', ...kids);
 }
@@ -676,6 +795,7 @@ async function render() {
     if (r === 'documents') return await documents();
     if (r === 'upload') return upload();
     if (r === 'onboarding') return await onboarding(params);
+    if (r === 'setup') return await setup();
     if (r === 'handoff' && arg === 'prepare') return await handoffPrepare(params);
     if (r === 'handoff' && arg === 'import') return await handoffImport();
     if (r === 'handoff') return await handoff();
