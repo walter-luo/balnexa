@@ -15,8 +15,13 @@
 --          §D5 classification and the §D7 lifecycle, the deterministic engine (bnx.recon_evaluate_statement /
 --          recon_evaluate_observation: stage 1, stage 2, RC-01...RC-14), cmd_run_reconciliation, cmd_set_reconciliation_exception_state,
 --          q_reconciliation_exceptions, q_reconciliation_coverage.
---   NOT_IMPLEMENTED in this file yet: import_mapping, cross_source_match, payment_attribute, onboarding tables,
---          posting_plan.job_id FK (9012d).
+--   9012d (Draft-04 §C4/§C5; S2-02): matching MR-08...MR-13 (bnx.match_propose, cmd_match_source_rows, cmd_decide_match,
+--          cmd_match_clearing, q_transfer_matching on R1 match_decision_event/current), bnx.onboarding_job(+event),
+--          bnx.source_file_state, bnx.account_history_state with the SF-/AH- transitions, posting_plan.job_id FK,
+--          cmd_onboarding_*, wrk_onboarding_step, q_onboarding_job; bnx.import_mapping, bnx.payment_attribute,
+--          bnx.cross_source_match(+event).
+--   NOT_IMPLEMENTED (need WP-DOC extraction runs, staged rows, running balances): MR-01...MR-07, the onboarding scheduler tick,
+--          account discovery wiring, onboarding exceptions and the completion report (L-9012-11).
 -- MODIFY: bnx.trg_scope_flag (9007) adds the modes 'loan', 'loan_id', 'loan_payment_link' (9012a), 'lot_id' and 'card_fee' (9012b).
 -- Requires B003 (G0R) because 9011 does.
 
@@ -1927,5 +1932,655 @@ insert into bnx.function_scope values
  ('q_balance_observations', 'finance.read', false, false, true, 'fin.balances.observations'),
  ('q_reconciliation_exceptions', 'finance.read', false, false, true, 'fin.reconciliation.exceptions'),
  ('q_reconciliation_coverage', 'finance.read', false, false, true, 'fin.reconciliation.coverage');
+
+-- ---------- 9012d: matching MR-08...MR-13, onboarding jobs, imports, payment attributes, cross-source matches ----------
+-- Authority: UA V1.2 §5.6 (objects), BNX-S2-02 (import_mapping, payment_attribute, cross_source_match), Draft-04 §C4 (matching
+-- rules) and §C5 (onboarding states), SHA-256 4ad49225... MR-01...MR-07 need extraction runs, staged rows and running balances
+-- (WP-DOC) and are not implemented here (L-9012-11).
+
+-- ---------- import mappings (S2: data, not code; T-38) ----------
+create table bnx.import_mapping(
+  mapping_id uuid not null, version int not null check (version >= 1),
+  provider text not null check (provider in ('GENERIC_CSV','GENERIC_XLSX','OFX','QFX','WECHAT_PAY','ALIPAY','PAYPAL','APPLE_PAY',
+                                             'UNIONPAY','SUISHOUJI')),
+  label text not null check (label ~ '^[A-Za-z0-9][A-Za-z0-9 ._()/-]{0,79}$'),
+  column_map jsonb not null check (jsonb_typeof(column_map) = 'object'), date_rules jsonb not null check (jsonb_typeof(date_rules) = 'object'),
+  amount_rules jsonb not null check (jsonb_typeof(amount_rules) = 'object'),
+  status text not null check (status in ('DRAFT','ACTIVE','RETIRED')),
+  recorded_by uuid references bnx.member, recorded_version bigint not null, recorded_at timestamptz not null default now(),
+  primary key (mapping_id, version));
+create trigger t_append_only before update or delete on bnx.import_mapping for each row execute function bnx.trg_append_only();
+
+-- a new version of a mapping (Owner or admin: mappings change how files become rows). Keys of the maps are closed.
+create function bnx.cmd_set_import_mapping(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; mid uuid; ver int; v bigint;
+begin
+  perform bnx.require(a, 3);
+  rc := bnx.idem_begin(a, 'set_import_mapping', cmd); if rc is not null then return rc; end if;
+  begin mid := coalesce((cmd->>'mapping_id')::uuid, gen_random_uuid());
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'mapping_id'); end;
+  if jsonb_typeof(cmd->'column_map') is distinct from 'object' or jsonb_typeof(cmd->'date_rules') is distinct from 'object'
+     or jsonb_typeof(cmd->'amount_rules') is distinct from 'object'
+     or exists (select 1 from jsonb_object_keys(cmd->'column_map') k where k not in ('posting_date','transaction_date','amount','debit','credit',
+                  'currency','description','bank_ref','balance','counterparty','payment_method'))
+     or exists (select 1 from jsonb_each(cmd->'column_map') e where jsonb_typeof(e.value) <> 'string' or length(e.value #>> '{}') > 80)
+     or exists (select 1 from jsonb_object_keys(cmd->'date_rules') k where k not in ('format','timezone'))
+     or exists (select 1 from jsonb_object_keys(cmd->'amount_rules') k where k not in ('decimal_separator','thousands_separator','sign','outflow_negative'))
+     or coalesce(cmd->>'status', '') not in ('DRAFT','ACTIVE','RETIRED') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'provider, label, column_map, date_rules, amount_rules or status'); end if;
+  perform pg_advisory_xact_lock(hashtext('bnx.import_mapping:' || mid));
+  ver := coalesce((select max(version) from bnx.import_mapping where mapping_id = mid), 0) + 1;
+  if ver > 1 and (select provider from bnx.import_mapping where mapping_id = mid and version = 1) is distinct from cmd->>'provider' then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'a mapping keeps its provider'); end if;
+  v := bnx.next_version();
+  begin
+    insert into bnx.import_mapping(mapping_id, version, provider, label, column_map, date_rules, amount_rules, status, recorded_by, recorded_version)
+    values (mid, ver, cmd->>'provider', cmd->>'label', cmd->'column_map', cmd->'date_rules', cmd->'amount_rules', cmd->>'status', a.member_id, v);
+  exception when check_violation then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'provider or label'); end;
+  perform bnx.audit(a, 'set_import_mapping', jsonb_build_object('mapping_id', mid, 'version', ver), cmd, v);
+  return bnx.idem_end(a, 'set_import_mapping', cmd, jsonb_build_object('mapping_id', mid, 'version', ver, 'ledger_version', v));
+end $$;
+
+-- ---------- payment attributes (OR-I-11: Apple Pay, UnionPay ... are attributes of a journal, never accounts) ----------
+create table bnx.payment_attribute(
+  journal_id uuid not null references bnx.journal_entry, seq int not null,
+  payment_method text check (payment_method in ('APPLE_PAY','GOOGLE_PAY','SAMSUNG_PAY','WECHAT_PAY','ALIPAY','PAYPAL','INTERAC','OTHER')),
+  payment_network text check (payment_network in ('UNIONPAY','VISA','MASTERCARD','JCB','AMEX','INTERAC','OTHER')),
+  recorded_by uuid references bnx.member, recorded_version bigint not null, recorded_at timestamptz not null default now(),
+  primary key (journal_id, seq), check (payment_method is not null or payment_network is not null));
+create trigger t_append_only before update or delete on bnx.payment_attribute for each row execute function bnx.trg_append_only();
+
+create function bnx.cmd_set_payment_attribute(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; j uuid; s int; v bigint;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'set_payment_attribute', cmd); if rc is not null then return rc; end if;
+  begin j := (cmd->>'journal_id')::uuid; exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'journal_id'); end;
+  if j is null or not bnx.journal_counts_at(j, 9223372036854775807)
+     or exists (select 1 from bnx.journal_line jl join bnx.account_currency ac on ac.ledger_account_id = jl.ledger_account_id
+                 where jl.journal_id = j and not bnx.actor_can_post(a, ac.id))
+     or not exists (select 1 from bnx.journal_line jl join bnx.account_currency ac on ac.ledger_account_id = jl.ledger_account_id where jl.journal_id = j) then
+    perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  perform pg_advisory_xact_lock(hashtext('bnx.payment_attribute:' || j));
+  s := coalesce((select max(seq) from bnx.payment_attribute where journal_id = j), 0) + 1;
+  v := bnx.next_version();
+  begin
+    insert into bnx.payment_attribute(journal_id, seq, payment_method, payment_network, recorded_by, recorded_version)
+    values (j, s, cmd->>'payment_method', cmd->>'payment_network', a.member_id, v);
+  exception when check_violation then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'payment_method or payment_network'); end;
+  perform bnx.audit(a, 'set_payment_attribute', jsonb_build_object('journal_id', j, 'seq', s), cmd, v);
+  return bnx.idem_end(a, 'set_payment_attribute', cmd, jsonb_build_object('journal_id', j, 'seq', s, 'ledger_version', v));
+end $$;
+
+-- ---------- cross-source matches (S2: one economic event seen by two sources; OR-I-11, AT-PAY-02, AT-COV-06) ----------
+create table bnx.cross_source_match(
+  id uuid primary key, primary_source_txn_id uuid not null references bnx.source_txn, supporting_source_txn_id uuid not null references bnx.source_txn,
+  kind text not null check (kind in ('CARD_FUNDED_WALLET','EMAIL_NOTICE_VS_STATEMENT','WALLET_VS_BANK')),
+  created_by uuid references bnx.member, recorded_version bigint not null, created_at timestamptz not null default now(),
+  check (primary_source_txn_id <> supporting_source_txn_id));
+create table bnx.cross_source_match_event(match_id uuid not null references bnx.cross_source_match, seq int not null,
+  state text not null check (state in ('PROPOSED','CONFIRMED','REJECTED')), actor uuid references bnx.member,
+  recorded_version bigint not null, recorded_at timestamptz not null default now(), primary key (match_id, seq));
+create unique index cross_source_match_pair on bnx.cross_source_match(least(primary_source_txn_id, supporting_source_txn_id),
+                                                                      greatest(primary_source_txn_id, supporting_source_txn_id));
+create trigger t_append_only before update or delete on bnx.cross_source_match for each row execute function bnx.trg_append_only();
+create trigger t_append_only before update or delete on bnx.cross_source_match_event for each row execute function bnx.trg_append_only();
+
+-- propose (state PROPOSED) or decide (CONFIRMED / REJECTED) a cross-source match. The supporting row is evidence of the same
+-- event and must never be posted as a second journal: confirming refuses a supporting row that is already linked to a journal.
+create function bnx.cmd_cross_source_match(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; m bnx.cross_source_match; p bnx.source_txn; sp bnx.source_txn; st text := cmd->>'state';
+        s int; v bigint; nid uuid; prev text;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'cross_source_match', cmd); if rc is not null then return rc; end if;
+  begin select * into m from bnx.cross_source_match where id = (cmd->>'match_id')::uuid;
+        select * into p from bnx.source_txn where id = coalesce(m.primary_source_txn_id, (cmd->>'primary_source_txn_id')::uuid);
+        select * into sp from bnx.source_txn where id = coalesce(m.supporting_source_txn_id, (cmd->>'supporting_source_txn_id')::uuid);
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'match_id or source rows'); end;
+  if p.id is null or sp.id is null then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, p.account_currency_id) or not bnx.actor_can_post(a, sp.account_currency_id) then
+    perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  if coalesce(st, '') not in ('PROPOSED','CONFIRMED','REJECTED') or (m.id is null and st <> 'PROPOSED')
+     or (m.id is null and coalesce(cmd->>'kind', '') not in ('CARD_FUNDED_WALLET','EMAIL_NOTICE_VS_STATEMENT','WALLET_VS_BANK')) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'state or kind'); end if;
+  if m.id is not null then
+    select e.state, e.seq into prev, s from bnx.cross_source_match_event e where e.match_id = m.id order by e.seq desc limit 1;
+    if prev <> 'PROPOSED' then perform bnx.fail('MATCH_STATE', 'P0409', prev || ' -> ' || st); end if;
+  end if;
+  if st = 'CONFIRMED' and bnx.source_link_at(sp.id, 9223372036854775807) is not null then
+    perform bnx.fail('SUPPORTING_ROW_POSTED', 'P0409'); end if;
+  v := bnx.next_version();
+  if m.id is null then
+    nid := gen_random_uuid();
+    begin
+      insert into bnx.cross_source_match(id, primary_source_txn_id, supporting_source_txn_id, kind, created_by, recorded_version)
+      values (nid, p.id, sp.id, cmd->>'kind', a.member_id, v);
+    exception when unique_violation then perform bnx.fail('ALREADY_MATCHED', 'P0409'); end;
+    s := 1;
+  else
+    nid := m.id;
+    s := s + 1;
+  end if;
+  insert into bnx.cross_source_match_event(match_id, seq, state, actor, recorded_version) values (nid, s, st, a.member_id, v);
+  perform bnx.audit(a, 'cross_source_match', jsonb_build_object('match_id', nid, 'state', st), cmd, v);
+  return bnx.idem_end(a, 'cross_source_match', cmd, jsonb_build_object('match_id', nid, 'state', st, 'ledger_version', v));
+end $$;
+
+-- ---------- matching MR-08...MR-13 (Draft-04 §C4.3) ----------
+-- trigram similarity of two descriptions (lower case, words padded as pg_trgm does): |common| / |union|
+create function bnx.text_similarity(a text, b text) returns numeric
+language sql immutable set search_path = pg_catalog, pg_temp as $$
+  with ta as (select distinct substr(w, i, 3) g from regexp_split_to_table(lower(regexp_replace(coalesce(a, ''), '[^[:alnum:]]+', ' ', 'g')), ' ') x,
+                lateral (select '  ' || x || ' ' w) p, generate_series(1, greatest(length('  ' || x || ' ') - 2, 0)) i where x <> ''),
+       tb as (select distinct substr(w, i, 3) g from regexp_split_to_table(lower(regexp_replace(coalesce(b, ''), '[^[:alnum:]]+', ' ', 'g')), ' ') x,
+                lateral (select '  ' || x || ' ' w) p, generate_series(1, greatest(length('  ' || x || ' ') - 2, 0)) i where x <> '')
+  select case when (select count(*) from (select g from ta union select g from tb) u) = 0 then 0
+              else round((select count(*) from ta join tb using (g))::numeric / (select count(*) from (select g from ta union select g from tb) u), 4) end
+$$;
+
+-- a transfer-like description (§C4.3 MR-11/12; D-9012d-3)
+create function bnx.transfer_like(d text) returns boolean
+language sql immutable set search_path = pg_catalog, pg_temp as $$
+  select coalesce(d, '') ~* '\m(transfer|e-transfer|etransfer|xfer|tfr|virement|wire)\M|转账|轉帳' $$;
+
+-- the ledger legs a row could match (same account-currency and amount, journal counting at v and not linked to any row, within
+-- +/- 2 days) and, for one leg, the rows that could match it (same amount, not posted, within +/- 2 days)
+create function bnx.match_leg_candidates(p_src uuid, p_v bigint) returns table(journal_line_id uuid, journal_id uuid, leg_date date, description text)
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select jl.id, je.id, bnx.effective_posting_date(je.id, p_v), je.description
+    from bnx.source_txn t join bnx.account_currency ac on ac.id = t.account_currency_id
+    join bnx.journal_line jl on jl.ledger_account_id = ac.ledger_account_id and jl.amount = t.amount
+    join bnx.journal_entry je on je.id = jl.journal_id
+   where t.id = p_src and bnx.journal_counts_at(je.id, p_v) and abs(bnx.effective_posting_date(je.id, p_v) - t.posting_date) <= 2
+     and not exists (select 1 from bnx.source_link_event e where e.journal_id = je.id and e.recorded_version <= p_v and e.event = 'linked'
+                       and bnx.source_link_at(e.source_txn_id, p_v) = je.id)
+     and not exists (select 1 from bnx.match_decision_current c join bnx.match_decision_event me on me.id = c.decision_event_id
+                      where c.kind = 'ledger' and c.journal_line_id = jl.id and me.decision = 'confirmed' and c.source_txn_id <> p_src)
+$$;
+create function bnx.match_row_candidates(p_leg uuid, p_v bigint) returns setof uuid
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select t.id from bnx.journal_line jl join bnx.account_currency ac on ac.ledger_account_id = jl.ledger_account_id
+    join bnx.source_txn t on t.account_currency_id = ac.id and t.amount = jl.amount
+   where jl.id = p_leg and abs(t.posting_date - bnx.effective_posting_date(jl.journal_id, p_v)) <= 2 and bnx.source_link_at(t.id, p_v) is null
+     and not exists (select 1 from bnx.match_decision_current c join bnx.match_decision_event me on me.id = c.decision_event_id
+                      where c.source_txn_id = t.id and c.kind = 'ledger' and me.decision = 'confirmed' and c.journal_line_id <> p_leg)
+$$;
+
+-- the proposal for one row at version v: posted / ledger (MR-08 strong, MR-09 single, MR-10 ambiguous) / transfer pair (MR-11,
+-- ambiguous when several) / clearing resolution (MR-13) / clearing_post or counterpart missing (MR-12) / new
+create function bnx.match_propose(p_src uuid, p_v bigint) returns jsonb
+language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $$
+declare t bnx.source_txn; legs jsonb; nlegs int; leg record; nrows int; sim numeric; pairs jsonb; ci record; cov boolean;
+begin
+  select * into t from bnx.source_txn where id = p_src;
+  if bnx.source_link_at(t.id, p_v) is not null then
+    return jsonb_build_object('state', 'posted', 'journal_id', bnx.source_link_at(t.id, p_v)); end if;
+  select coalesce(jsonb_agg(jsonb_build_object('journal_line_id', c.journal_line_id, 'journal_id', c.journal_id, 'date', c.leg_date)
+                            order by c.leg_date, c.journal_line_id), '[]'), count(*) into legs, nlegs
+    from bnx.match_leg_candidates(t.id, p_v) c;
+  if nlegs = 1 then
+    select * into leg from bnx.match_leg_candidates(t.id, p_v);
+    select count(*) into nrows from bnx.match_row_candidates(leg.journal_line_id, p_v);
+    if nrows = 1 then
+      sim := bnx.text_similarity(t.normalized_description, leg.description);
+      if leg.leg_date = t.posting_date and sim >= 0.85 then
+        return jsonb_build_object('state', 'ledger_match_confirmed', 'kind', 'ledger', 'rule', 'MR-08', 'journal_line_id', leg.journal_line_id,
+                                  'journal_id', leg.journal_id, 'similarity', sim);
+      end if;
+      return jsonb_build_object('state', 'ledger_match_proposed', 'kind', 'ledger', 'rule', 'MR-09', 'journal_line_id', leg.journal_line_id,
+                                'journal_id', leg.journal_id, 'similarity', sim);
+    end if;
+    return jsonb_build_object('state', 'ledger_match_ambiguous', 'kind', 'ledger', 'rule', 'MR-10', 'candidates', legs, 'competing_rows', nrows);
+  elsif nlegs > 1 then
+    return jsonb_build_object('state', 'ledger_match_ambiguous', 'kind', 'ledger', 'rule', 'MR-10', 'candidates', legs);
+  end if;
+  -- MR-13: an open clearing item hinting at this account-currency, opposite amount, within its window (default 10 days)
+  for ci in select c.id, c.amount, (c.counterpart_hint->>'window_days')::int w, bnx.effective_posting_date(c.opened_journal, p_v) od
+              from bnx.clearing_item c
+             where c.counterpart_hint->>'account_currency_id' = t.account_currency_id::text and c.amount = -t.amount
+               and bnx.journal_counts_at(c.opened_journal, p_v)
+               and not exists (select 1 from bnx.clearing_item_event e where e.clearing_item_id = c.id and e.event = 'resolved' and e.recorded_version <= p_v)
+             order by 4, 1 loop
+    if abs(t.posting_date - ci.od) <= coalesce(ci.w, 10) then
+      return jsonb_build_object('state', 'clearing_resolution_proposed', 'kind', 'clearing_resolution', 'rule', 'MR-13', 'clearing_item_id', ci.id);
+    end if;
+  end loop;
+  if bnx.transfer_like(t.normalized_description) then
+    -- MR-11: exactly one opposite, unposted row on another household account-currency of the same currency within +/- 5 days
+    select coalesce(jsonb_agg(o.id order by o.posting_date, o.id), '[]') into pairs from bnx.source_txn o
+      join bnx.account_currency oac on oac.id = o.account_currency_id
+     where o.account_currency_id <> t.account_currency_id and oac.currency = t.currency and o.amount = -t.amount
+       and abs(o.posting_date - t.posting_date) <= 5 and bnx.source_link_at(o.id, p_v) is null;
+    if jsonb_array_length(pairs) = 1 then
+      return jsonb_build_object('state', 'transfer_pair_proposed', 'kind', 'transfer_pair', 'rule', 'MR-11', 'counterpart_source_txn_id', pairs->>0);
+    elsif jsonb_array_length(pairs) > 1 then
+      return jsonb_build_object('state', 'transfer_pair_ambiguous', 'kind', 'transfer_pair', 'rule', 'MR-11', 'candidates', pairs);
+    end if;
+    -- MR-12: no counterpart row. If every other same-currency account-currency has final statement coverage on that date the
+    -- counterpart is missing; otherwise the counterpart may sit in history not yet loaded -> clearing with a hint
+    cov := not exists (select 1 from bnx.account_currency oac join bnx.account acc on acc.id = oac.account_id
+                        where oac.id <> t.account_currency_id and oac.currency = t.currency
+                          and not exists (select 1 from bnx.statement_period_at(p_v) s where s.account_currency_id = oac.id and s.final
+                                            and t.posting_date between s.period_start and s.period_end));
+    return jsonb_build_object('state', case when cov then 'transfer_counterpart_missing' else 'clearing_post' end, 'rule', 'MR-12');
+  end if;
+  return jsonb_build_object('state', 'new');
+end $$;
+
+-- record the current proposal of a row when it changed (append-only events; match_decision_current maintained in the same
+-- transaction, §C4.9). MR-08 is recorded confirmed (automatic, reversible before plan approval); the rest proposed.
+create function bnx.match_record(p_src uuid, p_prop jsonb, p_actor uuid, p_v bigint) returns boolean
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare k text := p_prop->>'kind'; cur record; eid uuid := gen_random_uuid(); dec text;
+begin
+  if k is null then return false; end if;
+  select c.decision_event_id, me.rule_code, me.journal_line_id, me.counterpart_source_txn, me.clearing_item_id, me.decision, me.evidence,
+         me.decided_by into cur
+    from bnx.match_decision_current c join bnx.match_decision_event me on me.id = c.decision_event_id
+   where c.source_txn_id = p_src and c.kind = k;
+  if cur.decided_by is not null then return false; end if;                     -- member decisions stand (incl. a reversed MR-08)
+  if cur.decision_event_id is not null and cur.rule_code = p_prop->>'rule' and cur.journal_line_id is not distinct from (p_prop->>'journal_line_id')::uuid
+     and cur.counterpart_source_txn is not distinct from (p_prop->>'counterpart_source_txn_id')::uuid
+     and cur.clearing_item_id is not distinct from (p_prop->>'clearing_item_id')::uuid and cur.evidence->>'state' = p_prop->>'state' then
+    return false; end if;
+  dec := case when p_prop->>'rule' = 'MR-08' then 'confirmed' else 'proposed' end;
+  insert into bnx.match_decision_event(id, source_txn_id, kind, decision, counterpart_source_txn, journal_line_id, clearing_item_id, rule_code, evidence,
+                                       supersedes, decided_by, recorded_version)
+  values (eid, p_src, k, dec, (p_prop->>'counterpart_source_txn_id')::uuid,
+          case when p_prop->>'state' <> 'ledger_match_ambiguous' then (p_prop->>'journal_line_id')::uuid end,
+          (p_prop->>'clearing_item_id')::uuid, p_prop->>'rule', p_prop, cur.decision_event_id, p_actor, p_v);
+  insert into bnx.match_decision_current(source_txn_id, kind, decision_event_id, journal_line_id)
+  values (p_src, k, eid, case when p_prop->>'state' <> 'ledger_match_ambiguous' then (p_prop->>'journal_line_id')::uuid end)
+  on conflict (source_txn_id, kind) do update set decision_event_id = excluded.decision_event_id, journal_line_id = excluded.journal_line_id;
+  return true;
+end $$;
+
+-- RC-POST (tier 2): run the matcher over the rows of one account-currency in a date range
+create function bnx.cmd_match_source_rows(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; acid uuid; d0 date; d1 date; vnow bigint; v bigint; t record; prop jsonb;
+        counts jsonb := '{}'; n int := 0;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'match_source_rows', cmd); if rc is not null then return rc; end if;
+  begin acid := (cmd->>'account_currency_id')::uuid; d0 := (cmd->>'date_from')::date; d1 := (cmd->>'date_to')::date;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'account_currency_id, date_from or date_to'); end;
+  if acid is null or d0 is null or d1 is null or d1 < d0 then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'range'); end if;
+  if not exists (select 1 from bnx.account_currency where id = acid) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, acid) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  perform pg_advisory_xact_lock(hashtext('bnx.match:' || acid));
+  select version into vnow from bnx.ledger_state;
+  v := bnx.next_version();
+  for t in select s.id from bnx.source_txn s where s.account_currency_id = acid and s.posting_date between d0 and d1 order by s.posting_date, s.id loop
+    prop := bnx.match_propose(t.id, vnow);
+    counts := jsonb_set(counts, array[prop->>'state'], to_jsonb(coalesce((counts->>(prop->>'state'))::int, 0) + 1));
+    if bnx.match_record(t.id, prop, null, v) then n := n + 1; end if;
+  end loop;
+  perform bnx.audit(a, 'match_source_rows', jsonb_build_object('account_currency_id', acid), cmd, v);
+  return bnx.idem_end(a, 'match_source_rows', cmd, jsonb_build_object('by_state', counts, 'decisions_recorded', n, 'ledger_version', v));
+end $$;
+
+-- a member decision on a row's current proposal (§C4.6): confirm or reject; for MR-10 the member names the leg; MR-08 can be
+-- reversed (rejected). An ambiguous transfer pair is confirmed by naming the counterpart row.
+create function bnx.cmd_decide_match(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; t bnx.source_txn; k text := cmd->>'kind'; dec text := cmd->>'decision'; cur record;
+        leg uuid; cp uuid; v bigint; eid uuid := gen_random_uuid();
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'decide_match', cmd); if rc is not null then return rc; end if;
+  begin select * into t from bnx.source_txn where id = (cmd->>'source_txn_id')::uuid; leg := (cmd->>'journal_line_id')::uuid;
+        cp := (cmd->>'counterpart_source_txn_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'source_txn_id, journal_line_id or counterpart_source_txn_id'); end;
+  if t.id is null then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, t.account_currency_id) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  if coalesce(dec, '') not in ('confirmed','rejected') or coalesce(k, '') not in ('ledger','transfer_pair','clearing_resolution') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'kind or decision'); end if;
+  select me.* into cur from bnx.match_decision_current c join bnx.match_decision_event me on me.id = c.decision_event_id
+   where c.source_txn_id = t.id and c.kind = k;
+  if cur.id is null or (cur.decision <> 'proposed' and not (cur.rule_code = 'MR-08' and dec = 'rejected')) then
+    perform bnx.fail('MATCH_STATE', 'P0409'); end if;
+  if dec = 'confirmed' and cur.evidence->>'state' = 'ledger_match_ambiguous'
+     and not exists (select 1 from jsonb_array_elements(cur.evidence->'candidates') x where (x->>'journal_line_id')::uuid = leg) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'an ambiguous match is confirmed by naming one candidate leg'); end if;
+  if dec = 'confirmed' and cur.evidence->>'state' = 'transfer_pair_ambiguous'
+     and not exists (select 1 from jsonb_array_elements_text(cur.evidence->'candidates') x where x::uuid = cp) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'an ambiguous pair is confirmed by naming one counterpart row'); end if;
+  v := bnx.next_version();
+  insert into bnx.match_decision_event(id, source_txn_id, kind, decision, counterpart_source_txn, journal_line_id, clearing_item_id, rule_code, evidence,
+                                       supersedes, decided_by, recorded_version)
+  values (eid, t.id, k, dec, coalesce(cp, cur.counterpart_source_txn), case when dec = 'confirmed' then coalesce(leg, cur.journal_line_id) end,
+          cur.clearing_item_id, cur.rule_code, cur.evidence || jsonb_build_object('member_decision', dec), cur.id, a.member_id, v);
+  begin
+    update bnx.match_decision_current set decision_event_id = eid, journal_line_id = case when dec = 'confirmed' then coalesce(leg, cur.journal_line_id) end
+     where source_txn_id = t.id and kind = k;
+  exception when unique_violation then perform bnx.fail('LEG_ALREADY_MATCHED', 'P0409'); end;
+  perform bnx.audit(a, 'decide_match', jsonb_build_object('source_txn_id', t.id, 'kind', k, 'decision', dec), cmd, v);
+  return bnx.idem_end(a, 'decide_match', cmd, jsonb_build_object('decision_event_id', eid, 'decision', dec, 'ledger_version', v));
+end $$;
+
+-- OBJ-249 cmd_match_clearing: the member confirms that a row resolves an open clearing item (MR-13). The resolving journal is
+-- posted through a plan as usual; this records the decision only.
+create function bnx.cmd_match_clearing(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; t bnx.source_txn; c bnx.clearing_item; cur uuid; v bigint; eid uuid := gen_random_uuid();
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'match_clearing', cmd); if rc is not null then return rc; end if;
+  begin select * into t from bnx.source_txn where id = (cmd->>'source_txn_id')::uuid;
+        select * into c from bnx.clearing_item where id = (cmd->>'clearing_item_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'source_txn_id or clearing_item_id'); end;
+  if t.id is null or c.id is null then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, t.account_currency_id) or not bnx.actor_can_post(a, c.account_currency_id) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  if c.amount <> -t.amount or c.currency <> t.currency
+     or exists (select 1 from bnx.clearing_item_event e where e.clearing_item_id = c.id and e.event = 'resolved') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'the row must be the opposite amount of an open clearing item'); end if;
+  if exists (select 1 from bnx.match_decision_current mc join bnx.match_decision_event me on me.id = mc.decision_event_id
+              where mc.kind = 'clearing_resolution' and me.clearing_item_id = c.id and me.decision = 'confirmed' and mc.source_txn_id <> t.id) then
+    perform bnx.fail('ALREADY_MATCHED', 'P0409'); end if;
+  select decision_event_id into cur from bnx.match_decision_current where source_txn_id = t.id and kind = 'clearing_resolution';
+  v := bnx.next_version();
+  insert into bnx.match_decision_event(id, source_txn_id, kind, decision, clearing_item_id, rule_code, evidence, supersedes, decided_by, recorded_version)
+  values (eid, t.id, 'clearing_resolution', 'confirmed', c.id, 'MR-13', jsonb_build_object('state', 'clearing_resolution_confirmed'), cur, a.member_id, v);
+  insert into bnx.match_decision_current(source_txn_id, kind, decision_event_id, journal_line_id) values (t.id, 'clearing_resolution', eid, null)
+  on conflict (source_txn_id, kind) do update set decision_event_id = excluded.decision_event_id;
+  perform bnx.audit(a, 'match_clearing', jsonb_build_object('source_txn_id', t.id, 'clearing_item_id', c.id), cmd, v);
+  return bnx.idem_end(a, 'match_clearing', cmd, jsonb_build_object('decision_event_id', eid, 'ledger_version', v));
+end $$;
+
+-- OBJ-249 q_transfer_matching: the current decision of every row of one account-currency in a range at version V
+create function bnx.q_transfer_matching(cred jsonb, q jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); acid uuid; d0 date; d1 date; v bigint; vnow bigint;
+begin
+  perform bnx.require(a, 0);
+  begin acid := (q->>'account_currency_id')::uuid; d0 := coalesce((q->>'date_from')::date, '-infinity'); d1 := coalesce((q->>'date_to')::date, 'infinity');
+        v := (q->>'ledger_version')::bigint;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'account_currency_id, dates or ledger_version'); end;
+  select version into vnow from bnx.ledger_state;
+  v := coalesce(v, vnow);
+  if v > vnow or v < 0 then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'ledger_version'); end if;
+  if not exists (select 1 from bnx.actor_visible_acs(a) x where x = acid) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  perform bnx.pol_require_module_for_ac(acid);
+  return jsonb_build_object('account_currency_id', acid, 'ledger_version', v, 'rows', coalesce((
+    select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('source_txn_id', t.id, 'posting_date', t.posting_date, 'amount', t.amount::text,
+             'posted_journal_id', bnx.source_link_at(t.id, v),
+             'decisions', (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('kind', d.kind, 'decision', d.decision, 'rule', d.rule_code,
+                                   'state', d.evidence->>'state', 'journal_line_id', d.journal_line_id, 'counterpart_source_txn_id', d.counterpart_source_txn,
+                                   'clearing_item_id', d.clearing_item_id, 'candidates', d.evidence->'candidates')) order by d.kind)
+                           from (select distinct on (me.kind) me.* from bnx.match_decision_event me
+                                  where me.source_txn_id = t.id and me.recorded_version <= v order by me.kind, me.recorded_version desc, me.recorded_at desc) d)))
+             order by t.posting_date, t.id)
+      from bnx.source_txn t where t.account_currency_id = acid and t.posting_date between d0 and d1), '[]'));
+end $$;
+
+-- ---------- onboarding (Draft-04 §C5; UA V1.2 names onboarding_job, source_file_state, account_history_state) ----------
+create table bnx.onboarding_job(
+  id uuid primary key, kind text not null check (kind in ('history_onboarding','periodic_import')),
+  title text not null check (title ~ '^[[:alnum:]][[:alnum:] ._()/-]{0,79}$'),
+  scope jsonb not null check (jsonb_typeof(scope) = 'object'), created_by uuid not null references bnx.member,
+  created_via text not null check (created_via in ('pwa','mcp')), recorded_version bigint not null, created_at timestamptz not null default now(),
+  check (scope->>'start_policy' in ('earliest_evidence','household_start_date','manual')),
+  check ((scope->>'start_policy' = 'household_start_date') = (scope ? 'household_start_date')));
+create table bnx.onboarding_job_event(job_id uuid not null references bnx.onboarding_job, seq int not null,
+  event text not null check (event in ('created','collection_closed','paused','resumed','cancelled')),
+  actor uuid references bnx.member, recorded_version bigint not null, recorded_at timestamptz not null default now(), primary key (job_id, seq));
+create table bnx.source_file_state(job_id uuid not null references bnx.onboarding_job, evidence_object_id uuid not null references bnx.evidence_object,
+  seq int not null, state text not null check (state in ('SF-QUEUED','SF-CLASSIFIED','SF-DUPLICATE_FILE','SF-NOT_STATEMENT','SF-UNSUPPORTED',
+                                                         'SF-ASSIGNED','SF-EXTRACTED','SF-STAGED','SF-DONE','SF-FAILED','SF-DEAD')),
+  attempts int not null default 0, detail jsonb, actor uuid references bnx.member, recorded_version bigint not null,
+  recorded_at timestamptz not null default now(), primary key (job_id, evidence_object_id, seq));
+create table bnx.account_history_state(job_id uuid not null references bnx.onboarding_job, account_currency_id uuid not null references bnx.account_currency,
+  seq int not null, state text not null check (state in ('AH-PROPOSED','AH-APPROVED','AH-ORDERED','AH-EXTRACTED','AH-MATCHED','AH-CLASSIFIED',
+                                                         'AH-READY','AH-PLANNED','AH-PLAN_APPROVED','AH-POSTING','AH-ACTIVE','AH-RECONCILED',
+                                                         'AH-RECONCILED_WITH_EXCEPTIONS','AH-BLOCKED','AH-EXCLUDED')),
+  coverage jsonb, anchor_plan jsonb, plan_id uuid references bnx.posting_plan, actor uuid references bnx.member,
+  recorded_version bigint not null, recorded_at timestamptz not null default now(), primary key (job_id, account_currency_id, seq));
+alter table bnx.posting_plan add constraint posting_plan_job_fk foreign key (job_id) references bnx.onboarding_job;   -- UA V1.2 §5.6
+create trigger t_append_only before update or delete on bnx.onboarding_job for each row execute function bnx.trg_append_only();
+create trigger t_append_only before update or delete on bnx.onboarding_job_event for each row execute function bnx.trg_append_only();
+create trigger t_append_only before update or delete on bnx.source_file_state for each row execute function bnx.trg_append_only();
+create trigger t_append_only before update or delete on bnx.account_history_state for each row execute function bnx.trg_append_only();
+
+-- allowed transitions (§C5.3 SF-*, §C5.4 AH-*); restore replays are exempt
+create function bnx.trg_onboarding_transition() returns trigger
+language plpgsql set search_path = pg_catalog, pg_temp as $$
+declare prev text; s int; ok boolean;
+begin
+  if bnx.restore_mode() then return new; end if;
+  if tg_table_name = 'source_file_state' then
+    select x.state, x.seq into prev, s from bnx.source_file_state x where x.job_id = new.job_id and x.evidence_object_id = new.evidence_object_id
+     order by x.seq desc limit 1;
+    ok := case coalesce(prev, '')
+      when '' then new.state = 'SF-QUEUED'
+      when 'SF-QUEUED' then new.state in ('SF-CLASSIFIED','SF-DUPLICATE_FILE','SF-NOT_STATEMENT','SF-UNSUPPORTED','SF-FAILED')
+      when 'SF-CLASSIFIED' then new.state in ('SF-ASSIGNED','SF-FAILED')
+      when 'SF-ASSIGNED' then new.state in ('SF-EXTRACTED','SF-FAILED')
+      when 'SF-EXTRACTED' then new.state in ('SF-STAGED','SF-FAILED')
+      when 'SF-STAGED' then new.state in ('SF-DONE','SF-FAILED')
+      when 'SF-FAILED' then new.state in ('SF-QUEUED','SF-DEAD')
+      else false end;
+    if ok and new.state = 'SF-DEAD' and new.attempts < 3 then ok := false; end if;     -- dead after 3 attempts
+  else
+    select x.state, x.seq into prev, s from bnx.account_history_state x where x.job_id = new.job_id and x.account_currency_id = new.account_currency_id
+     order by x.seq desc limit 1;
+    ok := new.state in ('AH-BLOCKED','AH-EXCLUDED') and prev is not null and prev not in ('AH-EXCLUDED','AH-RECONCILED','AH-RECONCILED_WITH_EXCEPTIONS')
+       or case coalesce(prev, '')
+      when '' then new.state = 'AH-PROPOSED'
+      when 'AH-PROPOSED' then new.state = 'AH-APPROVED'
+      when 'AH-APPROVED' then new.state = 'AH-ORDERED'
+      when 'AH-ORDERED' then new.state = 'AH-EXTRACTED'
+      when 'AH-EXTRACTED' then new.state = 'AH-MATCHED'
+      when 'AH-MATCHED' then new.state = 'AH-CLASSIFIED'
+      when 'AH-CLASSIFIED' then new.state = 'AH-READY'
+      when 'AH-READY' then new.state = 'AH-PLANNED'
+      when 'AH-PLANNED' then new.state in ('AH-PLAN_APPROVED','AH-READY')
+      when 'AH-PLAN_APPROVED' then new.state = 'AH-POSTING'
+      when 'AH-POSTING' then new.state in ('AH-ACTIVE','AH-READY')
+      when 'AH-ACTIVE' then new.state in ('AH-RECONCILED','AH-RECONCILED_WITH_EXCEPTIONS')
+      when 'AH-BLOCKED' then new.state in ('AH-READY','AH-ORDERED','AH-MATCHED','AH-CLASSIFIED')
+      else false end;
+  end if;
+  if not ok or new.seq <> coalesce(s, 0) + 1 then
+    raise exception 'ONBOARDING_STATE' using errcode = 'P0409', detail = coalesce(prev, 'none') || ' -> ' || new.state;
+  end if;
+  return new;
+end $$;
+create trigger t_onboarding_transition before insert on bnx.source_file_state for each row execute function bnx.trg_onboarding_transition();
+create trigger t_onboarding_transition before insert on bnx.account_history_state for each row execute function bnx.trg_onboarding_transition();
+
+-- the job state (§C5.2), derived from its events and item states at version v
+create function bnx.onboarding_state_at(p_job uuid, p_v bigint) returns text
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  with ev as (select e.event from bnx.onboarding_job_event e where e.job_id = p_job and e.recorded_version <= p_v order by e.seq desc limit 1),
+       sf as (select distinct on (x.evidence_object_id) x.state from bnx.source_file_state x where x.job_id = p_job and x.recorded_version <= p_v
+               order by x.evidence_object_id, x.seq desc),
+       ah as (select distinct on (x.account_currency_id) x.state from bnx.account_history_state x where x.job_id = p_job and x.recorded_version <= p_v
+               order by x.account_currency_id, x.seq desc),
+       closed as (select exists (select 1 from bnx.onboarding_job_event e where e.job_id = p_job and e.event = 'collection_closed' and e.recorded_version <= p_v) c)
+  select case
+    when (select event from ev) = 'cancelled' then 'ONB-CANCELLED'
+    when (select event from ev) = 'paused' then 'ONB-PAUSED'
+    when not exists (select 1 from sf) and not exists (select 1 from ah) then 'ONB-DRAFT'
+    when exists (select 1 from ah) and not exists (select 1 from ah where state not in ('AH-RECONCILED','AH-RECONCILED_WITH_EXCEPTIONS','AH-EXCLUDED'))
+         and (select c from closed) then
+      case when exists (select 1 from ah where state = 'AH-RECONCILED_WITH_EXCEPTIONS') then 'ONB-COMPLETED_WITH_EXCEPTIONS' else 'ONB-COMPLETED' end
+    when exists (select 1 from ah where state = 'AH-ACTIVE') then 'ONB-RECONCILING'
+    when exists (select 1 from ah where state in ('AH-PLAN_APPROVED','AH-POSTING')) then 'ONB-POSTING'
+    when exists (select 1 from ah where state = 'AH-PLANNED') then 'ONB-PLANNED'
+    when exists (select 1 from ah where state in ('AH-PROPOSED','AH-BLOCKED','AH-READY')) then 'ONB-REVIEW'   -- a member decision is next
+    when exists (select 1 from sf where state in ('SF-QUEUED','SF-CLASSIFIED','SF-ASSIGNED','SF-EXTRACTED','SF-FAILED'))
+      or exists (select 1 from ah where state in ('AH-APPROVED','AH-ORDERED','AH-EXTRACTED','AH-MATCHED','AH-CLASSIFIED')) then
+      case when not (select c from closed) and not exists (select 1 from ah) then 'ONB-COLLECTING' else 'ONB-PROCESSING' end
+    when not (select c from closed) then 'ONB-COLLECTING'
+    else 'ONB-PROCESSING' end
+$$;
+
+-- the job's creator, or an owner or admin, may act on a job
+create function bnx.onboarding_admin(a bnx.actor) returns boolean
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select coalesce((select m.role in ('owner','admin') from bnx.member m where m.id = a.member_id), false) $$;
+
+-- member commands (PWA or MCP propose channel creates; tier 2 for every change). One command per §C5 member action.
+create function bnx.cmd_onboarding_create_job(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; v bigint; nid uuid := gen_random_uuid(); sc jsonb := cmd->'scope';
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'onboarding_create_job', cmd); if rc is not null then return rc; end if;
+  if jsonb_typeof(sc) is distinct from 'object'
+     or exists (select 1 from jsonb_object_keys(sc) k where k not in ('start_policy','household_start_date','account_overrides','clearing_defaults'))
+     or (sc ? 'household_start_date' and (sc->>'household_start_date') !~ '^\d{4}-\d{2}-\d{2}$') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'scope'); end if;
+  v := bnx.next_version();
+  begin
+    insert into bnx.onboarding_job(id, kind, title, scope, created_by, created_via, recorded_version)
+    values (nid, coalesce(cmd->>'kind', 'history_onboarding'), cmd->>'title', sc, a.member_id, 'pwa', v);
+  exception when check_violation or not_null_violation then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'kind, title or start_policy'); end;
+  insert into bnx.onboarding_job_event values (nid, 1, 'created', a.member_id, v);
+  perform bnx.audit(a, 'onboarding_create_job', jsonb_build_object('job_id', nid), cmd, v);
+  return bnx.idem_end(a, 'onboarding_create_job', cmd, jsonb_build_object('job_id', nid, 'ledger_version', v));
+end $$;
+
+-- add a stored file to a job (SF-QUEUED); a file already queued in any job is MR-01 (same SHA-256) -> SF-DUPLICATE_FILE path
+create function bnx.cmd_onboarding_add_file(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; job bnx.onboarding_job; eo uuid; v bigint; st text;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'onboarding_add_file', cmd); if rc is not null then return rc; end if;
+  begin select * into job from bnx.onboarding_job where id = (cmd->>'job_id')::uuid; eo := (cmd->>'evidence_object_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'job_id or evidence_object_id'); end;
+  if job.id is null or job.created_by <> a.member_id and not bnx.onboarding_admin(a) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not exists (select 1 from bnx.evidence_object where id = eo) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if exists (select 1 from bnx.onboarding_job_event e where e.job_id = job.id and e.event in ('collection_closed','cancelled')) then
+    perform bnx.fail('COLLECTION_CLOSED', 'P0409'); end if;
+  if exists (select 1 from bnx.source_file_state x where x.job_id = job.id and x.evidence_object_id = eo) then perform bnx.fail('ALREADY_ADDED', 'P0409'); end if;
+  v := bnx.next_version();
+  insert into bnx.source_file_state(job_id, evidence_object_id, seq, state, actor, recorded_version) values (job.id, eo, 1, 'SF-QUEUED', a.member_id, v);
+  st := bnx.onboarding_state_at(job.id, v);
+  perform bnx.audit(a, 'onboarding_add_file', jsonb_build_object('job_id', job.id, 'evidence_object_id', eo), cmd, v);
+  return bnx.idem_end(a, 'onboarding_add_file', cmd, jsonb_build_object('job_state', st, 'ledger_version', v));
+end $$;
+
+-- job events: close collection, pause, resume, cancel
+create function bnx.cmd_onboarding_job_event(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; job bnx.onboarding_job; ev text := cmd->>'event'; last text; s int; v bigint;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'onboarding_job_event', cmd); if rc is not null then return rc; end if;
+  begin select * into job from bnx.onboarding_job where id = (cmd->>'job_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'job_id'); end;
+  if job.id is null or job.created_by <> a.member_id and not bnx.onboarding_admin(a) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  select e.event, e.seq into last, s from bnx.onboarding_job_event e where e.job_id = job.id order by e.seq desc limit 1;
+  if coalesce(ev, '') not in ('collection_closed','paused','resumed','cancelled') or last = 'cancelled'
+     or (ev = 'resumed' and last <> 'paused') or (ev = 'paused' and last = 'paused')
+     or (ev = 'collection_closed' and exists (select 1 from bnx.onboarding_job_event e where e.job_id = job.id and e.event = 'collection_closed')) then
+    perform bnx.fail('ONBOARDING_STATE', 'P0409', coalesce(last, 'none') || ' -> ' || coalesce(ev, '')); end if;
+  v := bnx.next_version();
+  insert into bnx.onboarding_job_event values (job.id, s + 1, ev, a.member_id, v);
+  perform bnx.audit(a, 'onboarding_job_event', jsonb_build_object('job_id', job.id, 'event', ev), cmd, v);
+  return bnx.idem_end(a, 'onboarding_job_event', cmd, jsonb_build_object('job_state', bnx.onboarding_state_at(job.id, v), 'ledger_version', v));
+end $$;
+
+-- a history step: the member proposes, approves, excludes or unblocks an account-currency history; the worker records the
+-- deterministic stages (wrk_onboarding_step) - both go through the same transition trigger
+create function bnx.onboarding_step(p_job uuid, p_kind text, p_subject uuid, p_state text, p_detail jsonb, p_actor uuid) returns bigint
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare v bigint := bnx.next_version(); s int;
+begin
+  if p_kind = 'file' then
+    s := coalesce((select max(seq) from bnx.source_file_state where job_id = p_job and evidence_object_id = p_subject), 0) + 1;
+    insert into bnx.source_file_state(job_id, evidence_object_id, seq, state, attempts, detail, actor, recorded_version)
+    values (p_job, p_subject, s, p_state, coalesce((p_detail->>'attempts')::int,
+            (select attempts from bnx.source_file_state where job_id = p_job and evidence_object_id = p_subject order by seq desc limit 1), 0)
+            + case when p_state = 'SF-FAILED' then 1 else 0 end, p_detail, p_actor, v);
+  else
+    s := coalesce((select max(seq) from bnx.account_history_state where job_id = p_job and account_currency_id = p_subject), 0) + 1;
+    insert into bnx.account_history_state(job_id, account_currency_id, seq, state, coverage, anchor_plan, plan_id, actor, recorded_version)
+    values (p_job, p_subject, s, p_state, p_detail->'coverage', p_detail->'anchor_plan', (p_detail->>'plan_id')::uuid, p_actor, v);
+  end if;
+  return v;
+end $$;
+
+create function bnx.cmd_onboarding_history(cred jsonb, cmd jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); rc jsonb; job bnx.onboarding_job; acid uuid; st text := cmd->>'state'; v bigint;
+begin
+  perform bnx.require(a, 2);
+  rc := bnx.idem_begin(a, 'onboarding_history', cmd); if rc is not null then return rc; end if;
+  begin select * into job from bnx.onboarding_job where id = (cmd->>'job_id')::uuid; acid := (cmd->>'account_currency_id')::uuid;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'job_id or account_currency_id'); end;
+  if job.id is null or job.created_by <> a.member_id and not bnx.onboarding_admin(a) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not exists (select 1 from bnx.account_currency where id = acid) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if not bnx.actor_can_post(a, acid) then perform bnx.fail('NOT_POSTABLE', 'P0403'); end if;
+  if coalesce(st, '') not in ('AH-PROPOSED','AH-APPROVED','AH-EXCLUDED','AH-READY') then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'members propose, approve, exclude or unblock (AH-READY from AH-BLOCKED)'); end if;
+  if st = 'AH-READY' and (select x.state from bnx.account_history_state x where x.job_id = job.id and x.account_currency_id = acid
+                           order by x.seq desc limit 1) is distinct from 'AH-BLOCKED' then
+    perform bnx.fail('ONBOARDING_STATE', 'P0409'); end if;
+  v := bnx.onboarding_step(job.id, 'history', acid, st, jsonb_strip_nulls(jsonb_build_object('coverage', cmd->'coverage')), a.member_id);
+  perform bnx.audit(a, 'onboarding_history', jsonb_build_object('job_id', job.id, 'account_currency_id', acid, 'state', st), cmd, v);
+  return bnx.idem_end(a, 'onboarding_history', cmd, jsonb_build_object('job_state', bnx.onboarding_state_at(job.id, v), 'ledger_version', v));
+end $$;
+
+create function bnx.wrk_onboarding_step(p_job uuid, p_kind text, p_subject uuid, p_state text, p_detail jsonb default null) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare v bigint;
+begin
+  if p_kind not in ('file','history') or (p_kind = 'history' and p_state in ('AH-PROPOSED','AH-APPROVED','AH-EXCLUDED')) then
+    perform bnx.fail('VALIDATION_FAILED', 'P0422', 'the worker records deterministic stages only'); end if;
+  if not exists (select 1 from bnx.onboarding_job where id = p_job) then perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  if exists (select 1 from bnx.onboarding_job_event e where e.job_id = p_job and e.event = 'cancelled')
+     or (select e.event from bnx.onboarding_job_event e where e.job_id = p_job order by e.seq desc limit 1) = 'paused' then
+    perform bnx.fail('ONBOARDING_STATE', 'P0409', 'job paused or cancelled'); end if;
+  v := bnx.onboarding_step(p_job, p_kind, p_subject, p_state, p_detail, null);
+  return jsonb_build_object('job_state', bnx.onboarding_state_at(p_job, v), 'ledger_version', v);
+end $$;
+
+-- §C5.5 progress: counters computed from the tables, never from conversation memory
+create function bnx.q_onboarding_job(cred jsonb, q jsonb) returns jsonb
+language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare a bnx.actor := bnx.resolve_actor(cred); job bnx.onboarding_job; v bigint; vnow bigint;
+begin
+  perform bnx.require(a, 0);
+  begin select * into job from bnx.onboarding_job where id = (q->>'job_id')::uuid; v := (q->>'ledger_version')::bigint;
+  exception when others then perform bnx.fail('VALIDATION_FAILED', 'P0422', 'job_id or ledger_version'); end;
+  select version into vnow from bnx.ledger_state;
+  v := coalesce(v, vnow);
+  if job.id is null or v > vnow or v < job.recorded_version or (job.created_by <> a.member_id and not bnx.onboarding_admin(a)) then
+    perform bnx.fail('NOT_FOUND', 'P0404'); end if;
+  return jsonb_build_object('job_id', job.id, 'kind', job.kind, 'title', job.title, 'scope', job.scope, 'ledger_version', v,
+    'state', bnx.onboarding_state_at(job.id, v),
+    'files_by_state', coalesce((select jsonb_object_agg(s, n) from (select x.state s, count(*) n from (select distinct on (f.evidence_object_id) f.state
+                        from bnx.source_file_state f where f.job_id = job.id and f.recorded_version <= v order by f.evidence_object_id, f.seq desc) x
+                        group by x.state) y), '{}'),
+    'histories', coalesce((select jsonb_agg(jsonb_build_object('account_currency_id', x.account_currency_id, 'state', x.state, 'plan_id', x.plan_id)
+                        order by x.account_currency_id)
+                        from (select distinct on (h.account_currency_id) h.* from bnx.account_history_state h
+                               where h.job_id = job.id and h.recorded_version <= v
+                                 and h.account_currency_id in (select bnx.actor_visible_acs(a)) order by h.account_currency_id, h.seq desc) x), '[]'),
+    'plans', coalesce((select jsonb_agg(jsonb_build_object('plan_id', p.id, 'kind', p.kind) order by p.id) from bnx.posting_plan p where p.job_id = job.id), '[]'),
+    'source_rows_by_match_state', coalesce((select jsonb_object_agg(s, n) from (select coalesce(me.evidence->>'state', 'new') s, count(*) n
+                        from bnx.account_history_state h0 join bnx.source_txn t on t.account_currency_id = h0.account_currency_id
+                        left join bnx.match_decision_current c on c.source_txn_id = t.id and c.kind = 'ledger'
+                        left join bnx.match_decision_event me on me.id = c.decision_event_id
+                       where h0.job_id = job.id and h0.seq = 1 and h0.account_currency_id in (select bnx.actor_visible_acs(a)) group by 1) y), '{}'));
+end $$;
+
+-- module flags: the account-scoped onboarding table; catalog rows for the queries
+insert into bnx.flag_enforcement_point values ('account_history_state','account_currency_id','INSERT','9012','bnx');
+create trigger t_scope_flag_account_history_state before insert on bnx.account_history_state
+  for each row execute function bnx.trg_scope_flag('account_currency_id');
+insert into bnx.table_class values ('import_mapping','F'), ('payment_attribute','F'), ('cross_source_match','E'), ('cross_source_match_event','F'),
+ ('onboarding_job','E'), ('onboarding_job_event','F'), ('source_file_state','F'), ('account_history_state','F');
+insert into bnx.function_scope values
+ ('q_transfer_matching', 'finance.read', false, false, true, 'fin.matching.transfers'),
+ ('q_onboarding_job', 'finance.read', false, false, false, 'fin.onboarding.job');
 
 select bnx.apply_grants();

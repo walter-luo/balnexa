@@ -14,7 +14,7 @@ All results here are `AUTHOR_RUNTIME_EVIDENCE`.
 | 9012b | FX quotes, investment lots, card fee policy and events (CORE-5, the rest) | **Done** (see "9012b — what was built") |
 | 9012c-1 | Balance observations, `statement_period`, the reconciliation exception structure (rule-independent part of 9012c) | **Done** (`OWNER_DECISION` 2026-11-11, option 2; see "9012c-1 — what was built") |
 | 9012c-2 | RC-01…RC-14 evaluation, D5 classification, D7 lifecycle, coverage (AT-P0-R13/R15 inputs) | **Done** (see "9012c-2 — what was built"). Source located 2026-11-11: Draft-04 Unified Architecture (SHA-256 `4ad49225…`, the baseline named in `docs/R1_Doc_Delta.md`), in the Owner's S3 package; not committed |
-| 9012d | Imports, cross-source match, payment attributes, onboarding tables, `posting_plan.job_id` FK (CORE-4) | Not started. Source: Draft-04 §C4 (MR-01…13) and §C5 (onboarding), same file |
+| 9012d | Matching MR-08…MR-13, onboarding job / file / history states, `posting_plan.job_id` FK, import mappings, payment attributes, cross-source matches (CORE-4) | **Done** (see "9012d — what was built"); MR-01…MR-07, the onboarding scheduler, onboarding exceptions and the completion report wait for WP-DOC (L-9012-11) |
 
 **Why R28 first:**
 
@@ -193,6 +193,47 @@ RESOLVED). The source file stays outside the repository.
 | AT-RCX-01 | Six invalid findings refused by CHECKs; the §D7 lifecycle and its refusals; member confirmation needs evidence and supersedes; append-only |
 | AT-OBS-01, AT-STP-01, AT-9012c-CAT | As 9012c-1, the catalog test extended to the run table and the five commands and queries |
 
+## 9012d — what was built
+
+Authority: UA V1.2 §5.6 (object names), BNX-S2-02 (`import_mapping`, `payment_attribute`, `cross_source_match`), Draft-04 §C4
+(matching rules, append-only decisions) and §C5 (onboarding states). The R1 matching tables `match_decision_event` /
+`match_decision_current` (migration 0005) are reused unchanged.
+
+| Object | Content |
+|---|---|
+| `bnx.match_propose(row, V)` | The proposal for one source row: `posted` (linked); **MR-08** `ledger_match_confirmed` (one candidate leg and one candidate row, same date, description trigram similarity ≥ 0.85); **MR-09** `ledger_match_proposed` (one candidate each side otherwise); **MR-10** `ledger_match_ambiguous` (several legs or rows within ±2 days); **MR-13** `clearing_resolution_proposed` (an open clearing item hinting at this account-currency, opposite amount, inside its window, default 10 days); **MR-11** `transfer_pair_proposed` / `transfer_pair_ambiguous` (transfer-like row, opposite unposted row on another same-currency account within ±5 days); **MR-12** `clearing_post` (another account lacks final statement coverage on that date) or `transfer_counterpart_missing` (all covered); otherwise `new`. A leg confirmed for one row is no longer a candidate for another (§C4.5) |
+| `cmd_match_source_rows` (tier 2) | Runs the matcher over one account-currency and date range; records a decision event only when the proposal changed; MR-08 is recorded `confirmed` (automatic, reversible), the rest `proposed`; member decisions are never overwritten |
+| `cmd_decide_match`, `cmd_match_clearing` (OBJ-249) | Member confirmation or rejection (MR-10 and ambiguous pairs only by naming the leg or counterpart; an MR-08 match can be reversed); confirmation that a row resolves an open clearing item (once per item) |
+| `q_transfer_matching` (OBJ-249) | Every row of an account-currency in a range with its posted journal and current decisions at a ledger version |
+| `bnx.onboarding_job` (+`_event`), `bnx.source_file_state`, `bnx.account_history_state` | §C5.2–§C5.4. Job events: created, collection_closed, paused, resumed, cancelled. File states SF-QUEUED … SF-DONE, SF-FAILED → SF-QUEUED retry, SF-DEAD only after 3 attempts. History states AH-PROPOSED … AH-RECONCILED*, AH-BLOCKED, AH-EXCLUDED. Trigger `t_onboarding_transition` refuses skipped stages. The job state is derived (`bnx.onboarding_state_at`) |
+| `cmd_onboarding_create_job`, `cmd_onboarding_add_file`, `cmd_onboarding_job_event`, `cmd_onboarding_history`, `wrk_onboarding_step`, `q_onboarding_job` | Members create jobs (closed scope keys, start policy), add stored files, close / pause / resume / cancel, propose / approve / exclude / unblock histories; the worker records the deterministic stages (refused while paused or cancelled); progress counters from the tables (§C5.5) |
+| `posting_plan.job_id` FK | References `bnx.onboarding_job` (UA V1.2 §5.6) |
+| `bnx.import_mapping` | Versioned data (provider fixed per mapping; closed keys for columns, dates, amounts; Owner or admin) |
+| `bnx.payment_attribute` | Payment method and network as attributes of a journal (OR-I-11), never accounts |
+| `bnx.cross_source_match` (+`_event`) | Two source rows of one economic event (`CARD_FUNDED_WALLET`, `EMAIL_NOTICE_VS_STATEMENT`, `WALLET_VS_BANK`), unique per pair, PROPOSED → CONFIRMED / REJECTED once; confirming refuses a supporting row that is already posted (no second journal) |
+
+### 9012d decisions — `DELEGATED_DECISION`
+
+| ID | Decision | Reason |
+|---|---|---|
+| D-9012d-1 | MR-08's description similarity is a trigram similarity (`bnx.text_similarity`, as pg_trgm computes it) | Draft-04 gives the 0.85 threshold, not the measure; `pg_trgm` is not installed |
+| D-9012d-2 | MR-04 (bank reference identity) is not applied: the R1 journal has no bank reference, and no statement profile declares `bank_ref_unique` yet | Waits for WP-DOC statement profiles |
+| D-9012d-3 | "Transfer-like" is recognised by wording (`transfer`, `e-transfer`, `xfer`, `tfr`, `virement`, `wire`, 转账) | Draft-04 uses the term without a classifier |
+| D-9012d-4 | MR-12 decides "counterpart coverage" from final statements of every other same-currency account-currency on the row's date; counterpart identification from descriptions is not attempted | A guessed counterpart leg is forbidden (INV-34); coverage is the deterministic part of the rule |
+| D-9012d-5 | The onboarding job state shows REVIEW ahead of PROCESSING while a member decision is pending | The next action is the member's; processing continues underneath |
+| D-9012d-6 | Payment methods: Apple Pay, Google Pay, Samsung Pay, WeChat Pay, Alipay, PayPal, Interac, other; networks: UnionPay, Visa, Mastercard, JCB, Amex, Interac, other | S2 lists "APPLE_PAY, …" and four networks; the additions are the common Canadian and Chinese ones |
+| D-9012d-7 | Test ids AT-MR-01, AT-MR-02, AT-ONB-01, AT-IMP-PAY-01, AT-9012d-CAT in `tests/py/run_s4_core11.py` | AT-IMP-01/02 (CSV/OFX parsing) and AT-PAY-01/02 belong to WP-DOC and the PWA |
+
+### 9012d test results — `AUTHOR_RUNTIME_EVIDENCE`
+
+| Test | Shows |
+|---|---|
+| AT-MR-01 | MR-08 automatic, MR-09 proposed, MR-10 ambiguous (confirmable only by naming a leg); a re-run records nothing new; member decisions stand, MR-08 reversible; a confirmed leg leaves the candidate set; earlier versions keep earlier decisions; append-only |
+| AT-MR-02 | MR-11 pair (both sides) and ambiguous pair; MR-12 clearing_post vs counterpart_missing by coverage; MR-13 inside the window, not after; one row per clearing item; cross-source match unique, no confirmation once the supporting row is posted, decided once |
+| AT-ONB-01 | Derived job states through DRAFT, COLLECTING, REVIEW, POSTING, RECONCILING, PROCESSING, COMPLETED_WITH_EXCEPTIONS, PAUSED; file and history transitions enforced; SF-DEAD after 3 attempts; worker stops while paused; `posting_plan.job_id` FK; counters; visibility |
+| AT-IMP-PAY-01 | Mapping versions, closed keys, provider fixed, Owner/admin only; payment attributes on a card journal, no wallet account |
+| AT-9012d-CAT | Append-only and classes for the 8 tables, transition and flag triggers, catalog rows, grants (commands to `bnx_app`, `wrk_onboarding_step` to `bnx_worker` only) |
+
 ## Owner decisions — `OWNER_DECISION`
 
 | ID | Decision | Implementation |
@@ -240,4 +281,5 @@ Local runs on PG16.15 and PG17.11:
 | L-9012-7 | No instrument registry: `instrument_id` is the caller's identifier, shared by `investment_lot` and the R1 `valuation` (which has no foreign key) | An instrument registry belongs to the F4 report work (9013) |
 | L-9012-9 | Reconciliation reads `source_txn` rows by period and cites the statement at document granularity; no running balances (S1-RUNBAL `not_available`), no page numbers, no OCR confidence for RC-09 | Narrowed when WP-DOC writes statement rows |
 | L-9012-10 | The AI investigator tools of §D6 and `NO_EVIDENCE_FOR_CORRECTION` are not built | MCP read/propose tools for reconciliation belong to the MCP work package |
+| L-9012-11 | Not built until WP-DOC exists: MR-01…MR-07 (file and document duplicates, re-extraction, statement versions, bank-reference identity, occurrence numbering, overlap alignment, running-balance guard), the onboarding scheduler tick, account discovery wiring, onboarding exceptions (§C5.9), classification clusters, `q_plan_preview` and the completion report (§C5.11) | Each needs extraction runs, staged rows or executor output |
 | L-9012-8 | No automatic FX feed (`fx_selection_log`, R1, stays unused) and no automatic card-fee evaluation job | Feeds and jobs need cloud egress and scheduling, outside this stage |
