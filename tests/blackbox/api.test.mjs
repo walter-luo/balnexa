@@ -2,11 +2,14 @@
 // by bnx_migrator. No test helper touches the database; identities are synthetic RSA-signed Google-style ID tokens.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeDb, makeKv, serve, worker } from '../../apps/worker/node/adapter.mjs';
+import { makeDb, makeKv, makeR2, serve, worker } from '../../apps/worker/node/adapter.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = process.env.BNX_SERVER || 'pg16';
@@ -36,6 +39,7 @@ async function call(p, { method = 'POST', body, headers = {}, cookie, bearer, fo
 const cmd = (name, body, cookie, extra = {}) => call(`/api/v1/commands/${name}`, { body, cookie, headers: { origin: ORIGIN, ...extra } });
 
 let INST = null, INFO = null;
+const R2DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'bnx-bb-r2-'));
 const EXEC_AUD = 'https://exec.balnexa.test';
 const JOB = { sub: '108000000000000000001', email: 'bnx-executor@synthetic-project.iam.gserviceaccount.com', azp: '108000000000000000001' };
 const CONTRACT = ['File ID', 'Original Name', 'Current Name', 'Document Date', 'Processed Date', 'Domain', 'Type', 'Tags', 'Source',
@@ -48,12 +52,12 @@ before(async () => {
   const jwk = kp.publicKey.export({ format: 'jwk' });
   env = { db: makeDb({ host: info.host, port: info.port, database: info.db }), KV: makeKv(), APP_ORIGIN: ORIGIN,
           GOOGLE_CLIENT_ID: 'test-client', GOOGLE_JWKS: { keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] },
-          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB }, ...(info.binding || {}) };
+          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB, REPORT_RENDER: JOB }, ARTIFACTS: makeR2(R2DIR), ...(info.binding || {}) };
   INFO = info;
   srv = await serve(env);
   base = `http://127.0.0.1:${srv.address().port}`;
 });
-after(async () => { srv && srv.close(); env && await env.db.end(); });
+after(async () => { srv && srv.close(); env && await env.db.end(); fs.rmSync(R2DIR, { recursive: true, force: true }); });
 
 const S = {};
 test('BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected', async () => {
@@ -336,6 +340,51 @@ test('BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for
     assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, bearer: S.bearer })).status, 401);
     assert.equal((await callAt(b2, '/api/v1/uploads', { body: { evidence_file_id: reg.json.evidence_file_id }, cookie: S.owner })).status, 403);
   });
+});
+
+// ------------------------------------------------------------------------------------------------ CORE-8 Executor
+test('BB-EXEC-02 Executor end to end over HTTP: lease with work order, render, completion schema, promotion, artifact proxy (L-9013-2)', async () => {
+  const snap = await cmd('create_report_snapshot', { report_code: 'R-BAL', as_of: '2026-12-31' }, S.owner, { 'idempotency-key': 'bb-snap-core8' });
+  assert.equal(snap.status, 200, snap.text);
+  const sid = snap.json.snapshot_id;
+  const none = await call(`/api/v1/artifacts/${sid}`, { method: 'GET', cookie: S.owner });
+  assert.deepEqual([none.status, none.json.error], [404, 'ARTIFACT_NOT_RENDERED']);
+  const jt = idToken({ aud: EXEC_AUD, sub: JOB.sub, email: JOB.email, azp: JOB.azp });
+  // the Gateway refuses a render_done payload of the wrong shape before the database (one lease spent)
+  const l = await call('/exec/v1/lease', { body: { job_kind: 'REPORT_RENDER', item_id: sid }, bearer: jt });
+  assert.equal(l.status, 200, l.text);
+  assert.equal(l.json.input.projection_sha256, snap.json.projection_sha256);
+  const shape = await call('/exec/v1/complete', { body: { job_kind: 'REPORT_RENDER', nonce: l.json.nonce, stg_kind: 'render_done',
+    payload: { snapshot_id: sid, artifact_ref: 'r2:elsewhere' } }, bearer: jt });
+  assert.deepEqual([shape.status, shape.json.error], [422, 'VALIDATION_FAILED'], shape.text);
+  // the real Executor process: python -m bnx_exec run --kind REPORT_RENDER --item <snapshot>
+  const tok = path.join(R2DIR, '..', `bnx-bb-token-${process.pid}`);
+  fs.writeFileSync(tok, jt, { mode: 0o600 });
+  let run;
+  try {        // asynchronous: the Gateway answering the Executor runs in this process
+    run = await promisify(execFile)(PY, ['-m', 'bnx_exec', 'run', '--kind', 'REPORT_RENDER', '--item', sid], {
+      cwd: path.join(here, '..', '..', 'apps', 'executor'), timeout: 60000,
+      env: { PATH: process.env.PATH, BNX_GATEWAY_URL: base, BNX_ID_TOKEN_FILE: tok, BNX_ARTIFACT_STORE: R2DIR } });
+  } finally { fs.rmSync(tok, { force: true }); }
+  const item = JSON.parse(run.stderr.trim().split('\n').pop());
+  assert.deepEqual([item.status, item.stg_kind], ['STAGED', 'render_done'], run.stderr);
+  assert.ok(!run.stderr.includes(l.json.nonce));
+  const r = await worker.scheduled({ scheduledTime: Date.now() }, env, null);
+  assert.ok(r.processed >= 1, JSON.stringify(r));
+  const a = await call(`/api/v1/artifacts/${sid}`, { method: 'GET', cookie: S.owner });
+  assert.equal(a.status, 200, a.text);
+  assert.equal(a.headers.get('x-bnx-snapshot-status'), 'CURRENT');
+  assert.match(a.headers.get('content-type'), /^text\/html/);
+  assert.equal(crypto.createHash('sha256').update(a.text).digest('hex'), a.headers.get('x-bnx-artifact-sha256'));
+  assert.match(a.text, new RegExp(sid));
+  // tampering with the stored object is detected by the proxy
+  const meta = JSON.parse((await call('/api/v1/queries/snapshot_artifact', { body: { snapshot_id: sid }, cookie: S.owner })).text);
+  const file = path.join(R2DIR, meta.artifact_ref.slice(3));
+  fs.appendFileSync(file, '<!-- x -->');
+  const t = await call(`/api/v1/artifacts/${sid}`, { method: 'GET', cookie: S.owner });
+  assert.deepEqual([t.status, t.json.error], [502, 'ARTIFACT_INTEGRITY']);
+  const anon = await call(`/api/v1/artifacts/${sid}`, { method: 'GET' });
+  assert.equal(anon.status, 401);
 });
 
 test('BB-AUTH-02 logout revokes the session server-side', async () => {

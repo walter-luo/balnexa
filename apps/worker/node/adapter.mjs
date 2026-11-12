@@ -2,6 +2,8 @@
 // per database login role and an in-memory KV. In Cloudflare the same module receives a Neon serverless driver and a
 // KV namespace binding (M0-A/M0-C pending; not executed here).
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import pg from 'pg';
 import worker from '../src/index.js';
 
@@ -20,6 +22,19 @@ export function makeDb({ host, port, database }) {
 export function makeKv() {
   const m = new Map();
   return { async get(k) { return m.has(k) ? m.get(k) : null; }, async put(k, v) { m.set(k, String(v)); }, _m: m };
+}
+
+// R2 bucket binding over a directory tree written by the Executor's LocalStore (bnx_exec/store.py): get(key) -> body | null
+export function makeR2(root) {
+  const base = path.resolve(root);
+  return {
+    async get(key) {
+      const p = path.resolve(base, key);
+      if (!p.startsWith(base + path.sep) || !fs.existsSync(p)) return null;
+      const b = fs.readFileSync(p);
+      return { size: b.length, async arrayBuffer() { return b.buffer.slice(b.byteOffset, b.byteOffset + b.length); } };
+    },
+  };
 }
 
 export function serve(env, port = 0) {

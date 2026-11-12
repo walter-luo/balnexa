@@ -1,7 +1,7 @@
 // Balnexa Worker (Gateway). Thin transport: every financial and authorization decision is made inside PostgreSQL by
 // bnx.cmd_* / bnx.q_* / bnx.authn_* / bnx.wrk_* (SECURITY DEFINER) under the matching login role.
 // Routes: POST /auth/google/callback, POST /auth/logout, POST /api/v1/commands/:name, POST /api/v1/queries/:name,
-//         GET /api/v1/catalog, GET /api/v1/health, POST /api/v1/uploads, POST /oauth/authorize (PWA consent),
+//         GET /api/v1/catalog, GET /api/v1/health, POST /api/v1/uploads, GET /api/v1/artifacts/:snapshot_id (CORE-8), POST /oauth/authorize (PWA consent),
 //         POST /oauth/token, POST /mcp (JSON-RPC 2.0, read tools only; replaced by the catalog MCP server in AIH-2),
 //         POST /exec/v1/lease, POST /exec/v1/complete (Executor lease model, S4 9010; the Executor holds no DB credential).
 // CORE-7 (UA V1.2 §8; OBJ-260, OBJ-263, OBJ-264, OBJ-269, OBJ-270, OBJ-271): binding checks B1/B2/B3/B8 gate every route except /api/v1/health
@@ -15,6 +15,7 @@ import { bindings } from './binding.js';
 import { validate } from './schema.js';
 import { presignR2Put } from './r2presign.js';
 import { RELEASE } from './release.js';
+import { schemaFor } from './exec_schemas.js';
 
 // guard C3 (Addendum A1 Rev 1): every log line passes the SIN/ITN scrubber
 const log = (...parts) => console.log(parts.map((x) => scrub(typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
@@ -129,6 +130,29 @@ export default {
         const entries = cred.kind === 'bearer' ? b.catalog.entries.filter((e) => e.channels.includes('mcp')) : b.catalog.entries;
         return json(200, { format: b.catalog.format, catalog_sha256: b.catalog.sha256, release: RELEASE.version, entries });
       }
+      m = p.match(/^\/api\/v1\/artifacts\/([0-9a-fA-F-]{36})$/);
+      if (req.method === 'GET' && m) {                                // artifact proxy (UA V1.2 §5.8.2; L-9013-2; CORE-8)
+        const cred = credential(req, env);
+        if (!cred) return json(401, { error: 'UNAUTHENTICATED' });
+        let a;
+        try {
+          a = await env.db.one('bnx_app', 'select bnx.q_snapshot_artifact($1::jsonb, $2::jsonb) r', [JSON.stringify(cred), JSON.stringify({ snapshot_id: m[1] })]);
+        } catch (e) {
+          // the current grant decides; a revoked snapshot discloses nothing but its status
+          if (e.code === 'P0403' && String(e.message).startsWith('ACCESS_REVOKED')) return json(403, { error: 'ACCESS_REVOKED' }, { 'x-bnx-snapshot-status': 'ACCESS_REVOKED' });
+          throw e;
+        }
+        if (!a || !a.artifact_ref) return json(404, { error: 'NOT_AVAILABLE' });
+        if (!a.artifact_ref.startsWith('r2:') || !env.ARTIFACTS) return json(503, { error: 'ARTIFACT_STORE_NOT_CONFIGURED' });
+        const obj = await env.ARTIFACTS.get(a.artifact_ref.slice(3));
+        if (!obj) return json(502, { error: 'ARTIFACT_MISSING' });
+        const bytes = new Uint8Array(await obj.arrayBuffer());
+        const got = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((x) => x.toString(16).padStart(2, '0')).join('');
+        if (got !== a.artifact_sha256) { log('artifact_integrity', m[1]); return json(502, { error: 'ARTIFACT_INTEGRITY' }); }
+        return new Response(bytes, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store',
+          'x-bnx-snapshot-status': a.status, 'x-bnx-artifact-sha256': a.artifact_sha256, 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+          'x-content-type-options': 'nosniff' } });
+      }
       if (req.method === 'POST' && p === '/api/v1/uploads') {          // presigned direct-to-R2 PUT (UA §8.1; O-7)
         const cred = credential(req, env);
         if (!cred || cred.kind !== 'session') return json(401, { error: 'UNAUTHENTICATED' });
@@ -186,7 +210,13 @@ export default {
             job_kind: bd.job_kind, item_id: bd.item_id ?? null, sub: claims.sub, email: claims.email, azp: claims.azp })]);
           return json(200, r);
         }
-        // completion: the Gateway writes the staging row as bnx_worker (lease_completions = gateway); never a posting call
+        // completion: the Gateway writes the staging row as bnx_worker (lease_completions = gateway); never a posting call.
+        // CORE-8: the payload shape is checked against the schema of its (job kind, staging kind) first (UA §9.2)
+        const sch = schemaFor(bd.job_kind, String(bd.stg_kind || ''));
+        if (sch) {
+          const bad = validate(sch, bd.payload);
+          if (bad) return json(422, { error: 'VALIDATION_FAILED', field: bad.path });
+        }
         const r = await env.db.one('bnx_worker', 'select bnx.wrk_stage_completion($1::text, $2::text, $3::jsonb) r',
           [String(bd.nonce || ''), String(bd.stg_kind || ''), JSON.stringify(bd.payload ?? null)]);
         if (r && r.queue_generation !== undefined) await env.KV.put('bnx:hint', String(r.queue_generation));

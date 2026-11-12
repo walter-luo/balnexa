@@ -13,3 +13,13 @@ pillow==12.3.0 \
     --hash=sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3
 pypdfium2==4.30.0 \
     --hash=sha256:f1f78d2189e0ddf9ac2b7a9b9bd4f0c66f54d1389ff6c17e9fd9dc034d06eb3f
+# CORE-8 Executor jobs (BACKUP, RESTORE_DRILL): psycopg 3 with the binary libpq wheel (CPython 3.12 CI, 3.13 development);
+# typing_extensions is required by psycopg on CPython < 3.13. The age binary and pg_dump/pg_restore/psql 16 and 17 ship in the
+# image as system packages (UA V1.2 §3), not from PyPI.
+psycopg==3.2.3 \
+    --hash=sha256:644d3973fe26908c73d4be746074f6e5224b03c1101d302d9a53bf565ad64907
+psycopg-binary==3.2.3 \
+    --hash=sha256:64a607e630d9f4b2797f641884e52b9f8e239d35943f51bef817a384ec1678fe \
+    --hash=sha256:fd65774ed7d65101b314808b6893e1a75b7664f680c3ef18d2e5c84d570fa393
+typing_extensions==4.12.2 \
+    --hash=sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d
