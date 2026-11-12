@@ -61,7 +61,7 @@ jobs:
       - name: Executor validator dependencies (9011c; PyPI with hashes, OCR engine and strace from Ubuntu)
         run: |
           pip install --require-hashes --only-binary=:all: -r apps/executor/requirements.txt
-          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng strace
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng strace age
           tesseract --version | head -1
       - uses: actions/setup-node@v4
         with:
@@ -70,12 +70,15 @@ jobs:
         working-directory: apps/worker
       - name: R1 suite and S4 suites
         run: |
+          set -o pipefail          # a failing suite must fail the job through | tee (found in CORE-8: the default shell has no pipefail)
           mkdir -p ci-evidence
-          python tests/py/run_g0.py --server "$BNX_SERVER" --evidence ci-evidence/run_g0 | tee ci-evidence/run_g0.txt
+          rc=0                     # every suite runs; the step fails if any failed
+          python tests/py/run_g0.py --server "$BNX_SERVER" --evidence ci-evidence/run_g0 | tee ci-evidence/run_g0.txt || rc=1
           for f in tests/py/run_s4_core*.py; do
             n=$(basename "$f" .py)
-            python "$f" --server "$BNX_SERVER" --evidence "ci-evidence/$n" | tee "ci-evidence/$n.txt"
+            python "$f" --server "$BNX_SERVER" --evidence "ci-evidence/$n" | tee "ci-evidence/$n.txt" || rc=1
           done
+          exit $rc
       - name: Black-box API
         run: BNX_PY="$(which python)" node --test tests/blackbox/api.test.mjs tests/blackbox/unit.test.mjs
       - name: Dispatch simulation

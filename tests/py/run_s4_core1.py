@@ -597,6 +597,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     # 9017 CORE-7 Gateway support, not in the V1.2 register (D-CORE7-1; register update recorded in
     # docs/s4/S4_CORE7_Implementation_Notes.md, L-CORE7-1)
     "bnx.catalog_entries", "bnx.wrk_catalog", "bnx.wrk_binding_facts", "bnx.wrk_defer_item", "bnx.q_evidence_upload_target",
+    # 9018 CORE-8 Executor work orders and the REPORT_RENDER promoter, not in the V1.2 register (D-CORE8-1; L-CORE8-1)
+    "bnx.artifact_object_name", "bnx.snapshot_ownership_revision", "bnx.exec_work_order", "bnx.wrk_render_done",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

@@ -89,7 +89,7 @@ def t_binding_facts(server, ev):
     json.dump({"facts": f, "health": health, "denied": denied}, open(os.path.join(ev, "AT-ISO-BF.json"), "w"), indent=1, default=str)
     check(f["identity"] == {"project_id": ident[0], "instance_uid": ident[1]} and f["active"]["config_version"] == act[0]
           and f["active"]["config_sha256"] == act[1] and act[1] in f["deployable_sha256"] and f["active"]["flags"] == flags
-          and f["schema_head"] == {"core": heads[0], "extension": heads[1]} and heads[1] == "9017", f"{f} {ident} {act} {flags} {heads}")
+          and f["schema_head"] == {"core": heads[0], "extension": heads[1]} and heads[1] == max(x[:4] for x in os.listdir(os.path.join(h.ROOT, "db", "migrations")) if x[:4] >= "9000"), f"{f} {ident} {act} {flags} {heads}")
     check(set(health) == {"status", "schema_head", "identity_present"} and forb.startswith("FORBIDDEN"), f"{health} {forb}")
     return (f"wrk_binding_facts returns identity, ACTIVE digest and flags {flags}, deployable digests, schema heads {heads} and the catalog digest; "
             f"bnx_app cannot call it or wrk_catalog (permission denied); a non-worker session is FORBIDDEN; q_health still reveals no identity value")

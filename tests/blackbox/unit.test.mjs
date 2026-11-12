@@ -60,8 +60,8 @@ test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_INSTANCE_UID: undefined }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_CONFIG_DIGEST: 'e'.repeat(64) }, facts, ['B2'], 'BNX_BINDING_MISMATCH'],
-    [env, { ...facts, schema_head: { core: '0109', extension: '9018' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
-    [env, { ...facts, schema_head: { core: '0109', extension: '9013' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
+    [env, { ...facts, schema_head: { core: '0109', extension: '9019' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
+    [env, { ...facts, schema_head: { core: '0109', extension: '9016' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
     [{ ...env, BNX_MODULES: '{"Canada":"YES","International":"YES","CRA":"YES"}' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{ ...env, BNX_MODULES: 'not json' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{}, null, ['B1', 'B2', 'B3', 'B8'], 'BNX_BINDING_MISMATCH'],
@@ -122,4 +122,20 @@ test('UT-DISPATCH-01 unknown work-item kind is deferred, never completed; known 
   const fns = db.calls.map((c) => [c[1], c[2] && c[2][0]]);
   assert.deepEqual(fns.filter(([f]) => f === 'wrk_defer_item'), [['wrk_defer_item', 7]]);
   assert.deepEqual(fns.filter(([f]) => f === 'wrk_complete'), [['wrk_complete', 8]], 'the unknown item is never completed');
+});
+
+test('UT-EXEC-SCHEMA-01 completion schemas per (job kind, staging kind) load and reject wrong shapes (UA §9.2; CORE-8)', async () => {
+  const { EXEC_SCHEMAS, schemaFor } = await import('../../apps/worker/src/exec_schemas.js');
+  for (const s of Object.values(EXEC_SCHEMAS)) checkSchema(s);
+  const h = 'a'.repeat(64), id = '7f0c2a52-9b1e-4c56-8a51-3b2d9c0e1f10';
+  const ok = { snapshot_id: id, artifact_sha256: h, rendered_at: '2026-11-12T04:00:00+00:00', renderer_version: 'bnx-render-1.0',
+               projection_sha256: h, source_revision: 25, ownership_revision: 24, size_kib: 2, coverage: { rows: 7 }, warnings: [] };
+  const s = schemaFor('REPORT_RENDER', 'render_done');
+  assert.equal(validate(s, ok), null);
+  assert.equal(validate(s, { ...ok, artifact_ref: 'r2:x' }).path, '$.artifact_ref');
+  assert.equal(validate(s, { ...ok, size_kib: '2' }).path, '$.size_kib');
+  assert.equal(validate(schemaFor('EVIDENCE_VERIFY', 'backup_recorded'), { items: [] }).path, '$.items');
+  assert.equal(validate(schemaFor('BACKUP', 'backup_recorded'), { run_id: id, started_at: ok.rendered_at, ended_at: ok.rendered_at, outcome: 'FAILED',
+                                                                    failure_reason: 'TOOL_MAJOR' }), null);
+  assert.equal(schemaFor('INDEX_CONSUME', 'index_consumed'), null);           // 9010 contract: the database validates
 });
