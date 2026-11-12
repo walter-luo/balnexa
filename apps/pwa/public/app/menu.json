@@ -57,6 +57,7 @@
     "bnx.q_evidence_access",
     "bnx.cmd_create_import_plan",
     "bnx.cmd_set_import_mapping",
+    "bnx.q_onboarding_jobs",
     "bnx.cmd_onboarding_create_job",
     "bnx.cmd_onboarding_add_file",
     "bnx.cmd_onboarding_job_event",

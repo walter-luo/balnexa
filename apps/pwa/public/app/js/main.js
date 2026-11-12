@@ -31,7 +31,7 @@ function screen(titleKey, ...kids) {
 // tasks with a dedicated screen; every other task uses the generic renderers
 const DEDICATED = { 'bnx.q_handoff_status': 'handoff', 'bnx.cmd_handoff_prepare': 'handoff/prepare', 'bnx.cmd_handoff_import': 'handoff/import',
   'bnx.q_ai_connections': 'connections', 'bnx.q_doc_redaction_queue': 'documents',
-  'bnx.cmd_register_evidence': 'upload' };
+  'bnx.cmd_register_evidence': 'upload', 'bnx.q_onboarding_jobs': 'onboarding' };
 const visible = (e) => !!e && e.channels.includes('pwa') && (e.tier === null || e.tier <= S.tier);
 const entry = (fn) => { const e = S.cat.get(fn); return visible(e) ? e : null; };
 
@@ -500,6 +500,51 @@ async function consentScreen(params) {
   screen('consent.title', f);
 }
 
+// ------------------------------------------------------------------------------------------ onboarding (CORE-9; Draft-04 C5)
+// History onboarding and periodic imports: the jobs the caller may see, a form to start one, the job's lifecycle events and its
+// detail (files by state, account histories, plans). Files are added to a job once their evidence is verified.
+const onbEvents = (st) => (st === 'ONB-PAUSED' ? ['resumed', 'cancelled'] : /^ONB-(CANCELLED|COMPLETED)/.test(st) ? [] : ['collection_closed', 'paused', 'cancelled']);
+async function onboarding(params) {
+  let r;
+  try { r = await api.query('onboarding_jobs'); } catch (e) { screen('onboarding.title'); return fail(e); }
+  const jid = params && params.get('job');
+  const f = h('form', { class: 'task-form', id: 'onb-new', novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'onb-kind' }, t('onboarding.kind')),
+      h('select', { id: 'onb-kind', name: 'kind' }, ['history_onboarding', 'periodic_import'].map((k) => h('option', { value: k }, t(`onboarding.${k}`))))),
+    h('div', { class: 'field' }, h('label', { for: 'onb-title' }, t('onboarding.job_title')),
+      h('input', { id: 'onb-title', name: 'title', required: true, maxlength: 80 })),
+    h('div', { class: 'field' }, h('label', { for: 'onb-start' }, t('onboarding.start_policy')),
+      h('select', { id: 'onb-start', name: 'start' }, ['earliest_evidence', 'manual'].map((k) => h('option', { value: k }, t(`onboarding.${k}`))))),
+    h('button', { type: 'submit', class: 'primary', disabled: entry('bnx.cmd_onboarding_create_job') ? null : true }, t('onboarding.create')));
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!f.checkValidity()) { f.reportValidity(); return; }
+    try {
+      const c = await api.command('onboarding_create_job', { kind: f.elements.kind.value, title: f.elements.title.value.trim(),
+        scope: { start_policy: f.elements.start.value } });
+      status(t('onboarding.created'), 'ok'); go(`onboarding?job=${c.job_id}`);
+    } catch (e) { fail(e); }
+  });
+  const rows = r.jobs.map((j) => h('tr', {},
+    h('td', { 'data-label': t('onboarding.job_title') }, h('a', { href: `#/onboarding?job=${j.job_id}` }, j.title)),
+    h('td', { 'data-label': t('onboarding.kind') }, t(`onboarding.${j.kind}`)),
+    h('td', { 'data-label': t('field.state') }, h('span', { class: `st st-${j.state}` }, j.state)),
+    h('td', {}, onbEvents(j.state).filter(() => entry('bnx.cmd_onboarding_job_event')).map((evn) => h('button', { type: 'button', onclick: async () => {
+      try { await api.command('onboarding_job_event', { job_id: j.job_id, event: evn }); status(t('onboarding.event_ok'), 'ok'); onboarding(params); }
+      catch (e) { fail(e); } } }, t(`onboarding.ev_${evn}`))))));
+  const kids = [h('p', { class: 'hint' }, t('onboarding.explain')),
+    rows.length ? h('div', { class: 'table' }, h('div', { class: 'scroll', tabindex: '0', role: 'region', 'aria-label': t('onboarding.title') },
+      h('table', { class: 'cards' }, h('caption', {}, t('onboarding.title')), h('thead', {}, h('tr', {},
+        ['onboarding.job_title', 'onboarding.kind', 'field.state', 'connections.action'].map((k) => h('th', { scope: 'col' }, t(k))))), h('tbody', {}, rows))))
+      : h('p', { class: 'empty' }, t('onboarding.none')),
+    h('h2', {}, t('onboarding.new')), f];
+  if (jid) {
+    try { kids.push(h('h2', {}, t('onboarding.detail')), renderDetail(await api.query('onboarding_job', { job_id: jid }), { name: 'onboarding_job' })); }
+    catch (e) { fail(e); }
+  }
+  screen('onboarding.title', ...kids);
+}
+
 // ---------------------------------------------------------------------------------------- evidence upload (CORE-9; UA §8.1)
 // The file never passes through the Gateway: the browser hashes it, registers it (name, type, size, declared SHA-256), asks
 // for a 15-minute presigned PUT and sends the bytes straight to the instance's bucket. The Executor verifies the hash later
@@ -630,6 +675,7 @@ async function render() {
     if (r === 'settings') return await settings();
     if (r === 'documents') return await documents();
     if (r === 'upload') return upload();
+    if (r === 'onboarding') return await onboarding(params);
     if (r === 'handoff' && arg === 'prepare') return await handoffPrepare(params);
     if (r === 'handoff' && arg === 'import') return await handoffImport();
     if (r === 'handoff') return await handoff();

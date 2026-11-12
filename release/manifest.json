@@ -229,9 +229,15 @@
    "min_worker_release": "0.8.1-p2",
    "sha256": "a872e3d43eaf79104c422d915611b1aac8d7c4d97cbf3bfc68cc0db118a295e3",
    "version": "9026"
+  },
+  {
+   "file": "9027_s4_onboarding_jobs_list.sql",
+   "min_worker_release": "0.8.2-p2",
+   "sha256": "9cfbdf65b77e5d032b7cf9475f752f09af90e800e24c7f95cf69aefaf3bc591b",
+   "version": "9027"
   }
  ],
- "pwa_shell": "bnx-shell-0.8.1-p2",
+ "pwa_shell": "bnx-shell-0.8.2-p2",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -422,11 +428,11 @@
     "0109"
    ],
    "extension": [
-    "9025",
-    "9026"
+    "9026",
+    "9027"
    ]
   },
-  "version": "0.8.1-p2",
+  "version": "0.8.2-p2",
   "work_kinds": [
    "plan.execute",
    "staging.promote"
