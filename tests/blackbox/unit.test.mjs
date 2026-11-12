@@ -58,13 +58,13 @@ test('UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, addit
 test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes', () => {
   const env = { BNX_PROJECT_ID: 'p1', BNX_INSTANCE_UID: 'u1', BNX_CONFIG_DIGEST: 'd'.repeat(64), BNX_MODULES: '{"Canada":"YES","International":"NO","CRA":"YES"}' };
   const facts = { identity: { project_id: 'p1', instance_uid: 'u1' }, deployable_sha256: ['d'.repeat(64)],
-                  schema_head: { core: '0109', extension: '9031' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
+                  schema_head: { core: '0109', extension: '9032' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
   assert.deepEqual(evaluate(env, facts), { ok: true, failed: [], error: null });
   const cases = [
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_INSTANCE_UID: undefined }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_CONFIG_DIGEST: 'e'.repeat(64) }, facts, ['B2'], 'BNX_BINDING_MISMATCH'],
-    [env, { ...facts, schema_head: { core: '0109', extension: '9032' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
+    [env, { ...facts, schema_head: { core: '0109', extension: '9033' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
     [env, { ...facts, schema_head: { core: '0109', extension: '9016' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
     [{ ...env, BNX_MODULES: '{"Canada":"YES","International":"YES","CRA":"YES"}' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{ ...env, BNX_MODULES: 'not json' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
@@ -200,4 +200,44 @@ test('UT-CF-01 production entry (M0-A): one Neon client per held role from its s
   await assert.rejects(cf.makeNeonDb({}, connect).one('bnx_app', 'select 4 r'), /DB_URL_MISSING/);
   assert.deepEqual(seen.map((s) => s[0]), ['u-app', 'u-worker']);
   assert.equal(cf.platformEnv(env, connect), cf.platformEnv(env, connect), 'same wrapped env for the same binding object');
+});
+
+test('UT-MCP-OUT-01 output schemas (2.8 part 3): advertised in tools/list; a conforming result is returned; a result that does not conform is refused as OUTPUT_SCHEMA_MISMATCH, path only', async () => {
+  const out = { type: 'object', required: ['plan_id', 'plan_hash'], properties: { plan_id: { type: 'string', format: 'uuid' }, plan_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' } }, additionalProperties: true };
+  const entry = { name: 'fin.draft.create_transaction', risk_class: 'RC-DRAFT', scopes: ['finance.draft'], legacy: { read: false, propose: true }, channels: ['pwa', 'mcp'],
+    kind: 'query', version: '1.0.0', description: 'x', core_function: 'bnx.q_x', input_schema: { type: 'object', properties: {} }, output_schema: out, mcp: { readOnlyHint: false } };
+  checkSchema(out);
+  let result;
+  const logs = [];
+  const env = { APP_ORIGIN: 'https://bnx.example', db: { one: async (_role, sql) => (sql.includes('q_whoami') ? { scopes: ['finance.draft'] } : result) } };
+  const ctx = { cred: { kind: 'bearer', secret: 's' }, catalog: { entries: [entry] }, release: 't', gatewayKey: async (k) => k, newTrace: () => 'trace', refuseSin: async () => false };
+  const call = async (method, params) => {
+    const req = new Request('https://bnx.example/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    return (await (await mcp.handle(req, env, ctx)).json()).result;
+  };
+  const list = await call('tools/list', {});
+  assert.deepEqual(list.tools[0].outputSchema, out);
+  const good = { plan_id: '00000000-0000-4000-8000-000000000000', plan_hash: 'a'.repeat(64), extra: 1 };
+  result = good;
+  const ok = await call('tools/call', { name: 'fin_draft_create_transaction', arguments: {} });
+  assert.equal(ok.isError, undefined);
+  assert.deepEqual(ok.structuredContent, good);
+  const orig = console.error;
+  console.error = (s) => logs.push(s);
+  try {
+    result = { plan_id: '00000000-0000-4000-8000-000000000000', plan_hash: 'not-a-hash-value-zzz' };
+    const bad = await call('tools/call', { name: 'fin_draft_create_transaction', arguments: {} });
+    assert.equal(bad.isError, true);
+    assert.deepEqual(bad.structuredContent, { error: 'OUTPUT_SCHEMA_MISMATCH', path: '$.plan_hash' });
+    assert.ok(!JSON.stringify(bad).includes('not-a-hash'), 'the value is never returned');
+    result = { plan_id: '00000000-0000-4000-8000-000000000000' };
+    const miss = await call('tools/call', { name: 'fin_draft_create_transaction', arguments: {} });
+    assert.deepEqual(miss.structuredContent, { error: 'OUTPUT_SCHEMA_MISMATCH', path: '$.plan_hash' });
+  } finally { console.error = orig; }
+  assert.equal(logs.length, 2);
+  assert.ok(logs.every((l) => !l.includes('not-a-hash') && JSON.parse(l).event === 'OUTPUT_SCHEMA_MISMATCH'));
+  // the generic {type: object} schema of a derived entry accepts every object result, and an array result is wrapped
+  entry.output_schema = { type: 'object' };
+  result = [1, 2];
+  assert.deepEqual((await call('tools/call', { name: 'fin_draft_create_transaction', arguments: {} })).structuredContent, { result: [1, 2] });
 });

@@ -20,7 +20,7 @@ process.stdin.on('end', async () => {
       db: {
         one: async (role, sql, params) => {
           if (sql.includes('wrk_binding_facts')) return { identity: { project_id: 'guard-household', instance_uid: '00000000-0000-4000-8000-0000000000c4' },
-            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9031' },
+            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9032' },
             active: { flags: { Canada: 'YES', International: 'YES', CRA: 'YES' } }, catalog_sha256: 'none' };
           // AIH-2 re-baseline: the MCP server is generated from the catalog, so the mock catalog carries the one tool used here
           if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', uncatalogued: [], entries: [{

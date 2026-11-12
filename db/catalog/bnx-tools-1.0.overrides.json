@@ -184,6 +184,67 @@
       "description": "An earlier draft this one replaces"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
+     }
+    }
    }
   },
   "cmd_draft_create_transfer": {
@@ -232,6 +293,67 @@
      "source_fingerprint": {
       "type": "string",
       "maxLength": 128
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
      }
     }
    }
@@ -338,6 +460,67 @@
       }
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
+     }
+    }
    }
   },
   "cmd_draft_validate": {
@@ -351,6 +534,43 @@
      "plan_id": {
       "type": "string",
       "format": "uuid"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "validation_result",
+     "hold_reasons",
+     "scope_digest"
+    ],
+    "properties": {
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validated_at_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Ledger version of this validation"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope"
      }
     }
    }
@@ -368,6 +588,22 @@
       "format": "uuid"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "status"
+    ],
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "withdrawn"
+      ],
+      "description": "The draft was withdrawn; nothing was posted"
+     }
+    }
    }
   },
   "q_draft_get_for_confirmation": {
@@ -381,6 +617,117 @@
      "plan_id": {
       "type": "string",
       "format": "uuid"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "kind",
+     "state",
+     "plan_hash",
+     "scope_digest",
+     "hold_reasons",
+     "validation_result",
+     "items",
+     "approvable_by_me"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "state": {
+      "type": "string",
+      "description": "Draft state, e.g. frozen; only the Balnexa app approves and posts"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of the exact version shown"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$"
+     },
+     "hold_reasons": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "items": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "The proposed entries, in order",
+      "items": {
+       "type": "object",
+       "properties": {
+        "seq": {
+         "type": "integer"
+        },
+        "economic_type": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "payload": {
+         "type": [
+          "object",
+          "null"
+         ]
+        },
+        "lines": {
+         "type": [
+          "array",
+          "null"
+         ]
+        }
+       }
+      }
+     },
+     "approvable_by_me": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "Whether the caller could approve it in the app"
+     },
+     "created_by": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "origin_channel": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "pwa or mcp"
      }
     }
    }
@@ -411,6 +758,68 @@
       ],
       "pattern": "^-?[0-9]{1,18}$",
       "description": "Read at this ledger version (replay)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "ledger_version",
+     "as_of",
+     "balances"
+    ],
+    "properties": {
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this with every figure"
+     },
+     "as_of": {
+      "type": "string",
+      "format": "date"
+     },
+     "balances": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "account_currency_id",
+        "currency",
+        "status"
+       ],
+       "properties": {
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "status": {
+         "type": "string",
+         "description": "ok, or why there is no figure (for example NO_OPENING)"
+        },
+        "amount": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Decimal string in the currency; null when status is not ok"
+        }
+       }
+      }
+     },
+     "scope_warnings": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "description": "Scopes left out of this view; label the answer as partial"
      }
     }
    }
@@ -955,8 +1364,59 @@
    "input": {
     "type": "object",
     "properties": {}
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "member_id",
+     "role",
+     "channel",
+     "scopes"
+    ],
+    "properties": {
+     "member_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "display_name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "role": {
+      "type": "string"
+     },
+     "channel": {
+      "type": "string"
+     },
+     "connection_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "The AI connection, for an AI host"
+     },
+     "scopes": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      }
+     },
+     "preference": {
+      "type": [
+       "object",
+       "null"
+      ]
+     }
+    }
    }
   }
  },
- "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'."
+ "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",
+ "note_output_schemas": "2.8 part 3 (9032): output schemas for the draft tools, fin.balances.as_of and sys.whoami. The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH); AT-OUT-01 calls every tool with a curated output schema and validates the results. Report tools keep {type: object} until each has a contract fixture (D-OUT-1)."
 }

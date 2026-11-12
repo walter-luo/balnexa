@@ -16,6 +16,9 @@ Usage:
                       --worker-name balnexa-test --app-origin https://balnexa-test.<sub>.workers.dev --kv-id … --google-client-id …
   install_instance.py … --bind-owner-sub SUB      (after the probe: adds the Owner's Google identity, removes the placeholder)
   install_instance.py … --plan                    (INS-2: validate every input and print the steps; touches nothing)
+  install_instance.py … --require-signed          (INS-1: refuse a release without a valid Owner signature; see
+                                                   tools/s4/release_sign.py. The migration files are always checked against
+                                                   release/manifest.json)
 """
 import argparse, hashlib, json, os, re, secrets, subprocess, sys, uuid
 import psycopg
@@ -25,6 +28,15 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 ROLES = ["bnx_migrator", "bnx_app", "bnx_authn", "bnx_worker"]
 ISS = "https://accounts.google.com"
 PLACEHOLDER_SUB = "pending-owner-probe"
+sys.path.insert(0, os.path.join(ROOT, "tools", "s4"))
+import release_sign  # noqa: E402
+
+
+def release_status(a):
+    """INS-1: (signature verdict, migration-file problems). The files are checked against the manifest on every install."""
+    pub = getattr(a, "release_pub", None) or release_sign.PUBLIC
+    ok, why = release_sign.verify(pub)
+    return why, release_sign.check_files()
 
 
 def psql_file(pg, path):
@@ -88,6 +100,11 @@ def validate(a):
         p.append("--kv-id must be a 32-hex Cloudflare KV namespace id")
     if not re.fullmatch(r"[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com", a.google_client_id or ""):
         p.append("--google-client-id must be a Google OAuth web client id")
+    why, files = release_status(a)
+    if files:
+        p.append("release: the migration files differ from release/manifest.json (" + ", ".join(files[:5]) + ")")
+    if getattr(a, "require_signed", False) and why != "VALID":
+        p.append(f"--require-signed: the release signature is {why}")
     return p
 
 
@@ -96,6 +113,8 @@ def plan(a):
              "3. migrations as bnx_migrator (B003 on request)", f"4. install_household_v2 for project {a.project_id} (data_class synthetic), "
              "install_activate_config", f"5. render apps/worker/wrangler.toml for {a.worker_name} at {a.app_origin}; runtime secrets to "
              f"{a.secrets_dir} (0600)"]
+    why, files = release_status(a)
+    steps.insert(0, f"0. release: signature {why}; migration files {'match' if not files else 'DIFFER from'} release/manifest.json")
     if a.bind_owner_sub:
         steps = ["bind the Owner's Google subject and remove the placeholder (then set BNX_INSTALL_PROBE=0 and redeploy)"]
     return "install plan (nothing done):\n  " + "\n  ".join(steps)
@@ -116,6 +135,8 @@ def main():
     ap.add_argument("--secrets-dir", default=os.path.expanduser("~/.balnexa"))
     ap.add_argument("--bind-owner-sub")
     ap.add_argument("--plan", action="store_true", help="validate the inputs and print the steps; touch nothing (INS-2)")
+    ap.add_argument("--require-signed", action="store_true", help="refuse an unsigned or wrongly signed release (INS-1)")
+    ap.add_argument("--release-pub", help="Ed25519 public key file (default release/release-signing.pub)")
     a = ap.parse_args()
     problems = validate(a)
     if problems:

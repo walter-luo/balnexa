@@ -91,6 +91,11 @@ def derive(cx, ovr):
             if ck != set(props):
                 errors.append(f"{name}: curated schema keys {sorted(ck ^ set(props))} differ from the keys the body reads"); continue
             props = cur["input"]["properties"]
+            out = cur.get("output")
+            if out is not None:                              # 2.8 part 3: a curated output schema is an object schema in the
+                bad = schema_problems(out)                   # Worker validator's keyword set (it is enforced on every result)
+                if out.get("type") != "object" or bad:
+                    errors.append(f"{name}: curated output schema {bad or 'top level must be type object'}"); continue
         fs = fscope.get(name)
         tool = fs[4] if fs and fs[4] and re.fullmatch(r"[a-z]+(\.[a-z0-9_]+)+", fs[4]) else None
         mcp = bool(fs) and tier is not None and tier <= 1
@@ -109,7 +114,7 @@ def derive(cx, ovr):
             "module_flags": [],
             "input_schema": {"type": "object", "properties": props, "additionalProperties": True,
                              **({"required": cur["input"]["required"]} if cur and cur["input"].get("required") else {})},
-            "output_schema": {"type": "object"},
+            "output_schema": (cur or {}).get("output") or {"type": "object"},
             "errors": COMMON_ERRORS,
             "idempotency": "required" if re.search(r"bnx\.idem_begin\(", src) else "none",
             "masked_fields": [],
@@ -127,6 +132,29 @@ def derive(cx, ovr):
             errors.append(f"tool name {e['name']} used by {seen[e['name']]} and {name}")
         seen[e["name"]] = name
     return entries, errors
+
+
+SCHEMA_KEYS = {"type", "properties", "required", "additionalProperties", "enum", "pattern", "minLength", "maxLength", "minimum",
+               "maximum", "items", "minItems", "maxItems", "format", "description"}    # = apps/worker/src/schema.js KNOWN
+
+
+def schema_problems(s, path="$"):
+    """Keywords outside the Worker validator's set, or a malformed node (the Worker refuses such a catalog at load time)."""
+    if isinstance(s, bool):
+        return []
+    if not isinstance(s, dict):
+        return [f"{path}: not a schema"]
+    out = [f"{path}: unsupported keyword {k}" for k in sorted(set(s) - SCHEMA_KEYS)]
+    for k, v in (s.get("properties") or {}).items():
+        out += schema_problems(v, f"{path}.{k}")
+    if isinstance(s.get("additionalProperties"), dict):
+        out += schema_problems(s["additionalProperties"], f"{path}.*")
+    if "items" in s:
+        out += schema_problems(s["items"], f"{path}[]")
+    for r in s.get("required") or []:
+        if r not in (s.get("properties") or {}):
+            out.append(f"{path}: required {r} has no property")
+    return out
 
 
 def block(entries):
