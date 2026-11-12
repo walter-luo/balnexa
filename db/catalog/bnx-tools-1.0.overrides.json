@@ -48,5 +48,14 @@
     "q_evidence_access": "doc.evidence.access",
     "cmd_register_evidence": "doc.evidence.register"
   },
-  "note_names": "AIH V1.2 §2.2 tool names where bnx.function_scope carries none; every other entry is named from function_scope.note or pwa.<rest name>"
+  "note_names": "AIH V1.2 §2.2 tool names where bnx.function_scope carries none; every other entry is named from function_scope.note or pwa.<rest name>",
+  "ui_cards": {
+    "cmd_draft_create_transaction": "draft_confirm",
+    "cmd_draft_create_transfer": "draft_confirm",
+    "cmd_draft_revise": "draft_confirm",
+    "cmd_draft_validate": "draft_confirm",
+    "q_draft_get_for_confirmation": "draft_confirm",
+    "cmd_draft_withdraw": "status"
+  },
+  "note_ui_cards": "AIH-4 (UA V1.2 §12.3; AIH §8): MCP tools whose result the host renders with the one MCP App resource ui://balnexa/cards/v1, by card profile. Display only: the card opens the sealed PWA link and never calls a tool (in-card approval off, OD-40)."
 }
