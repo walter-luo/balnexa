@@ -444,7 +444,7 @@ test('AT-AIH-06 discovery: RFC 8414 AS metadata, RFC 9728 metadata for /mcp and 
   const note = await call('/mcp', { body: { jsonrpc: '2.0', method: 'notifications/initialized' }, bearer: S.bearer });
   assert.deepEqual([note.status, note.text], [202, '']);
   assert.deepEqual((await rpcAt(S.bearer, 'ping')).json.result, {});
-  assert.equal((await rpcAt(S.bearer, 'resources/list')).json.error.code, -32601);
+  assert.equal((await rpcAt(S.bearer, 'prompts/list')).json.error.code, -32601);       // tools and one card resource only (AIH §3)
   const batch = await call('/mcp', { body: [{ jsonrpc: '2.0', id: 1, method: 'ping' }], bearer: S.bearer });
   assert.deepEqual([batch.status, batch.json.error.code], [400, -32600]);
   assert.equal((await rpcAt(S.bearer, 'ping', null, { headers: { 'mcp-protocol-version': '2024-01-01' } })).status, 400);
@@ -635,6 +635,48 @@ test('AT-AIH-06b CIMD: an allowlisted client-id URL is fetched once and register
     const d = await callAt(b2, '/oauth/authorize', { body: { action: 'describe', client_id: CID, redirect_uri: CB }, cookie: S.owner, headers: { origin: ORIGIN } });
     assert.deepEqual([d.json.host_profile, d.json.registration_kind, d.json.client_name], ['chatgpt_plugin_mcp', 'CIMD', 'ChatGPT']);
   });
+});
+
+test('AT-CONF-04 AIH-4 card: one display-only MCP App resource; draft tools name it; the draft result carries the sealed PWA link; nothing is posted', async () => {
+  const init = (await rpcAt(S.bearer, 'initialize', { protocolVersion: '2025-06-18' })).json.result;
+  assert.deepEqual(init.capabilities.resources, { listChanged: false });
+  const ls = (await rpcAt(S.bearer, 'resources/list')).json.result.resources;
+  assert.deepEqual(ls.map((r) => [r.uri, r.mimeType]), [['ui://balnexa/cards/v1', 'text/html;profile=mcp-app']]);
+  assert.deepEqual(ls[0]._meta.ui.csp, { connectDomains: [], resourceDomains: [] });
+  assert.deepEqual((await rpcAt(S.bearer, 'resources/templates/list')).json.result.resourceTemplates, []);
+  assert.equal((await rpcAt(S.bearer, 'resources/read', { uri: 'ui://balnexa/other' })).json.error.code, -32002);
+  const rd = (await rpcAt(S.bearer, 'resources/read', { uri: 'ui://balnexa/cards/v1' })).json.result.contents[0];
+  assert.equal(rd.mimeType, 'text/html;profile=mcp-app');
+  const html = rd.text;
+  assert.ok(html.includes(JSON.stringify(ORIGIN)), 'the instance URL is the only injected value');
+  assert.match(html, /connect-src 'none'/);
+  // display only: no network API, no tool call, no markup from data
+  for (const bad of [/fetch\(/, /XMLHttpRequest/, /WebSocket/, /EventSource/, /tools\/call/, /callTool/, /innerHTML/, /insertAdjacentHTML/, /eval\(/, /<script[^>]+src=/, /<link /]) {
+    assert.doesNotMatch(html, bad);
+  }
+  assert.ok(!/https?:\/\/(?!app\.balnexa\.test)[a-z]/.test(html), 'no other origin is referenced');
+  assert.ok(Buffer.byteLength(html) < 16384);
+  // the catalog binds the card to the draft tools only
+  const tools = (await rpcAt(S.bearer, 'tools/list')).json.result.tools;
+  const withCard = tools.filter((t) => t._meta && t._meta.ui).map((t) => t.name).sort();
+  assert.deepEqual(withCard, ['fin_draft_create_transaction', 'fin_draft_create_transfer', 'fin_draft_get_for_confirmation', 'fin_draft_revise',
+    'fin_draft_validate', 'fin_draft_withdraw'].filter((n) => tools.some((t) => t.name === n)));
+  const dt = tools.find((t) => t.name === 'fin_draft_create_transaction');
+  assert.deepEqual(dt._meta, { ui: { resourceUri: 'ui://balnexa/cards/v1' }, 'openai/outputTemplate': 'ui://balnexa/cards/v1', 'openai/widgetAccessible': false });
+  assert.equal(tools.find((t) => t.name === 'fin_balances_as_of')._meta, undefined);
+  // a draft: structured result unchanged, a second text block with the sealed link of exactly this version
+  const bal0 = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } })).json.result.structuredContent;
+  const r = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { account_currency_id: S.ac.account_currency_id,
+    transaction_date: '2026-03-04', economic_type: 'consumption_expense', amount: '-2.00', counter_ledger_account_id: S.groc, idempotency_key: 'bb-card-draft-one' } })).json.result;
+  assert.ok(!r.isError, JSON.stringify(r));
+  const sc = r.structuredContent;
+  assert.equal(r.content[0].text, JSON.stringify(sc));
+  assert.equal(r.content[1].text, `Not posted. Review and approve this exact version in Balnexa: ${ORIGIN}/app/#/confirm/${sc.plan_id}?h=${encodeURIComponent(sc.plan_hash)}&s=${encodeURIComponent(sc.scope_digest)}`);
+  const g = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_get_for_confirmation', arguments: { plan_id: sc.plan_id } })).json.result;
+  assert.equal(g.content[1].text, r.content[1].text, 'server-confirmed state links to the same version');
+  assert.equal(g.content.length, 2);
+  const nb = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } })).json.result;
+  assert.deepEqual([nb.content.length, nb.structuredContent], [1, bal0], 'not posted; read tools carry no link');
 });
 
 test('BB-AUTH-02 logout revokes the session server-side', async () => {

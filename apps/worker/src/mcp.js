@@ -1,13 +1,14 @@
-// Streamable HTTP MCP server generated from the bnx-tools/1.0 catalog (AIH V1.2 §2–§3, §6; AIH-2; replaces the R1 static
-// MCP_TOOLS map, OBJ-268). Stateless JSON responses (no SSE stream, no session id): POST /mcp carries one JSON-RPC message;
-// GET and DELETE answer 405. Tools are exactly the catalog entries on the mcp channel of class RC-READ or RC-DRAFT, listed
+// Streamable HTTP MCP server generated from the bnx-tools/1.0 catalog (AIH V1.2 §2–§3, §6, §8; AIH-2, AIH-4; replaces the R1
+// static MCP_TOOLS map, OBJ-268). Stateless JSON responses (no SSE stream, no session id): POST /mcp carries one JSON-RPC
+// message; GET and DELETE answer 405. One resource: the display-only confirmation card ui://balnexa/cards/v1 (card.js). Tools are exactly the catalog entries on the mcp channel of class RC-READ or RC-DRAFT, listed
 // only when the connection's consented scopes cover them; the database still decides every call (bnx.require(),
 // function_scope, the account-currency subset), so this list is a convenience, never the authorization.
 // Tool names: the catalog name with "." replaced by "_" (fin.balances.as_of -> fin_balances_as_of), because host
 // function-name rules allow only [A-Za-z0-9_-] (D-AIH-4); the catalog name is the tool's title.
 import { json } from './http.js';
 import { validate } from './schema.js';
-import { challenge } from './oauth.js';
+import { challenge, instanceUrl } from './oauth.js';
+import { CARD_URI, CARD_MIME, CARD_META, cardHtml } from './card.js';
 
 export const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 export const RESULT_LIMIT = 150000;                          // characters of the text content (AIH §3, PF-A2)
@@ -47,13 +48,20 @@ export function covered(e, scopes) {
 }
 
 export function describe(e) {
+  const card = e.mcp.ui_resource === CARD_URI;
   return {
     name: toolName(e), title: e.name, description: `${e.description} [${e.risk_class}; bnx-tools ${e.version}]`,
     inputSchema: e.input_schema, outputSchema: e.output_schema && e.output_schema.type === 'object' ? e.output_schema : undefined,
     annotations: { title: e.name, readOnlyHint: !!e.mcp.readOnlyHint, destructiveHint: false, openWorldHint: false,
       idempotentHint: e.kind === 'query' },
+    // AIH-4: the result is rendered by the card resource named in the catalog (MCP Apps; ChatGPT Apps SDK key for the same
+    // resource); the card may not call tools (widgetAccessible false)
+    ...(card ? { _meta: { ui: { resourceUri: CARD_URI }, 'openai/outputTemplate': CARD_URI, 'openai/widgetAccessible': false } } : {}),
   };
 }
+
+// the sealed PWA link of a draft (CORE-9 Mode H): what the card's Confirm opens, and the text fallback for hosts without cards
+export const sealedLink = (env, r) => `${instanceUrl(env)}/app/#/confirm/${encodeURIComponent(r.plan_id)}?h=${encodeURIComponent(r.plan_hash)}&s=${encodeURIComponent(r.scope_digest)}`;
 
 const rpcReply = (id, result) => json(200, { jsonrpc: '2.0', id, result });
 const rpcError = (id, code, message) => json(200, { jsonrpc: '2.0', id, error: { code, message } });
@@ -86,13 +94,23 @@ export async function handle(req, env, ctx) {
   const tools = mcpTools(ctx.catalog);
   if (rpc.method === 'initialize') {
     const v = PROTOCOLS.includes(params.protocolVersion) ? params.protocolVersion : PROTOCOLS[0];
-    return rpcReply(id, { protocolVersion: v, capabilities: { tools: { listChanged: false } },
+    return rpcReply(id, { protocolVersion: v, capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
       serverInfo: { name: 'balnexa', title: 'Balnexa', version: ctx.release }, instructions: INSTRUCTIONS });
   }
   if (rpc.method === 'ping') return rpcReply(id, {});
   if (rpc.method === 'tools/list') {
     const scopes = me.scopes || [];
     return rpcReply(id, { tools: [...tools.values()].filter((e) => covered(e, scopes)).sort((a, b) => (a.name < b.name ? -1 : 1)).map(describe) });
+  }
+  // AIH-4: exactly one resource, the confirmation card (AIH §3: tools plus one UI resource; no subscriptions)
+  if (rpc.method === 'resources/list') {
+    return rpcReply(id, { resources: [{ uri: CARD_URI, name: 'balnexa-cards', title: 'Balnexa confirmation card', mimeType: CARD_MIME,
+      description: 'Display-only card for drafts and statuses; Confirm opens the Balnexa app', _meta: CARD_META }] });
+  }
+  if (rpc.method === 'resources/templates/list') return rpcReply(id, { resourceTemplates: [] });
+  if (rpc.method === 'resources/read') {
+    if (params.uri !== CARD_URI) return rpcError(id, -32002, 'Resource not found');
+    return rpcReply(id, { contents: [{ uri: CARD_URI, mimeType: CARD_MIME, text: cardHtml(instanceUrl(env)), _meta: CARD_META }] });
   }
   if (rpc.method !== 'tools/call') return rpcError(id, -32601, 'Method not found');
   const e = tools.get(params.name);
@@ -125,5 +143,10 @@ export async function handle(req, env, ctx) {
   const text = JSON.stringify(r);
   if (text.length > RESULT_LIMIT) return toolError(id, 'RESULT_TOO_LARGE', { limit: RESULT_LIMIT });
   const structured = r && typeof r === 'object' && !Array.isArray(r) ? r : { result: r };
-  return rpcReply(id, { content: [{ type: 'text', text }], structuredContent: structured });
+  const content = [{ type: 'text', text }];
+  // a draft's text fallback (hosts that draw no card): the sealed link; structuredContent stays the REST body (AT-AIH-01)
+  if (e.ui_profile === 'draft_confirm' && structured.plan_id && structured.plan_hash && structured.scope_digest) {
+    content.push({ type: 'text', text: `Not posted. Review and approve this exact version in Balnexa: ${sealedLink(env, structured)}` });
+  }
+  return rpcReply(id, { content, structuredContent: structured });
 }

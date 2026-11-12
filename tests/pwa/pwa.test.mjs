@@ -526,6 +526,66 @@ test('AT-AIH-10 consent screen (AIH-1): an AI host is allowed only the scopes an
   assert.deepEqual([ctx.log.external, ctx.log.ai], [[], []], 'nothing but the host redirect left this origin; /mcp never from the page');
 });
 
+test('AT-CONF-01/02 via the AIH-4 card: a host renders the draft from the server result as text only; Confirm opens the sealed PWA link; the Owner approves that version', async () => {
+  const CB = 'https://claude.ai/api/mcp/auth_callback';
+  const cid = (await S.call('/oauth/register', { body: { client_name: 'Claude', redirect_uris: [CB] } })).json.client_id;
+  const verifier = crypto.randomBytes(40).toString('base64url');
+  const az = await S.call('/oauth/authorize', { cookie: owner, body: { client_id: cid, redirect_uri: CB, code_challenge: crypto.createHash('sha256').update(verifier).digest('base64url'),
+    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft'], account_currency_ids: [ac.account_currency_id], resource: `${S.base}/mcp` } });
+  assert.equal(az.status, 200, az.text);
+  const tok = await (await fetch(`${S.base}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({
+    grant_type: 'authorization_code', code: new URL(az.json.redirect).searchParams.get('code'), client_id: cid, redirect_uri: CB, code_verifier: verifier }) })).json();
+  const mcp = async (method, params) => (await (await fetch(`${S.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json',
+    authorization: `Bearer ${tok.access_token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json()).result;
+  const r = await mcp('tools/call', { name: 'fin_draft_create_transaction', arguments: { account_currency_id: ac.account_currency_id, transaction_date: '2026-03-05',
+    economic_type: 'consumption_expense', amount: '-7.25', counter_ledger_account_id: groceries, description: '<b>Lunch</b> <img src=x onerror="parent.pwned=1">' } });
+  assert.ok(!r.isError, JSON.stringify(r));
+  const g = await mcp('tools/call', { name: 'fin_draft_get_for_confirmation', arguments: { plan_id: r.structuredContent.plan_id } });
+  const html = (await mcp('resources/read', { uri: 'ui://balnexa/cards/v1' })).contents[0].text;
+  // a host stub: the card in a sandboxed iframe, MCP Apps messages over postMessage; every message the card sends is recorded
+  const ctx = await context(B, S.base, null, {}, {});
+  aiContexts.push(ctx);
+  const p = await ctx.newPage();
+  await p.setContent('<!doctype html><html><body><iframe id="c" sandbox="allow-scripts" title="card" style="width:600px;height:500px"></iframe></body></html>');
+  await p.evaluate(({ html, result }) => {
+    window.seen = []; window.opened = [];
+    const f = document.getElementById('c');
+    window.addEventListener('message', (ev) => {
+      const m = ev.data; if (!m || m.jsonrpc !== '2.0') return;
+      window.seen.push(m.method || 'response');
+      const reply = (res) => f.contentWindow.postMessage({ jsonrpc: '2.0', id: m.id, result: res }, '*');
+      if (m.method === 'ui/initialize') reply({ protocolVersion: '2025-11-21', hostInfo: { name: 'stub', version: '1' }, hostContext: { locale: 'en-CA', theme: 'light' } });
+      if (m.method === 'ui/notifications/initialized') f.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result }, '*');
+      if (m.method === 'ui/open-link') { window.opened.push(m.params.url); reply({}); }
+    });
+    f.srcdoc = html;
+  }, { html, result: g });
+  const frame = p.frameLocator('#c');
+  await frame.locator('#bnx-confirm').waitFor();
+  assert.equal(await frame.locator('h1').textContent(), 'Draft — not posted');
+  const text = await frame.locator('main').textContent();
+  assert.ok(text.includes('<b>Lunch</b> <img src=x onerror="parent.pwned=1">') && text.includes('-7.25 CAD'), text);
+  assert.equal(await frame.locator('main b, main img').count(), 0, 'data never becomes markup');
+  assert.equal(await p.evaluate(() => window.pwned), undefined);
+  await frame.locator('#bnx-confirm').click();
+  await p.waitForFunction(() => window.opened.length === 1);
+  const url = await p.evaluate(() => window.opened[0]);
+  assert.equal(`Not posted. Review and approve this exact version in Balnexa: ${url}`, g.content[1].text);
+  const seen = await p.evaluate(() => window.seen);
+  assert.ok(seen.every((m) => ['ui/initialize', 'ui/notifications/initialized', 'ui/open-link', 'ui/notifications/size-changed', 'response'].includes(m)), `${seen}`);
+  assert.deepEqual(ctx.log.requests, [], 'the card made no request at all');
+  // the sealed link in the PWA: the Owner sees the server's version, the seal matches, approval sends exactly that version
+  const o = await page(owner);
+  await o.goto(url);
+  await o.waitForSelector('main h1');
+  await o.waitForSelector('main .status.ok');
+  assert.match(await o.textContent('main'), /<b>Lunch<\/b>/);
+  await o.click('main button.primary');
+  await o.waitForFunction(() => /approved/i.test(document.querySelector('#status').textContent));
+  const after = await mcp('tools/call', { name: 'fin_draft_get_for_confirmation', arguments: { plan_id: r.structuredContent.plan_id } });
+  assert.notEqual(after.structuredContent.state, g.structuredContent.state, 'approved in the PWA, not in the card');
+});
+
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {
   const external = contexts.flatMap((c) => c.log.external);
   const ai = contexts.flatMap((c) => c.log.ai);

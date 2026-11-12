@@ -11,6 +11,7 @@ import { dispatch, handleItem, KINDS, DEFER, isBackstopTick } from '../../apps/w
 import { RELEASE } from '../../apps/worker/src/release.js';
 import * as mcp from '../../apps/worker/src/mcp.js';
 import * as oauth from '../../apps/worker/src/oauth.js';
+import * as card from '../../apps/worker/src/card.js';
 
 test('UT-PRESIGN-01 SigV4 query-string presigning equals the AWS documented example', async () => {
   // AWS S3 API Reference, "Authenticating Requests: Using Query Parameters (AWS Signature Version 4)", worked example 1.
@@ -56,13 +57,13 @@ test('UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, addit
 test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes', () => {
   const env = { BNX_PROJECT_ID: 'p1', BNX_INSTANCE_UID: 'u1', BNX_CONFIG_DIGEST: 'd'.repeat(64), BNX_MODULES: '{"Canada":"YES","International":"NO","CRA":"YES"}' };
   const facts = { identity: { project_id: 'p1', instance_uid: 'u1' }, deployable_sha256: ['d'.repeat(64)],
-                  schema_head: { core: '0109', extension: '9021' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
+                  schema_head: { core: '0109', extension: '9022' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
   assert.deepEqual(evaluate(env, facts), { ok: true, failed: [], error: null });
   const cases = [
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_INSTANCE_UID: undefined }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_CONFIG_DIGEST: 'e'.repeat(64) }, facts, ['B2'], 'BNX_BINDING_MISMATCH'],
-    [env, { ...facts, schema_head: { core: '0109', extension: '9022' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
+    [env, { ...facts, schema_head: { core: '0109', extension: '9023' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
     [env, { ...facts, schema_head: { core: '0109', extension: '9016' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
     [{ ...env, BNX_MODULES: '{"Canada":"YES","International":"YES","CRA":"YES"}' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{ ...env, BNX_MODULES: 'not json' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
@@ -172,4 +173,17 @@ test('UT-OAUTH-01 metadata documents derive every URL from the instance URL (RFC
     bearer_methods_supported: ['header'], resource_name: 'Balnexa Business API' });
   assert.ok(oauth.CONSENTABLE.every((s) => oauth.SCOPES.includes(s)) && !oauth.CONSENTABLE.some((s) => s.startsWith('tax.')));
   assert.equal(oauth.challenge(env, true), 'Bearer resource_metadata="https://h.example/.well-known/oauth-protected-resource/mcp", scope="finance.read reports.read offline_access", error="invalid_token"');
+});
+
+test('UT-CARD-01 confirmation card (AIH-4): the instance URL cannot break out of its JSON element; the card has no network or tool API; sealed link format', () => {
+  const html = card.cardHtml('https://x.example/</script><script>alert(1)</script>');
+  assert.equal((html.match(/<\/script>/g) || []).length, 2, 'only the two closing tags of the card itself');
+  assert.ok(html.includes('\\u003c/script>'));
+  for (const bad of [/fetch\(/, /XMLHttpRequest/, /WebSocket/, /tools\/call/, /innerHTML/, /eval\(/]) assert.doesNotMatch(html, bad);
+  assert.deepEqual(card.CARD_META.ui.csp, { connectDomains: [], resourceDomains: [] });
+  assert.equal(mcp.sealedLink({ APP_ORIGIN: 'https://h.example' }, { plan_id: 'p-1', plan_hash: 'a+b/c=', scope_digest: 's d' }),
+    'https://h.example/app/#/confirm/p-1?h=a%2Bb%2Fc%3D&s=s%20d');
+  const d = mcp.describe({ name: 'fin.draft.revise', risk_class: 'RC-DRAFT', version: '1.0.0', description: 'x', kind: 'command', input_schema: { type: 'object' },
+    output_schema: { type: 'object' }, mcp: { readOnlyHint: false, ui_resource: card.CARD_URI } });
+  assert.deepEqual(d._meta.ui, { resourceUri: 'ui://balnexa/cards/v1' });
 });
