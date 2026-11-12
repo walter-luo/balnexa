@@ -548,6 +548,29 @@ KINDS = {"function", "table", "trigger", "schema", "role", "view", "type", "sequ
 IMPLEMENTED = {"—", "", "B002", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009", "9010"}
 # objects created by this increment that the V1.2 disposition does not list (to be added as OBJ rows; see implementation notes)
 HELPERS_NOT_IN_DISPOSITION = {
+    # 9012a R28 engine helpers; cmd_declare_loan is a new command that OBJ-249 does not name yet (register update recorded in
+    # docs/s4/S4_9012_Implementation_Notes.md); 9012 is partly implemented, so its disposition rows stay out of scope
+    "bnx.cmd_declare_loan", "bnx.r28_basis", "bnx.r28_contract", "bnx.r28_days", "bnx.r28_dec", "bnx.r28_div", "bnx.r28_evaluate",
+    "bnx.r28_household_internal", "bnx.r28_require_post", "bnx.r28_round", "bnx.r28_scale", "bnx.trg_account_family_institution",
+    # 9012b FX, investment and card-fee commands, queries and helpers that OBJ-248/249 do not name (register update recorded in
+    # docs/s4/S4_9012_Implementation_Notes.md, L-9012-6)
+    "bnx.investment_lot_disposal", "bnx.q_fx_rate", "bnx.q_investment_position", "bnx.q_card_fee_progress", "bnx.cmd_record_fx_quote",
+    "bnx.cmd_record_investment_lot", "bnx.cmd_record_lot_disposal", "bnx.cmd_record_valuation", "bnx.cmd_record_card_fee_event",
+    "bnx.fin_dec", "bnx.fin_money", "bnx.effective_economic_type", "bnx.journal_counts_at", "bnx.journal_movement", "bnx.fx_rate_at",
+    "bnx.lot_disposals_at", "bnx.card_anniversary", "bnx.card_period", "bnx.card_policy_at", "bnx.card_fee_progress",
+    "bnx.card_require_post",
+    # 9012c-1 observations, statement periods and the exception structure (OWNER_DECISION 2026-11-11 option 2)
+    "bnx.observations_at", "bnx.q_balance_observations", "bnx.statement_period_at", "bnx.reconciliation_exception_event",
+    "bnx.trg_reconciliation_exception_state",
+    # 9012c-2 deterministic reconciliation (Draft-04 §D1-§D7)
+    "bnx.source_link_at", "bnx.reconciliation_run", "bnx.recon_eq", "bnx.recon_transposes", "bnx.recon_subset_sum", "bnx.recon_coverage_gap",
+    "bnx.recon_evaluate_statement", "bnx.recon_evaluate_observation", "bnx.cmd_run_reconciliation", "bnx.cmd_set_reconciliation_exception_state",
+    # 9012d matching MR-08...MR-13, onboarding, imports, payment attributes, cross-source matches (Draft-04 §C4/§C5; S2-02)
+    "bnx.cross_source_match_event", "bnx.onboarding_job_event", "bnx.cmd_set_import_mapping", "bnx.cmd_set_payment_attribute",
+    "bnx.cmd_cross_source_match", "bnx.text_similarity", "bnx.transfer_like", "bnx.match_leg_candidates", "bnx.match_row_candidates",
+    "bnx.match_propose", "bnx.match_record", "bnx.cmd_match_source_rows", "bnx.cmd_decide_match", "bnx.onboarding_admin",
+    "bnx.onboarding_state_at", "bnx.cmd_onboarding_create_job", "bnx.cmd_onboarding_add_file", "bnx.cmd_onboarding_job_event",
+    "bnx.cmd_onboarding_history", "bnx.onboarding_step", "bnx.wrk_onboarding_step", "bnx.q_onboarding_job", "bnx.trg_onboarding_transition",
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",

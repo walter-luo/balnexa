@@ -435,7 +435,11 @@ def t_matrix(server, ev):
     absent = sorted(t for t in design if t not in exist)
     got = sorted(x["table"] for x in m)
     extra = sorted(set(got) - set(design))
-    later = {"intake_item"}                    # 9010 (bnx_intake) adds its own enforcement point (F-C2-07)
+    later = {"intake_item",                   # 9010 (bnx_intake) adds its own enforcement point (F-C2-07)
+             "loan_term_event", "loan_payment_link",   # 9012a: account-scoped through the loan and the cash account
+             "card_fee_policy", "investment_lot", "investment_lot_disposal",   # 9012b: account-scoped through the card / lot
+             "reconciliation_exception", "reconciliation_run",   # 9012c: account-scoped run and finding
+             "account_history_state"}                 # 9012d: onboarding history of one account-currency
     check(set(present) <= set(got) and set(extra) - later == {"account_holder_event", "ai_connection", "card_link_event", "posting_plan"},
           f"{got} vs {present}; extra {extra}")
     return (f"generated matrix covers all {len(present)} §4.4.1 tables that exist; not yet created (trigger due in their migration): {absent}; "
