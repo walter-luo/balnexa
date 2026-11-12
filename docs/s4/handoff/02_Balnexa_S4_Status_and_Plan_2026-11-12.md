@@ -55,7 +55,7 @@ V1 cannot go live until the Owner opens gates O-7/M0-AUTH (cloud), POC-AUTH (hos
 | #13 | `s4/aih` → `s4/core-10` | OAuth 2.1 for AI hosts, catalog MCP server, consent and connections | 9021 | green (`f2cddc7`) | draft |
 | #14 | `s4/aih-4` → `s4/aih` | MCP App confirmation card | 9022 | green (`1db6445`) | draft |
 | #15 | `s4/aih-r` → `s4/aih-4` | Independent-review remediation RV-AIH-01…14 | 9023 | green (`6571164`) | draft |
-| (new) | `s4/handoff` → `s4/aih-r` | This handoff set (documents only) | — | — | to be opened |
+| #16 | `s4/handoff` → `s4/aih-r` | This handoff set (documents only) | — | docs only | draft |
 
 **Merge order:** #9 → #10 → … → #15 → #16. After each merge, retarget the next PR to `main`.
 
