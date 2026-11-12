@@ -64,7 +64,7 @@ Those stay valid as history and are kept in the claude.ai Project "Balnexa - Dev
   | #13 | `s4/aih` → `s4/core-10` | `f2cddc7` | OAuth for AI hosts, MCP server, 9021 |
   | #14 | `s4/aih-4` → `s4/aih` | `1db6445` | confirmation card, 9022 |
   | #15 | `s4/aih-r` → `s4/aih-4` | `6571164` | review remediation, 9023 |
-  | (to open) | `s4/handoff` → `s4/aih-r` | see branch | this handoff set |
+  | #16 | `s4/handoff` → `s4/aih-r` | see branch | this handoff set (documents only) |
 
 - **Merge procedure (Owner):** merge #9 into `main` with a merge commit. Retarget #10 to `main`; GitHub does this automatically if the merged head branch is deleted, but branches are kept by policy, so retarget manually. Repeat for each PR in order.
 - **Other branch:** `s4/design-addendum-a1` holds Design Addendum A1 Rev 1 and the Owner decisions of 2026-11-10, referenced by 9011. Keep it.

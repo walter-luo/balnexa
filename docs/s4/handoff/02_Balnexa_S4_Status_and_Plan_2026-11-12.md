@@ -57,7 +57,7 @@ V1 cannot go live until the Owner opens gates O-7/M0-AUTH (cloud), POC-AUTH (hos
 | #15 | `s4/aih-r` → `s4/aih-4` | Independent-review remediation RV-AIH-01…14 | 9023 | green (`6571164`) | draft |
 | (new) | `s4/handoff` → `s4/aih-r` | This handoff set (documents only) | — | — | to be opened |
 
-**Merge order:** #9 → #10 → … → #15 → handoff. After each merge, retarget the next PR to `main`.
+**Merge order:** #9 → #10 → … → #15 → #16. After each merge, retarget the next PR to `main`.
 
 Each PR description records its local regression and CI results. All PRs are `mergeable_state = clean`.
 
