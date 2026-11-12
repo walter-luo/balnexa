@@ -247,9 +247,15 @@
    "min_worker_release": "0.8.4-p2",
    "sha256": "88aaf51cedebae14f7d2fcaa2cc86afab407b97279f3697bdddf1b47540b0343",
    "version": "9029"
+  },
+  {
+   "file": "9030_s4_audit_subject_ids.sql",
+   "min_worker_release": "0.8.5-p2",
+   "sha256": "3be7e8be5478ad4ada2c6d61b17a6179139bbb95d45bf57ed03dbea3e2784f5b",
+   "version": "9030"
   }
  ],
- "pwa_shell": "bnx-shell-0.8.4-p2",
+ "pwa_shell": "bnx-shell-0.8.5-p2",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -440,11 +446,11 @@
     "0109"
    ],
    "extension": [
-    "9028",
-    "9029"
+    "9029",
+    "9030"
    ]
   },
-  "version": "0.8.4-p2",
+  "version": "0.8.5-p2",
   "work_kinds": [
    "plan.execute",
    "staging.promote"
