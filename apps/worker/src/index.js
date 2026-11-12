@@ -68,12 +68,13 @@ function jwks(env) {
 
 // PWA documents (CORE-9; UA V1.2 §12; OR-U-01/06): the page may talk only to this origin and to Google Identity Services for
 // sign-in (no other host, so no hidden LLM call is possible from the shell); camera, microphone and location are never asked.
+// Referrer: strict-origin-when-cross-origin, as GIS requires (M0-A live finding F-M0A-02: no-referrer left the button unrendered).
 const PWA_HEADERS = {
   'content-security-policy': "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; "
     + "style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; "
     + "connect-src 'self' https://accounts.google.com/gsi/; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
     + "worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'x-frame-options': 'DENY',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
   'cross-origin-opener-policy': 'same-origin-allow-popups',
 };
