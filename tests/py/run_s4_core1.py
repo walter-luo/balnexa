@@ -585,6 +585,15 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.doc_done", "bnx.doc_event", "bnx.doc_latest_scan", "bnx.doc_locators_ok", "bnx.doc_needs_declaration",
     "bnx.doc_payload_keys_ok", "bnx.doc_reject", "bnx.doc_scan_current", "bnx.doc_state", "bnx.trg_doc_state_transition",
     "bnx.wrk_audit_sin_refusal", "bnx.wrk_doc_archived", "bnx.wrk_doc_discovered", "bnx.wrk_doc_rescan_due", "bnx.wrk_doc_validated",
+    # 9016 backup/DR and cost objects that OBJ-030, OBJ-256 and OBJ-257 do not name (register update recorded in
+    # docs/s4/S4_9016_Implementation_Notes.md, L-9016-1)
+    "bnx.backup_key_event", "bnx.restore_authorization", "bnx.evidence_verification", "bnx.audit_verification", "bnx.cost_policy",
+    "bnx.capacity_event", "bnx.admission_decision", "bnx.bkp_header_facts", "bnx.bkp_header_compare", "bnx.restore_preamble",
+    "bnx.backup_hex", "bnx.backup_key_active", "bnx.backup_key_prune_after", "bnx.backup_key_state", "bnx.backup_local_tz",
+    "bnx.backup_major", "bnx.backup_object_name", "bnx.backup_owner", "bnx.backup_payload_ok", "bnx.backup_policy", "bnx.backup_reader",
+    "bnx.backup_restorable", "bnx.backup_tier", "bnx.billing_month", "bnx.capacity_state", "bnx.usage_insert", "bnx.usage_month",
+    "bnx.cmd_authorize_restore", "bnx.cmd_backup_key_mark_compromised", "bnx.cmd_backup_key_register", "bnx.cmd_set_cost_policy",
+    "bnx.wrk_admission_decide", "bnx.wrk_backup_due", "bnx.wrk_backup_key_pruned", "bnx.wrk_capacity_update",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
