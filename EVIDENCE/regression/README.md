@@ -1,0 +1,10 @@
+# Regression records
+
+One row per full local regression run kept in the repository (Owner instruction 2026-11-12).
+
+| Finished (UTC) | Commit | Branch | Pass | Fail | Skip | Record |
+|---|---|---|---|---|---|---|
+| 2026-11-12 19:08 | `f2ecfaf` | `s4/f-m0a-01` | 429 | 0 | 3 | [2026-11-12_f2ecfaf](2026-11-12_f2ecfaf/INDEX.md) |
+| 2026-11-12 19:45 | `8ec837f` | `s4/doc-2` | 438 | 0 | 3 | [2026-11-12_8ec837f](2026-11-12_8ec837f/INDEX.md) |
+| 2026-11-12 20:32 | `ca199d9` | `s4/tool-schemas` | 440 | 0 | 3 | [2026-11-12_ca199d9](2026-11-12_ca199d9/INDEX.md) |
+| 2026-11-12 21:23 | `9b959c7` | `s4/deploy-rule` | 450 | 0 | 3 | [2026-11-12_9b959c7](2026-11-12_9b959c7/INDEX.md) |

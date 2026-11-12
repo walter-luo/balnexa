@@ -1,0 +1,293 @@
+{
+ "server": "pg17",
+ "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "libpq": 170000,
+ "seconds": 52.5,
+ "pass": 38,
+ "fail": 0,
+ "skip": 2,
+ "results": [
+  {
+   "id": "AT-MIG-01",
+   "aud": "AUD-049,AUD-037",
+   "status": "PASS",
+   "detail": "41 migrations applied by session_user=bnx_migrator (current_user=bnx_definer); rerun verified 41 checksums, applied 0",
+   "seconds": 2.7
+  },
+  {
+   "id": "AT-MIG-02",
+   "aud": "AUD-049",
+   "status": "PASS",
+   "detail": "modified applied 0103 -> exit 5 before any apply; removed applied file -> exit 4",
+   "seconds": 0.4
+  },
+  {
+   "id": "AT-MIG-03",
+   "aud": "AUD-049",
+   "status": "PASS",
+   "detail": "failure injected after 0106 body+ledger row: head stays 0105, no 0106 object exists; rerun completes",
+   "seconds": 2.74
+  },
+  {
+   "id": "AT-MIG-04",
+   "aud": "AUD-049",
+   "status": "PASS",
+   "detail": "Draft-04 0001 in chain -> refused (exit 2); runner under postgres superuser -> refused (exit 3)",
+   "seconds": 0.46
+  },
+  {
+   "id": "AT-MIG-05",
+   "aud": "AUD-049",
+   "status": "PASS",
+   "detail": "24 denied statements (runtime roles x4 statements; migrator without SET ROLE x4)",
+   "seconds": 0.02
+  },
+  {
+   "id": "AT-MIG-06",
+   "aud": "AUD-049,AUD-050",
+   "status": "PASS",
+   "detail": "0 violations over 166 relations and 385 functions; injected GRANT detected; matrix -> privilege_matrix.json",
+   "seconds": 0.06
+  },
+  {
+   "id": "AT-MIG-07",
+   "aud": "AUD-049,AUD-037",
+   "status": "PASS",
+   "detail": "Draft-02 fixture converted by bnx_migrator via 9001: anchor versions 5000 then 5200, 2 versioned confirmations, 2 decision events, 1 current; balance 10140.0000",
+   "seconds": 2.91
+  },
+  {
+   "id": "AT-MIG-08",
+   "aud": "AUD-049 (negative control)",
+   "status": "PASS",
+   "detail": "Draft-04 0001-0007 under bnx_migrator fails as the audit predicted: ['psql:<stdin>:16: ERROR:  permission denied to alter role']",
+   "seconds": 0.09
+  },
+  {
+   "id": "AT-BAL-01",
+   "aud": "AUD-044",
+   "status": "PASS",
+   "detail": "header-only: JOURNAL_INCOMPLETE; one line: JOURNAL_INCOMPLETE; same sign: JOURNAL_UNBALANCED; cross-currency zero sum: JOURNAL_UNBALANCED; unbalanced: JOURNAL_UNBALANCED; over-scale: AMOUNT_SCALE; wrong-currency line: composite FK; late lines in later txn: LATE_LINE; balance changed only by the one valid probe (1000.0000 -> 999.0000)",
+   "seconds": 2.78
+  },
+  {
+   "id": "AT-BAL-02",
+   "aud": "AUD-044",
+   "status": "PASS",
+   "detail": "7 malformed commands rejected; ledger version, journals, audit, idempotency and outbox counts unchanged (7, 2, 17, 11, 0)",
+   "seconds": 0.02
+  },
+  {
+   "id": "AT-BAL-03",
+   "aud": "AUD-044,AUD-045",
+   "status": "PASS",
+   "detail": "2-line, 3-line split and 4-line FX journals committed; CAD 999.0000->822.0000; USD=100.0100; original 137.00 CAD @0.73 preserved",
+   "seconds": 0.05
+  },
+  {
+   "id": "AT-BAL-04",
+   "aud": "AUD-045",
+   "status": "PASS",
+   "detail": "rejected: statement USD on CAD account-currency; source_txn USD on CAD account-currency; clearing_item USD on CAD account-currency; account_currency EUR bound to a USD ledger account; lower-case currency code; JPY fraction; statement CAD scale",
+   "seconds": 0.06
+  },
+  {
+   "id": "AT-BAL-05",
+   "aud": "AUD-044,AUD-045 (negative control on Draft-04 baseline)",
+   "status": "PASS",
+   "detail": "Draft-04 baseline accepts a header-only journal (0 lines committed) and a USD line on a CAD ledger account (defects reproduced)",
+   "seconds": 0.31
+  },
+  {
+   "id": "AT-MUT-01",
+   "aud": "AUD-044,AUD-045 (mutation check: the tests detect removal of the fix)",
+   "status": "PASS",
+   "detail": "mutants: without t_journal_complete_header a header-only journal commits; without the composite FK the deferred LINE_CURRENCY_MISMATCH layer still rejects; without both a USD line on the CAD account commits. The AT-BAL-01 probes detect each mutant",
+   "seconds": 2.94
+  },
+  {
+   "id": "AT-CMD-01",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "unknown subject, unverified email, foreign issuer, forged and truncated tokens rejected; 3 sessions stored as SHA-256 only",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-CMD-02",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "same key+payload -> identical receipt (replayed=true), changed payload -> IDEMPOTENCY_CONFLICT without effects, keys scoped per member",
+   "seconds": 0.05
+  },
+  {
+   "id": "AT-CONC-01",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "8 concurrent identical requests -> 1 journal, 7 replays",
+   "seconds": 0.09
+  },
+  {
+   "id": "AT-CONC-02",
+   "aud": "AUD-053,AUD-044",
+   "status": "PASS",
+   "detail": "100 concurrent posts (10 connections, 2 members): versions 15..114 unique and contiguous; balance -1.00 exact; audit chain intact",
+   "seconds": 1.39
+  },
+  {
+   "id": "AT-CMD-03",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "viewer cannot post; private account invisible, not postable and not self-grantable by owner (uniform NOT_AVAILABLE), shareable only by its creator; revoked can_post enforced; member cannot grant/invite; 10 direct/cross-role calls denied",
+   "seconds": 0.1
+  },
+  {
+   "id": "AT-CMD-04",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "PKCE wrong verifier -> INVALID_GRANT; code replay -> invalid_grant with the earlier token revoked; bearer limited to approved account-currency; MCP post/approve -> FORBIDDEN_CHANNEL; evidence denied; revoked connection -> UNAUTHENTICATED",
+   "seconds": 0.04
+  },
+  {
+   "id": "AT-CMD-05",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "reversal+replacement at one version 117; balance at V-1 shows original (-50), at V shows -5; double correction refused",
+   "seconds": 0.04
+  },
+  {
+   "id": "AT-PLAN-01",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "freeze -> approve (digest-bound) -> chunk (invisible) -> atomic activation at V7 (+2488.00), idempotent re-activation",
+   "seconds": 2.79
+  },
+  {
+   "id": "AT-PLAN-02",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "in-scope direct post after approval -> stale before any write, claim released; re-plan allowed; overlapping held claim rejected",
+   "seconds": 2.77
+  },
+  {
+   "id": "AT-PLAN-03",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "approver lost can_post -> suspended at chunk; approver suspended after seal -> activation refused without writes, revalidation suspends; suspended member's session revoked",
+   "seconds": 2.84
+  },
+  {
+   "id": "AT-CONC-03",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "activation blocked 1.01s on an in-flight in-scope posting, then failed closed (revalidation_required -> stale, 0 visible)",
+   "seconds": 3.88
+  },
+  {
+   "id": "AT-FAULT-01",
+   "aud": "AUD-053,AUD-044",
+   "status": "PASS",
+   "detail": "backend killed before COMMIT -> no journal/audit/idempotency/version change, retry executes once; tampered plan item -> whole chunk rolled back (0 journals)",
+   "seconds": 0.15
+  },
+  {
+   "id": "AT-CMD-06",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "139 audit events hash-chained (verify=0); UPDATE refused (append-only); forged row refused at insert (AUDIT_CHAIN_APPEND); 108 outbox rows for postings",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-CMD-07",
+   "aud": "AUD-053",
+   "status": "PASS",
+   "detail": "revision (T3, owner) reverses and reposts at one version: Jan-31 balance 990.00 at V-1, 890.00 at V; exclusion and pre-anchor posting refused",
+   "seconds": 2.74
+  },
+  {
+   "id": "AT-SNAP-03",
+   "aud": "AUD-051",
+   "status": "PASS",
+   "detail": "own replay digest-verified (also after back-dated post); guessed/other-audience/malformed IDs -> identical NOT_AVAILABLE; owner T3 audit replay verified+audited; revoked grant -> ACCESS_REVOKED; suspended zero-scope member -> ACCESS_REVOKED",
+   "seconds": 2.71
+  },
+  {
+   "id": "AT-SNAP-04",
+   "aud": "AUD-051",
+   "status": "PASS",
+   "detail": "other AI connection of same member -> NOT_AVAILABLE; narrower AI consent on PWA snapshot -> ACCESS_REVOKED; zero-scope consent refused (SUBSET_REQUIRED)",
+   "seconds": 2.68
+  },
+  {
+   "id": "AT-SNAP-05",
+   "aud": "AUD-051 (negative control on Draft-04 baseline)",
+   "status": "PASS",
+   "detail": "Draft-04 snapshot_replay_access returns 'ok' for a suspended non-audience member on a zero-scope snapshot (defect reproduced)",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-OWN-05",
+   "aud": "AUD-052",
+   "status": "PASS",
+   "detail": "60/40 (V7) -> 50/50 from Mar (V8); backdated Feb transfer at V9: Feb@V8=60/40, Feb@V9=100/0, Mar=50/50; tie and 101% rejected without effects; grants unchanged; scope versioned",
+   "seconds": 2.77
+  },
+  {
+   "id": "AT-OWN-06",
+   "aud": "AUD-052 (negative control on Draft-04 baseline)",
+   "status": "PASS",
+   "detail": "Draft-04 accepts two same-party/same-date/same-version events (tie with no deterministic winner) (defect reproduced)",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-SRC-01",
+   "aud": "AUD-054",
+   "status": "PASS",
+   "detail": "history ['reserved', 'released', 'reserved', 'linked', 'released', 'linked'] recorded with chained prior_event_id; illegal transitions rejected (SOURCE_LINK_TRANSITION, SOURCE_TXN_ALREADY_LINKED, SOURCE_LINK_TRANSITION); repeated purchase occurrences 1/2 both linked; duplicate fingerprint rejected; history append-only",
+   "seconds": 2.74
+  },
+  {
+   "id": "AT-SRC-02",
+   "aud": "AUD-054 (negative control on Draft-04 baseline)",
+   "status": "PASS",
+   "detail": "Draft-04 source_txn_link_event: unique violation on reserved->released->reserved (defect reproduced)",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-EVP-11",
+   "aud": "AUD-041,AUD-030",
+   "status": "PASS",
+   "detail": "grant-derived access granted (60 s URL) then denied on the next request after revocation; revoked and unknown files return identical responses; decisions logged [('denied', 2), ('granted', 1)]",
+   "seconds": 2.75
+  },
+  {
+   "id": "AT-ARC-02",
+   "aud": "AUD-047,AUD-042",
+   "status": "PASS",
+   "detail": "silent dual_verified rejected; mismatched Drive re-hash -> archive_failed + outbox alert; matching re-hash -> dual_verified; only dual_verified counted recoverable after R2 loss; gate (Owner T3) blocks approval until the plan's evidence is dual_verified",
+   "seconds": 2.82
+  },
+  {
+   "id": "AT-Q-01",
+   "aud": "AUD-046",
+   "status": "PASS",
+   "detail": "enqueue during an open claim serializes on queue_state; generation 1 > drained 0 with 1 queued (no lost wakeup at the authority); drained only after claim; failed item re-queued",
+   "seconds": 3.55
+  },
+  {
+   "id": "AT-BAK-01",
+   "aud": "AUD-050",
+   "status": "SKIP",
+   "detail": "pg_dump/pg_restore for pg17 not available in this environment (embedded-postgres ships initdb/pg_ctl/postgres only)",
+   "seconds": 0.0
+  },
+  {
+   "id": "AT-BAK-02",
+   "aud": "AUD-050 (negative control on Draft-04 baseline)",
+   "status": "SKIP",
+   "detail": "pg_dump for pg17 not available",
+   "seconds": 0.0
+  }
+ ]
+}
