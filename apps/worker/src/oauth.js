@@ -9,7 +9,7 @@
 //   POST /oauth/revoke                                    RFC 7009
 // CIMD (Client ID Metadata Document): an unknown https client id that matches a host-profile allowlist is fetched once
 // (5 s, 10 KB, no redirects) and registered as CIMD by the Core; any other URL is never fetched.
-import { json, body, errCode, letters } from './http.js';
+import { json, errCode, letters } from './http.js';
 
 export const SCOPES = ['finance.read', 'finance.draft', 'documents.read', 'documents.propose', 'tax.read', 'tax.propose', 'reports.read',
   'handoff.read', 'handoff.prepare', 'alerts.summary.read', 'offline_access'];
@@ -53,6 +53,10 @@ const back = (ru, params) => {
   for (const [k, v] of Object.entries(params)) if (v) u.searchParams.set(k, v);
   return u.toString();
 };
+// a client's self-chosen name: at most 100 characters, no control, format or bidirectional-override characters (RV-AIH-08/09)
+const BAD_NAME = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
+export const nameOk = (n) => typeof n === 'string' && n.length >= 1 && n.length <= 100 && !BAD_NAME.test(n);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const found = (location) => new Response(null, { status: 302, headers: { location, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' } });
 
 async function fetchCimd(env, clientId) {
@@ -79,7 +83,7 @@ export async function client(env, clientId, redirectUri, { cimd = false } = {}) 
     if (!m) return c;
     try {
       await env.db.one('bnx_authn', 'select bnx.authn_register_client($1::jsonb) r', [JSON.stringify({ registration_kind: 'CIMD', client_id: clientId,
-        redirect_uris: m.redirect_uris, ...(typeof m.client_name === 'string' ? { client_name: m.client_name } : {}) })]);
+        redirect_uris: m.redirect_uris, ...(nameOk(m.client_name) ? { client_name: m.client_name } : {}) })]);
     } catch (e) { if (String(e.code || '').startsWith('P0')) return c; throw e; }
     c = await look();
   }
@@ -118,10 +122,19 @@ export async function authorizePost(bd, cred, env) {
                        consentable: CONSENTABLE, resources: resources(env) });
   }
   if (bd.code_challenge_method !== 'S256') return json(400, { error: 'invalid_request' });
+  // RV-AIH-10: the subset is a list of account-currency ids, checked here so that a malformed list is a protocol error
+  if (!Array.isArray(bd.account_currency_ids) || bd.account_currency_ids.length > 500 || !bd.account_currency_ids.every((x) => typeof x === 'string' && UUID.test(x))) {
+    return json(400, { error: 'invalid_request' });
+  }
+  // RV-AIH-07: the client and its redirect URI are checked again at approval (the environment may have changed since)
+  const c = await client(env, bd.client_id, bd.redirect_uri);
+  if (!c.known || !c.redirect_ok) return json(400, { error: 'invalid_client' });
   const R = resources(env);
   // L-CORE7-4 closed: every new consent is bound to one surface of this instance (B7 audience on every call)
   if (bd.resource !== R.mcp && bd.resource !== R.api) return json(400, { error: 'invalid_target' });
-  if (!Array.isArray(bd.scopes) || !bd.scopes.every((s) => CONSENTABLE.includes(s))) return json(400, { error: 'invalid_scope' });
+  if (!Array.isArray(bd.scopes) || !bd.scopes.length || new Set(bd.scopes).size !== bd.scopes.length || !bd.scopes.every((s) => CONSENTABLE.includes(s))) {
+    return json(400, { error: 'invalid_scope' });
+  }
   // state stays at the Gateway: it is the client's opaque value and is not part of the audited consent
   const cmd = { ...bd, idempotency_key: `oauth-${letters(24)}` };
   delete cmd.action; delete cmd.state;
@@ -130,7 +143,10 @@ export async function authorizePost(bd, cred, env) {
 }
 
 export async function register(req, env) {
-  const bd = await body(req);
+  const raw = await req.text();
+  if (raw.length > 16384) return json(413, { error: 'invalid_client_metadata', error_description: 'body larger than 16 KB' });   // RV-AIH-08
+  let bd = null;
+  try { bd = JSON.parse(raw); } catch { /* refused below */ }
   const bad = (error, d) => json(400, { error, error_description: d });
   if (!bd || typeof bd !== 'object' || Array.isArray(bd)) return bad('invalid_client_metadata', 'JSON object expected');
   if (bd.token_endpoint_auth_method !== undefined && bd.token_endpoint_auth_method !== 'none') return bad('invalid_client_metadata', 'public clients only (none)');
@@ -141,6 +157,7 @@ export async function register(req, env) {
   if (!Array.isArray(bd.redirect_uris) || !bd.redirect_uris.length || !bd.redirect_uris.every((u) => typeof u === 'string' && u.length <= 500)) {
     return bad('invalid_redirect_uri', 'redirect_uris');
   }
+  if (bd.client_name !== undefined && !nameOk(bd.client_name)) return bad('invalid_client_metadata', 'client_name');
   // OD-21 default: open DCR, rate-limited per client address and UTC day (KV; best effort across isolates)
   const key = `bnx:dcr:${new Date().toISOString().slice(0, 10)}:${req.headers.get('cf-connecting-ip') || 'unknown'}`;
   const n = Number((await env.KV.get(key)) || 0);
@@ -149,7 +166,7 @@ export async function register(req, env) {
   let r;
   try {
     r = await env.db.one('bnx_authn', 'select bnx.authn_register_client($1::jsonb) r', [JSON.stringify({ registration_kind: 'DCR',
-      redirect_uris: bd.redirect_uris, ...(typeof bd.client_name === 'string' ? { client_name: bd.client_name } : {}) })]);
+      redirect_uris: bd.redirect_uris, ...(bd.client_name !== undefined ? { client_name: bd.client_name } : {}) })]);
   } catch (e) {
     if (e.code !== 'P0422') throw e;
     const c = errCode(e);
@@ -161,6 +178,8 @@ export async function register(req, env) {
 
 export async function revoke(req, env) {
   const f = new URLSearchParams(await req.text());
+  // RV-AIH-06: a public client identifies itself with client_id (RFC 7009 §2.1); without it nothing could be revoked
+  if (!f.get('token') || !f.get('client_id')) return json(400, { error: 'invalid_request' });
   await env.db.one('bnx_authn', 'select bnx.authn_oauth_revoke($1::jsonb) r', [JSON.stringify({ token: f.get('token'), client_id: f.get('client_id') })]);
   return json(200, {});                                       // RFC 7009 §2.2: unknown tokens are not an error
 }

@@ -1,4 +1,4 @@
-// Guards C4 and C3 against the real Worker module with a mocked database (no network, no real data).
+// Guards C4 (MCP and, since RV-AIH-02, the Business API for AI bearers) and C3 against the real Worker module with a mocked database (no network, no real data).
 // stdin: {"values": [...], "clean": "..."}; the mock q_balances returns a label containing values[i]. Prints a JSON summary
 // without any value. Used by tests/py/run_s4_core5.py (AT-SIN-C4).
 import worker from '../../apps/worker/src/index.js';
@@ -20,7 +20,7 @@ process.stdin.on('end', async () => {
       db: {
         one: async (role, sql, params) => {
           if (sql.includes('wrk_binding_facts')) return { identity: { project_id: 'guard-household', instance_uid: '00000000-0000-4000-8000-0000000000c4' },
-            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9022' },
+            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9023' },
             active: { flags: { Canada: 'YES', International: 'YES', CRA: 'YES' } }, catalog_sha256: 'none' };
           // AIH-2 re-baseline: the MCP server is generated from the catalog, so the mock catalog carries the one tool used here
           if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', uncatalogued: [], entries: [{
@@ -44,8 +44,13 @@ process.stdin.on('end', async () => {
     const text = await res.text();
     const leaked = [...input.values].some((v) => text.replace(/[^0-9]/g, '').includes(v));
     const j = JSON.parse(text);
+    // RV-AIH-02: the same guard on the Business API for an AI bearer
+    const rres = await worker.fetch(new Request('https://app.balnexa.test/api/v1/queries/balances', { method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer synthetic-token' }, body: '{}' }), env, {});
+    const rtext = await rres.text();
     out.cases.push({ refused: !!(j.result && j.result.isError && j.result.content[0].text === 'SIN_CANDIDATE_REFUSED'),
-                     leaked, audits: audits.map((a) => ({ role: a.role, tool: a.payload.tool, rules: a.payload.rules,
+                     rest_refused: rres.status === 422 && JSON.parse(rtext).error === 'SIN_CANDIDATE_REFUSED',
+                     leaked: leaked || [...input.values].some((v) => rtext.replace(/[^0-9]/g, '').includes(v)), audits: audits.map((a) => ({ role: a.role, tool: a.payload.tool, rules: a.payload.rules,
                        has_value: [...input.values].some((v) => JSON.stringify(a.payload).includes(v)) })) });
   }
   const scrubbed = input.values.map((v) => scrub(`error near ${v} end`));

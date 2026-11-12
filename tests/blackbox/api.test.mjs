@@ -679,6 +679,65 @@ test('AT-CONF-04 AIH-4 card: one display-only MCP App resource; draft tools name
   assert.deepEqual([nb.content.length, nb.structuredContent], [1, bal0], 'not posted; read tools carry no link');
 });
 
+test('RV-AIH-01…12 review remediation: consent only through /oauth/authorize; keys required and well-formed on both surfaces; malformed input is a protocol error', async () => {
+  // RV-AIH-01: the generic command route cannot create an AI-host consent
+  const k = pkce();
+  const direct = await cmd('approve_ai_connection', { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: k.c, scopes: ['documents.read'],
+    account_currency_ids: [S.ac.account_currency_id] }, S.owner, { 'idempotency-key': 'bb-rv-direct-consent' });
+  assert.deepEqual([direct.status, direct.json.error], [403, 'USE_OAUTH_AUTHORIZE']);
+  // RV-AIH-10: a malformed subset and duplicate scopes are protocol errors, not 500
+  const az = (b) => call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: k.c, code_challenge_method: 'S256',
+    scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id], resource: R_MCP, ...b }, cookie: S.owner, headers: { origin: ORIGIN } });
+  for (const [b, st, e] of [[{ account_currency_ids: [null] }, 400, 'invalid_request'], [{ account_currency_ids: 'x' }, 400, 'invalid_request'],
+                            [{ scopes: ['finance.read', 'finance.read'] }, 400, 'invalid_scope'], [{ scopes: [] }, 400, 'invalid_scope'],
+                            [{ redirect_uri: 'https://evil.example/cb' }, 400, 'invalid_client']]) {
+    const r = await az(b);
+    assert.deepEqual([r.status, r.json.error], [st, e], JSON.stringify(b));
+  }
+  // RV-AIH-03: commands declare a required idempotency key; without it the Core refuses on both surfaces with the same code
+  const tools = (await rpcAt(S.bearer, 'tools/list')).json.result.tools;
+  const dt = tools.find((t) => t.name === 'fin_draft_create_transaction');
+  assert.ok(dt.inputSchema.required.includes('idempotency_key') && dt.inputSchema.properties.idempotency_key.minLength === 8);
+  assert.ok(!tools.find((t) => t.name === 'fin_balances_as_of').inputSchema.properties.idempotency_key);
+  const args = { account_currency_id: S.ac.account_currency_id, transaction_date: '2026-03-06', economic_type: 'consumption_expense', amount: '-1.50', counter_ledger_account_id: S.groc };
+  const m0 = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: args })).json.result;
+  const r0 = await call('/api/v1/commands/draft_create_transaction', { body: args, bearer: S.bearerApi });
+  assert.deepEqual([m0.isError, m0.structuredContent.error, r0.json.error], [true, 'IDEMPOTENCY_KEY_REQUIRED', 'IDEMPOTENCY_KEY_REQUIRED']);
+  // a retry with the same key replays (one draft), on MCP as on REST
+  const a1 = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, idempotency_key: 'bb-rv-retry-key' } })).json.result;
+  const a2 = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, idempotency_key: 'bb-rv-retry-key' } })).json.result;
+  assert.equal(a1.structuredContent.plan_id, a2.structuredContent.plan_id, 'a retry does not create a second draft');
+  // RV-AIH-05: a key outside 8-80 printable ASCII is refused on both surfaces, never stored raw
+  for (const bad of ['short', 'has a space key', 'fullwidth\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19', 12.5]) {
+    const mm = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, idempotency_key: bad } })).json.result;
+    const rr = await call('/api/v1/commands/draft_create_transaction', { body: { ...args, idempotency_key: bad }, bearer: S.bearerApi });
+    assert.deepEqual([mm.structuredContent.error, mm.structuredContent.field, rr.status, rr.json.error, rr.json.field],
+      ['VALIDATION_FAILED', 'idempotency_key', 422, 'VALIDATION_FAILED', 'idempotency_key'], String(bad));
+  }
+  // RV-AIH-10/12: a non-string tool name is an unknown tool, and the host's input is never echoed
+  const on = (await rpcAt(S.bearer, 'tools/call', { name: { x: 1 }, arguments: {} }));
+  assert.deepEqual([on.status, on.json.error.code, on.json.error.message], [200, -32602, 'Unknown tool']);
+  const echo = (await rpcAt(S.bearer, 'tools/call', { name: 'no_such_tool_abcdef', arguments: {} })).json.error.message;
+  assert.equal(echo, 'Unknown tool');
+  // RV-AIH-10: a data exception in the Core (a scalar where a list is expected) is VALIDATION_FAILED on both surfaces, not 500
+  const sm = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, evidence_file_ids: 'x', idempotency_key: 'bb-rv-scalar-one' } }));
+  const sr = await call('/api/v1/commands/draft_create_transaction', { body: { ...args, evidence_file_ids: 'x' }, bearer: S.bearerApi, headers: { 'idempotency-key': 'bb-rv-scalar-two' } });
+  assert.deepEqual([sm.status, sm.json.result.structuredContent.error, sr.status, sr.json.error], [200, 'VALIDATION_FAILED', 422, 'VALIDATION_FAILED']);
+  // RV-AIH-06: RFC 7009 without client_id or token is refused instead of a silent 200
+  const t = await consent({ scopes: ['finance.read'] });
+  assert.deepEqual([(await call('/oauth/revoke', { form: { token: t.access_token } })).status, (await call('/oauth/revoke', { form: { client_id: 'chatgpt-test' } })).status], [400, 400]);
+  assert.equal((await rpcAt(t.access_token, 'ping')).status, 200);
+  // RV-AIH-08/09: body limit; a client name with control or bidirectional characters is refused; a legal name is echoed as stored
+  const reg = (b) => call('/oauth/register', { body: b, headers: { 'cf-connecting-ip': ip() } });
+  const big = await fetch(`${base}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip() },
+    body: JSON.stringify({ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], client_name: 'x'.repeat(20000) }) });
+  assert.equal(big.status, 413);
+  for (const n of ['Cl\u0000aude', 'Claude‮iaC', 'x'.repeat(101), '', 7]) {
+    const r = await reg({ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], client_name: n });
+    assert.deepEqual([r.status, r.json.error], [400, 'invalid_client_metadata'], JSON.stringify(n));
+  }
+});
+
 test('BB-AUTH-02 logout revokes the session server-side', async () => {
   const out = await call('/auth/logout', { body: {}, cookie: S.owner, headers: { origin: ORIGIN } });
   assert.equal(out.status, 200);
