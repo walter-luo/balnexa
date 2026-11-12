@@ -2,6 +2,7 @@
 // third-party code. Every screen works with every AI host and every LLM service unreachable: the page talks only to this
 // origin (and to Google Identity Services on the sign-in screen); there is no AI route anywhere in it (AT-NOAI-00).
 import * as api from './api.js';
+import * as queue from './queue.js';
 import * as i18n from './i18n.js';
 import { h, renderForm, renderTable, renderDetail, renderResult } from './render.js';
 
@@ -137,8 +138,16 @@ async function add() {
                   { ledger_account_id: counter, currency: a.currency, amount: neg(signed) }] }, key);
         status(t('add.posted', { id: r.journal_id }), 'ok');
       } else {
-        r = await api.command('draft_create_transaction', { account_currency_id: a.account_currency_id, transaction_date: d, economic_type: et,
-          amount: signed, counter_ledger_account_id: counter, description: desc }, key);
+        const body = { account_currency_id: a.account_currency_id, transaction_date: d, economic_type: et,
+          amount: signed, counter_ledger_account_id: counter, description: desc };
+        try { r = await api.command('draft_create_transaction', body, key); } catch (e) {
+          if (e.code !== 'NETWORK') throw e;
+          // offline: drafts only are kept on this device and sent when the connection returns (queue.js)
+          await queue.enqueue('draft_create_transaction', body, key);
+          status(t('queue.queued', { n: await queue.count() }), 'ok');
+          key = api.newKey(); el.amount.value = ''; el.desc.value = '';
+          return;
+        }
         status(t('add.drafted', { id: r.plan_id }), 'ok');
         main().append(h('p', {}, h('a', { href: `#/confirm/${r.plan_id}` }, t('add.open_draft'))));
       }
@@ -432,6 +441,7 @@ async function handoffImport() {
 async function settings() {
   const kids = [h('button', { type: 'button', onclick: async () => {
     try { await api.signOut(); } catch { /* the cookie may already be gone */ }
+    await queue.clear();                                           // queued drafts never outlive the session
     S.me = null; status(t('settings.signed_out'), 'ok'); boot();
   } }, t('settings.signout'))];
   if (entry('bnx.q_config_status')) {
@@ -638,6 +648,7 @@ async function boot() {
     const c = await api.catalog();
     S.cat = new Map(c.entries.map((e) => [e.core_function, e]));
     S.menu = S.menu || await (await fetch('/app/menu.json', { cache: 'no-cache' })).json();
+    flushQueue();
   } catch (e) {
     S.me = null;
     if (e.code !== 'UNAUTHENTICATED') status(e.code === 'NETWORK' ? t('app.offline') : i18n.errorText(e), 'error');
@@ -645,6 +656,14 @@ async function boot() {
   render();
 }
 
+// offline drafts (queue.js): sent again whenever the browser is back online and someone is signed in
+async function flushQueue() {
+  if (!S.me || !(await queue.count())) return;
+  const r = await queue.replay((name, body, key) => api.command(name, body, key));
+  if (r.sent.length || r.refused.length) status(t('queue.sent', { n: r.sent.length, refused: r.refused.length }), r.refused.length ? 'error' : 'ok');
+  else if (r.left) status(t('queue.queued', { n: r.left }), 'ok');
+}
+window.addEventListener('online', () => { flushQueue(); });
 window.addEventListener('hashchange', () => { S.navigated = true; render(); });
 // the skip link moves focus to the content without touching the hash (the hash is the router)
 document.querySelector('.skip').addEventListener('click', (e) => { e.preventDefault(); main().focus(); });

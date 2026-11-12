@@ -374,5 +374,7 @@
  "upload.too_large": "The file must be between 1 byte and 25 MB.",
  "upload.ok": "Uploaded.",
  "upload.done": "Evidence {id}… uploaded; fingerprint {sha}… (verified on the next check).",
- "upload.not_configured": "Uploads are not set up on this instance yet."
+ "upload.not_configured": "Uploads are not set up on this instance yet.",
+ "queue.queued": "Offline: the draft is kept on this device and will be sent when you are back online ({n} waiting).",
+ "queue.sent": "Back online: {n} draft(s) sent for approval; {refused} refused."
 }
