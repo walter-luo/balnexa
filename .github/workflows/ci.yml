@@ -64,6 +64,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install "psycopg[binary]==3.2.3"
+      - name: release signing dependency (INS-1 AT-SIG-01; tools/s4/release_sign.py)
+        run: |
+          pip install --only-binary=:all: "cryptography==50.0.1"
       - name: Executor validator dependencies (9011c; PyPI with hashes, OCR engine and strace from Ubuntu)
         run: |
           pip install --require-hashes --only-binary=:all: -r apps/executor/requirements.txt
