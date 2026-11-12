@@ -571,6 +571,9 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.match_propose", "bnx.match_record", "bnx.cmd_match_source_rows", "bnx.cmd_decide_match", "bnx.onboarding_admin",
     "bnx.onboarding_state_at", "bnx.cmd_onboarding_create_job", "bnx.cmd_onboarding_add_file", "bnx.cmd_onboarding_job_event",
     "bnx.cmd_onboarding_history", "bnx.onboarding_step", "bnx.wrk_onboarding_step", "bnx.q_onboarding_job", "bnx.trg_onboarding_transition",
+    # 9013 report families and snapshot status helpers that OBJ-251 does not name (UA V1.2 §5.8)
+    "bnx.rpt_version", "bnx.rpt_envelope", "bnx.rpt_journal_visible", "bnx.rpt_convert", "bnx.q_r30_review_queue", "bnx.q_evidence_trace",
+    "bnx.source_link_raw_at", "bnx.snapshot_status_reasons", "bnx.q_snapshot_artifact",
     # 9011a SIN/ITN detector (Addendum A1 Rev 1 §3; 9011 is partly implemented, so its disposition rows stay out of scope)
     "bnx.sin_detector_spec", "bnx.sin_luhn", "bnx.sin_normalize", "bnx.sin_fold", "bnx.sin_scan", "bnx.sin_candidate",
     "bnx.sin_key_is_label", "bnx.sin_scan_json", "bnx.sin_json_has", "bnx.sin_mask_json",
