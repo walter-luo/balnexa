@@ -1,0 +1,10 @@
+{
+  "name": "balnexa-pwa-tests",
+  "version": "0.4.0-core9",
+  "private": true,
+  "type": "module",
+  "description": "Headless PWA acceptance suite (S4 CORE-9 / TST-3 subset): AT-NOAI, AT-MENU, AT-CAL, AT-CONF, AT-A11Y with all AI routes blocked. Synthetic data only.",
+  "license": "Apache-2.0",
+  "scripts": { "test": "node --test pwa.test.mjs" },
+  "devDependencies": { "axe-core": "4.13.0", "playwright": "1.63.0" }
+}

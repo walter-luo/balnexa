@@ -1,0 +1,175 @@
+{
+ "format": "bnx-pwa-menu/1",
+ "note": "Closed V1 menu (OR-U-02 items 1-8) plus Settings (AE \u00a76). Each task names a catalog core function; a task whose function is absent from the catalog or above the caller's tier is not shown (OR-U-01).",
+ "items": [
+  {
+   "id": "identity",
+   "no": 1,
+   "tasks": [
+    "bnx.q_whoami",
+    "bnx.q_notifications",
+    "bnx.cmd_notification_read",
+    "bnx.cmd_invite_member",
+    "bnx.cmd_set_grant",
+    "bnx.cmd_set_member_state",
+    "bnx.cmd_revoke_session"
+   ]
+  },
+  {
+   "id": "accounts",
+   "no": 2,
+   "tasks": [
+    "bnx.q_ledger_accounts",
+    "bnx.q_balances",
+    "bnx.q_f1_balances",
+    "bnx.cmd_create_account",
+    "bnx.cmd_set_opening",
+    "bnx.cmd_create_category",
+    "bnx.cmd_record_observation",
+    "bnx.q_balance_observations",
+    "bnx.cmd_record_ownership",
+    "bnx.cmd_set_account_scope",
+    "bnx.q_institutions_search",
+    "bnx.cmd_propose_institution_candidate",
+    "bnx.cmd_verify_institution",
+    "bnx.q_registry_review",
+    "bnx.cmd_reassign_account_institution",
+    "bnx.q_account_proposals",
+    "bnx.cmd_propose_account",
+    "bnx.cmd_resolve_account_proposal",
+    "bnx.cmd_create_party"
+   ]
+  },
+  {
+   "id": "transactions",
+   "no": 3,
+   "tasks": [
+    "bnx.cmd_post_transaction",
+    "bnx.cmd_correct_transaction",
+    "bnx.cmd_confirm_posting_date",
+    "bnx.cmd_set_payment_attribute",
+    "bnx.cmd_register_evidence",
+    "bnx.q_evidence_upload_target",
+    "bnx.cmd_assign_evidence",
+    "bnx.q_evidence_access",
+    "bnx.cmd_create_import_plan",
+    "bnx.cmd_set_import_mapping",
+    "bnx.cmd_onboarding_create_job",
+    "bnx.cmd_onboarding_add_file",
+    "bnx.cmd_onboarding_job_event",
+    "bnx.cmd_onboarding_history",
+    "bnx.q_onboarding_job",
+    "bnx.cmd_record_fx_quote",
+    "bnx.cmd_record_valuation",
+    "bnx.cmd_record_investment_lot",
+    "bnx.cmd_record_lot_disposal",
+    "bnx.cmd_declare_loan",
+    "bnx.cmd_declare_loan_terms",
+    "bnx.cmd_link_loan_payment",
+    "bnx.cmd_set_card_fee_policy",
+    "bnx.cmd_record_card_fee_event"
+   ]
+  },
+  {
+   "id": "review",
+   "no": 4,
+   "tasks": [
+    "bnx.q_review_queue",
+    "bnx.q_draft_get_for_confirmation",
+    "bnx.cmd_approve_plan",
+    "bnx.cmd_validate_plan",
+    "bnx.cmd_withdraw_plan",
+    "bnx.cmd_draft_create_transaction",
+    "bnx.cmd_draft_create_transfer",
+    "bnx.cmd_draft_revise",
+    "bnx.cmd_draft_validate",
+    "bnx.cmd_draft_withdraw",
+    "bnx.q_r30_review_queue",
+    "bnx.q_intake_exceptions",
+    "bnx.q_intake_coverage"
+   ]
+  },
+  {
+   "id": "reconciliation",
+   "no": 5,
+   "tasks": [
+    "bnx.cmd_run_reconciliation",
+    "bnx.q_reconciliation_coverage",
+    "bnx.q_reconciliation_exceptions",
+    "bnx.cmd_set_reconciliation_exception_state",
+    "bnx.q_transfer_matching",
+    "bnx.cmd_decide_match",
+    "bnx.cmd_match_source_rows",
+    "bnx.cmd_cross_source_match",
+    "bnx.cmd_match_clearing",
+    "bnx.q_f7_reconciliation"
+   ]
+  },
+  {
+   "id": "reports",
+   "no": 6,
+   "tasks": [
+    "bnx.q_f1_balances",
+    "bnx.q_f2_transactions",
+    "bnx.q_f3_income_expense",
+    "bnx.q_f4_investments",
+    "bnx.q_f5_networth",
+    "bnx.q_f6_cards",
+    "bnx.q_cashflow_statement",
+    "bnx.q_r28_loan_position",
+    "bnx.q_card_fee_progress",
+    "bnx.q_investment_position",
+    "bnx.q_fx_rate",
+    "bnx.cmd_create_report_snapshot",
+    "bnx.q_snapshot_list",
+    "bnx.q_snapshot_status",
+    "bnx.q_snapshot_artifact",
+    "bnx.q_replay_snapshot",
+    "bnx.cmd_audit_replay_snapshot",
+    "bnx.q_evidence_trace"
+   ]
+  },
+  {
+   "id": "audit",
+   "no": 7,
+   "tasks": [
+    "bnx.q_evidence_trace",
+    "bnx.q_backup_status",
+    "bnx.q_cost_status",
+    "bnx.cmd_backup_key_register",
+    "bnx.cmd_backup_key_mark_compromised",
+    "bnx.cmd_authorize_restore",
+    "bnx.cmd_set_cost_policy"
+   ]
+  },
+  {
+   "id": "handoff",
+   "no": 8,
+   "tasks": [
+    "bnx.cmd_handoff_prepare",
+    "bnx.cmd_handoff_import",
+    "bnx.cmd_handoff_mark_sent",
+    "bnx.q_handoff_status"
+   ]
+  },
+  {
+   "id": "settings",
+   "no": null,
+   "tasks": [
+    "bnx.q_config_status",
+    "bnx.cmd_prepare_config_draft",
+    "bnx.cmd_accept_instance_config",
+    "bnx.cmd_set_household_setting",
+    "bnx.cmd_declare_financial_policy",
+    "bnx.cmd_fx_override",
+    "bnx.cmd_register_mail_source",
+    "bnx.cmd_register_index_source",
+    "bnx.q_doc_redaction_queue",
+    "bnx.cmd_doc_declare_redacted",
+    "bnx.cmd_doc_tag_sin_bearing",
+    "bnx.cmd_approve_ai_connection",
+    "bnx.cmd_revoke_ai_connection"
+   ]
+  }
+ ]
+}

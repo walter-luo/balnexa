@@ -37,6 +37,22 @@ export function makeR2(root) {
   };
 }
 
+// Workers static-assets binding over a directory (the deployed Worker binds apps/pwa/public as ASSETS)
+const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8',
+  json: 'application/json; charset=utf-8', webmanifest: 'application/manifest+json', svg: 'image/svg+xml', png: 'image/png', txt: 'text/plain' };
+export function makeAssets(root) {
+  const base = path.resolve(root);
+  return {
+    async fetch(req) {
+      const u = new URL(req.url);
+      const p = path.resolve(base, '.' + decodeURIComponent(u.pathname));
+      if (!p.startsWith(base + path.sep) || !fs.existsSync(p) || !fs.statSync(p).isFile()) return new Response('not found', { status: 404 });
+      const ext = p.split('.').pop();
+      return new Response(fs.readFileSync(p), { status: 200, headers: { 'content-type': TYPES[ext] || 'application/octet-stream' } });
+    },
+  };
+}
+
 export function serve(env, port = 0) {
   const server = http.createServer(async (req, res) => {
     const chunks = [];

@@ -9,6 +9,7 @@
     "q_health"
   ],
   "descriptions": {
+    "q_ledger_accounts": "Ledger accounts the caller may book against (visible account-currencies with can_post) and active income and expense categories (PWA Quick Entry)",
     "q_health": "Instance health without identity values; answers while a binding check fails",
     "q_whoami": "The calling member, channel, connection and scopes",
     "q_config_status": "Active configuration version, digest, flags, pending versions, identity and schema head",
@@ -28,6 +29,7 @@
   },
   "names": {
     "q_health": "sys.health",
+    "q_ledger_accounts": "fin.ledger.accounts",
     "q_whoami": "sys.whoami",
     "q_config_status": "sys.config_status",
     "q_replay_snapshot": "fin.reports.replay_snapshot",

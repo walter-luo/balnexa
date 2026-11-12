@@ -599,6 +599,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.catalog_entries", "bnx.wrk_catalog", "bnx.wrk_binding_facts", "bnx.wrk_defer_item", "bnx.q_evidence_upload_target",
     # 9018 CORE-8 Executor work orders and the REPORT_RENDER promoter, not in the V1.2 register (D-CORE8-1; L-CORE8-1)
     "bnx.artifact_object_name", "bnx.snapshot_ownership_revision", "bnx.exec_work_order", "bnx.wrk_render_done",
+    # 9019 CORE-9 PWA Quick Entry ledger accounts, not in the V1.2 register (D-CORE9-1)
+    "bnx.q_ledger_accounts",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

@@ -1,0 +1,10 @@
+{
+ "name": "Balnexa 账知家",
+ "short_name": "Balnexa",
+ "start_url": "/app/",
+ "scope": "/app/",
+ "display": "standalone",
+ "background_color": "#ffffff",
+ "theme_color": "#1f4e79",
+ "icons": [{ "src": "/app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
