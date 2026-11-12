@@ -124,6 +124,11 @@ def main():
         idt = cx.execute("select instance_uid from bnx.instance_identity").fetchone()
         if idt:
             uid = str(idt[0]); print("skip install (installed)")
+            # re-render: keep the digest the database activated (binding B2), not one recomputed from the current HEAD
+            act = cx.execute("select coalesce(deployed_digest, config_sha256) from bnx.config_version_anchor "
+                             "where state = 'ACTIVE' order by config_version desc limit 1").fetchone()
+            if act and act[0]:
+                digest = act[0]
         else:
             uid = str(uuid.uuid4())
             owner = cx.execute("select bnx.install_household_v2(%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)",
