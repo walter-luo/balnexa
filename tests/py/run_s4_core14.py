@@ -63,7 +63,7 @@ def t_catalog(server, ev):
     check(facts["catalog_sha256"] == cat["catalog_sha256"] and len(cat["catalog_sha256"]) == 64, f"{facts} {cat['catalog_sha256']}")
     q = next(e for e in entries if e["core_function"] == "bnx.q_f1_balances")
     p = next(e for e in entries if e["core_function"] == "bnx.cmd_post_transaction")
-    check(q["risk_class"] == "RC-READ" and "mcp" in q["channels"] and q["input_schema"]["properties"]["as_of"] == {"type": "string", "format": "date"}
+    check(q["risk_class"] == "RC-READ" and "mcp" in q["channels"] and {k: v for k, v in q["input_schema"]["properties"]["as_of"].items() if k != "description"} == {"type": "string", "format": "date"}
           and p["risk_class"] == "RC-POST" and p["channels"] == ["pwa"] and p["idempotency"] == "required"
           and "idempotency_key" not in p["input_schema"]["properties"], f"{q} {p}")
     return (f"{len(entries)} entries = every REST-callable cmd_/q_ function (0 uncatalogued), read from COMMENT ON FUNCTION; the generator's "
