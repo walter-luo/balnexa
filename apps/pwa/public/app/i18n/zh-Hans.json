@@ -68,7 +68,7 @@
  "consent.surface_api": "它将直接调用 Balnexa 业务接口。",
  "consent.surface_mcp": "它将在对话中通过 Balnexa 工具（MCP）访问。",
  "consent.title": "连接 AI 助手",
- "consent.who": "{client}（{host}）请求连接到本 Balnexa 家庭账本。",
+ "consent.who": "已验证的主机：{host}。该应用自称“{client}”——此名称未经验证。",
  "error.FORBIDDEN_CHANNEL": "此渠道不允许该操作。",
  "error.FORBIDDEN_ROLE": "您的角色不允许此操作。",
  "error.IDEMPOTENCY_KEY_REUSED": "此请求已用不同内容发送过。",

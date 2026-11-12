@@ -18,7 +18,7 @@ import { validate } from './schema.js';
 import { presignR2Put } from './r2presign.js';
 import { RELEASE } from './release.js';
 import { schemaFor } from './exec_schemas.js';
-import { json, body, letters, letterDigest } from './http.js';
+import { json, body, letters, letterDigest, KEY_RE } from './http.js';
 import * as oauth from './oauth.js';
 import * as mcp from './mcp.js';
 
@@ -30,6 +30,8 @@ const STATUS = { P0401: 401, P0403: 403, P0404: 404, P0409: 409, P0422: 422, '42
 
 function dbError(e) {
   const code = e.code || '';
+  // RV-AIH-10: a data exception (SQLSTATE class 22, e.g. a scalar where an array is expected) is the caller's input, not a fault
+  if (code.startsWith('22')) return json(422, { error: 'VALIDATION_FAILED' });
   const status = STATUS[code] || (code.startsWith('P0') ? 422 : 500);
   // only the first token of our own exception messages is exposed (e.g. JOURNAL_UNBALANCED); never SQL text
   const err = status === 500 ? 'INTERNAL' : (code === '42501' || code === '42883' ? 'NOT_FOUND' : String(e.message || '').split(/[\s:]/)[0]);
@@ -96,8 +98,16 @@ async function pwaAsset(req, env, p) {
 // same key is still IDEMPOTENCY_KEY_REUSED. A key outside 8..80 printable characters is passed through so that the database
 // reports its own error code.
 async function gatewayKey(raw) {
-  if (!/^[\x21-\x7e]{8,80}$/.test(raw)) return raw;
-  return `gk-${await letterDigest(raw)}`;
+  return `gk-${await letterDigest(raw)}`;                          // callers have checked KEY_RE (RV-AIH-05)
+}
+
+// guard C4 (Addendum A1 Rev 1, 9011b) for every AI-host result, on /mcp and on the Business API (RV-AIH-02): refused and
+// audited with rule codes only, never the value
+async function refuseSin(env, tool, r) {
+  const hits = scanJson(r);
+  if (!hits.length) return false;
+  await env.db.one('bnx_worker', 'select bnx.wrk_audit_sin_refusal($1::jsonb) r', [JSON.stringify({ tool, rules: [...new Set(hits.map((x) => x.rule))].sort() })]);
+  return true;
 }
 
 const uploadsConfigured = (env) => !!(env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
@@ -148,17 +158,24 @@ export default {
         const [, kind, name] = m;
         const entry = NAME.test(name) ? b.catalog.byRest.get(`/api/v1/${kind}/${name}`) : null;
         if (!entry) return json(404, { error: 'NOT_FOUND' });         // not in the catalog read from the Core
+        // RV-AIH-01: an AI-host consent is made only through POST /oauth/authorize (resource, consentable scopes, checked
+        // client, redirect and subset); the generic command route would skip those rules
+        if (entry.core_function === 'bnx.cmd_approve_ai_connection') return json(403, { error: 'USE_OAUTH_AUTHORIZE' });
         const cred = credential(req, env);
         if (!cred && entry.risk_class !== 'RC-PUBLIC') return json(401, { error: 'UNAUTHENTICATED' });
         if (kind === 'commands' && !sameOrigin(req, env)) return json(403, { error: 'ORIGIN' });
         const bd = (await body(req)) ?? {};                             // R1: an absent or unparsable body is {}
         if (typeof bd !== 'object' || Array.isArray(bd)) return json(422, { error: 'VALIDATION_FAILED', field: '$' });
-        if (kind === 'commands' && req.headers.get('idempotency-key')) bd.idempotency_key = req.headers.get('idempotency-key');
-        if (kind === 'commands' && typeof bd.idempotency_key === 'string') bd.idempotency_key = await gatewayKey(bd.idempotency_key);
+        if (kind === 'commands' && req.headers.get('idempotency-key') !== null) bd.idempotency_key = req.headers.get('idempotency-key');
+        if (kind === 'commands' && bd.idempotency_key !== undefined) {
+          if (typeof bd.idempotency_key !== 'string' || !KEY_RE.test(bd.idempotency_key)) return json(422, { error: 'VALIDATION_FAILED', field: 'idempotency_key' });
+          bd.idempotency_key = await gatewayKey(bd.idempotency_key);
+        }
         const bad = validate(entry.input_schema, bd);
         if (bad) return json(422, { error: 'VALIDATION_FAILED', field: bad.path });
         const r = await env.db.one('bnx_app', `select ${entry.core_function}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(bd)]);
         if (r && r.queue_generation !== undefined) await env.KV.put('bnx:hint', String(r.queue_generation));  // after COMMIT
+        if (cred && cred.kind === 'bearer' && await refuseSin(env, entry.name, r)) return json(422, { error: 'SIN_CANDIDATE_REFUSED' });
         return json(200, r);
       }
       if (req.method === 'GET' && p === '/api/v1/catalog') {           // sys.catalog (RC-READ)
@@ -267,9 +284,8 @@ export default {
         return json(200, { staging_id: r.staging_id, state: r.state });
       }
       if (p === '/mcp') {                                              // AIH-2: catalog MCP server (mcp.js)
-        return await mcp.handle(req, env, { catalog: b.catalog, cred: credential(req, env, 'mcp'), release: RELEASE.version, gatewayKey, scanJson,
-          newTrace: () => `tr-${letters(24)}`,
-          auditRefusal: (tool, rules) => env.db.one('bnx_worker', 'select bnx.wrk_audit_sin_refusal($1::jsonb) r', [JSON.stringify({ tool, rules })]) });
+        return await mcp.handle(req, env, { catalog: b.catalog, cred: credential(req, env, 'mcp'), release: RELEASE.version, gatewayKey,
+          newTrace: () => `tr-${letters(24)}`, refuseSin: (tool, r) => refuseSin(env, tool, r) });
       }
       return json(404, { error: 'NOT_FOUND' });
     } catch (e) {

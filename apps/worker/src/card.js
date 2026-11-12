@@ -64,6 +64,8 @@ const SCRIPT = String.raw`
     root.append(el('h1', {}, t('status')), el('p', {}, String(sc.state || sc.status || '')));
   }
   window.addEventListener('message', (ev) => {
+    // only the host frame that embeds the card speaks to it (RV-AIH-04): a sibling frame cannot replace the draft shown
+    if (ev.source !== window.parent || window.parent === window) return;
     const m = ev.data;
     if (!m || m.jsonrpc !== '2.0') return;
     if (m.id !== undefined && !m.method && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); if (m.error) p.no(m.error); else p.ok(m.result); return; }

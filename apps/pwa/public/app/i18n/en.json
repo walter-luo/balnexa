@@ -68,7 +68,7 @@
  "consent.surface_api": "It will call Balnexa's Business API directly.",
  "consent.surface_mcp": "It will use Balnexa's tools through its chat (MCP).",
  "consent.title": "Connect an AI assistant",
- "consent.who": "{client} ({host}) asks to connect to this Balnexa household.",
+ "consent.who": "Verified host: {host}. The app calls itself “{client}” — that name is not verified.",
  "error.FORBIDDEN_CHANNEL": "Not allowed from this channel.",
  "error.FORBIDDEN_ROLE": "Your role does not allow this.",
  "error.IDEMPOTENCY_KEY_REUSED": "This request was already sent with different content.",

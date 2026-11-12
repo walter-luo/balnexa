@@ -9,6 +9,10 @@ export async function body(req) {
 // first token of one of our own database exception messages (e.g. INVALID_REDIRECT_URI); never SQL text
 export const errCode = (e) => String((e && e.message) || '').split(/[\s:]/)[0];
 
+// an idempotency key a client may send: 8–80 printable ASCII characters, normalized by the Gateway before the audited call
+// (D-CORE10-3); anything else is refused, never stored raw (RV-AIH-05)
+export const KEY_RE = /^[\x21-\x7e]{8,80}$/;
+
 // letters only (the audit guard refuses Luhn-valid 9-digit runs in audited values; 9011 C2)
 const LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEF';
 export const letters = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => LETTERS[b & 31]).join('');

@@ -139,6 +139,24 @@ def t_conn(server, ev):
             f"not the member's; the member sees only theirs; an AI bearer is refused ({mcp.split(':')[0]})")
 
 
+@test("AT-AIH-ENV-01", "RV-AIH-07; 9023 authn_oauth_client MODIFY (a redirect URI is usable only while its host-profile rule holds on this environment)")
+def t_env(server, ev):
+    H = C4.household(server, "bnx_c17env")
+    H.cmd(H.owner, "set_household_setting", setting="data_class", value="synthetic")
+    lb = reg(H, redirect_uris=["http://localhost:6274/cb"])["client_id"]
+    cl = reg(H, redirect_uris=[CLAUDE_CB])["client_id"]
+    C3.client(H)
+    c = lambda cid, ru: H.authn.call("authn_oauth_client", {"client_id": cid, "redirect_uri": ru})["redirect_ok"]
+    before = {"loopback": c(lb, "http://localhost:6274/cb"), "claude": c(cl, CLAUDE_CB), "prereg": c("host-t", "https://t.example/cb")}
+    H.cmd(H.owner, "set_household_setting", setting="data_class", value="real")
+    after = {"loopback": c(lb, "http://localhost:6274/cb"), "claude": c(cl, CLAUDE_CB), "prereg": c("host-t", "https://t.example/cb")}
+    H.close()
+    json.dump({"before": before, "after": after}, open(os.path.join(ev, "AT-AIH-ENV-01.json"), "w"), indent=1)
+    check(before == {"loopback": True, "claude": True, "prereg": True} and after == {"loopback": False, "claude": True, "prereg": True}, f"{before} {after}")
+    return ("a loopback client registered on a synthetic instance is refused (redirect_ok false) once data_class is real; a production "
+            "host redirect and a preregistered client are unaffected")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)

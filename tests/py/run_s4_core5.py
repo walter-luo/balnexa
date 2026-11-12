@@ -339,10 +339,12 @@ def t_worker_guard(server, ev):
     json.dump(o, open(os.path.join(ev, "AT-SIN-C4.json"), "w"), indent=1)
     c = o["cases"]
     check(c[0]["refused"] and c[1]["refused"] and not c[2]["refused"] and not any(x["leaked"] for x in c), f"{c}")
-    check([a["rules"] for a in c[0]["audits"]] == [["R_MOD10"]] and [a["rules"] for a in c[1]["audits"]] == [["R_ITN"]]
+    # RV-AIH-02 re-baseline: the Business API refuses the same values for an AI bearer, audited the same way
+    check(c[0]["rest_refused"] and c[1]["rest_refused"] and not c[2]["rest_refused"], f"{c}")
+    check([a["rules"] for a in c[0]["audits"]] == [["R_MOD10"]] * 2 and [a["rules"] for a in c[1]["audits"]] == [["R_ITN"]] * 2
           and all(a["role"] == "bnx_worker" and not a["has_value"] for x in c for a in x["audits"]) and c[2]["audits"] == [], f"{c}")
     check(o["scrub"] == {"masked": True, "leaked": False}, f"{o['scrub']}")
-    return ("get_balances responses carrying a Mod-10 value or an ITN are refused (SIN_CANDIDATE_REFUSED), each refusal audited through "
+    return ("balances responses to an AI host (MCP and Business API) carrying a Mod-10 value or an ITN are refused (SIN_CANDIDATE_REFUSED), each refusal audited through "
             "wrk_audit_sin_refusal with rule codes only; a clean response passes unchanged; log lines are scrubbed")
 
 

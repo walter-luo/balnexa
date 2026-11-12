@@ -5,7 +5,7 @@
 // function_scope, the account-currency subset), so this list is a convenience, never the authorization.
 // Tool names: the catalog name with "." replaced by "_" (fin.balances.as_of -> fin_balances_as_of), because host
 // function-name rules allow only [A-Za-z0-9_-] (D-AIH-4); the catalog name is the tool's title.
-import { json } from './http.js';
+import { json, KEY_RE } from './http.js';
 import { validate } from './schema.js';
 import { challenge, instanceUrl } from './oauth.js';
 import { CARD_URI, CARD_MIME, CARD_META, cardHtml } from './card.js';
@@ -47,11 +47,17 @@ export function covered(e, scopes) {
   return e.scopes.every((s) => scopes.includes(s));
 }
 
+// RV-AIH-03: a command needs the host's own idempotency key, as on REST; a retry with the same key replays instead of
+// creating a second draft
+const withKey = (s) => ({ ...s, properties: { ...(s.properties || {}), idempotency_key: { type: 'string', minLength: 8, maxLength: 80,
+  description: 'Your own key for this intent (8-80 printable ASCII characters). Reuse it when you retry; a new key creates a new draft.' } },
+  required: [...new Set([...(s.required || []), 'idempotency_key'])] });
+
 export function describe(e) {
   const card = e.mcp.ui_resource === CARD_URI;
   return {
     name: toolName(e), title: e.name, description: `${e.description} [${e.risk_class}; bnx-tools ${e.version}]`,
-    inputSchema: e.input_schema, outputSchema: e.output_schema && e.output_schema.type === 'object' ? e.output_schema : undefined,
+    inputSchema: e.kind === 'command' ? withKey(e.input_schema) : e.input_schema, outputSchema: e.output_schema && e.output_schema.type === 'object' ? e.output_schema : undefined,
     annotations: { title: e.name, readOnlyHint: !!e.mcp.readOnlyHint, destructiveHint: false, openWorldHint: false,
       idempotentHint: e.kind === 'query' },
     // AIH-4: the result is rendered by the card resource named in the catalog (MCP Apps; ChatGPT Apps SDK key for the same
@@ -67,7 +73,7 @@ const rpcReply = (id, result) => json(200, { jsonrpc: '2.0', id, result });
 const rpcError = (id, code, message) => json(200, { jsonrpc: '2.0', id, error: { code, message } });
 const toolError = (id, code, extra = {}) => rpcReply(id, { isError: true, content: [{ type: 'text', text: code }], structuredContent: { error: code, ...extra } });
 
-// ctx: { catalog, cred, gatewayKey, scanJson, auditRefusal, newTrace }
+// ctx: { catalog, cred, release, gatewayKey, newTrace, refuseSin }
 export async function handle(req, env, ctx) {
   if (req.method !== 'POST') return json(405, { error: 'METHOD_NOT_ALLOWED' }, { allow: 'POST' });
   const origin = req.headers.get('origin');
@@ -113,14 +119,20 @@ export async function handle(req, env, ctx) {
     return rpcReply(id, { contents: [{ uri: CARD_URI, mimeType: CARD_MIME, text: cardHtml(instanceUrl(env)), _meta: CARD_META }] });
   }
   if (rpc.method !== 'tools/call') return rpcError(id, -32601, 'Method not found');
-  const e = tools.get(params.name);
-  if (!e) return rpcError(id, -32602, `Unknown tool: ${String(params.name).slice(0, 80)}`);
+  // the host's input is never echoed back (RV-AIH-12)
+  const e = typeof params.name === 'string' ? tools.get(params.name) : undefined;
+  if (!e) return rpcError(id, -32602, 'Unknown tool');
   const args = params.arguments === undefined ? {} : params.arguments;
   if (!args || typeof args !== 'object' || Array.isArray(args)) return toolError(id, 'VALIDATION_FAILED', { field: '$' });
   const input = { ...args };
   const bad = validate(e.input_schema, input);
   if (bad) return toolError(id, 'VALIDATION_FAILED', { field: bad.path });
-  if (e.kind === 'command') input.idempotency_key = await ctx.gatewayKey(typeof input.idempotency_key === 'string' ? input.idempotency_key : crypto.randomUUID());
+  // RV-AIH-03/05: no invented key (an absent key is refused by the Core with IDEMPOTENCY_KEY_REQUIRED, as on REST); a malformed
+  // key is refused here, never stored raw
+  if (e.kind === 'command' && input.idempotency_key !== undefined) {
+    if (typeof input.idempotency_key !== 'string' || !KEY_RE.test(input.idempotency_key)) return toolError(id, 'VALIDATION_FAILED', { field: 'idempotency_key' });
+    input.idempotency_key = await ctx.gatewayKey(input.idempotency_key);
+  }
   // audit provenance (AIH §4.5): tool name and version from the catalog, a trace id per call; host_profile is set by the Core
   const cred = { ...ctx.cred, envelope: { tool_name: e.name, tool_version: e.version, trace_id: ctx.newTrace() } };
   let r;
@@ -131,15 +143,11 @@ export async function handle(req, env, ctx) {
     // the same code the REST surface returns (AT-AIH-05); SQLSTATE-only failures map like dbError
     if (String(err.code || '').startsWith('P0')) return toolError(id, String(err.message).split(/[\s:]/)[0]);
     if (['42501', '42883'].includes(err.code)) return toolError(id, 'NOT_FOUND');
-    if (['22P02', '23503', '23514'].includes(err.code)) return toolError(id, 'VALIDATION_FAILED');
+    if (String(err.code || '').startsWith('22') || ['23503', '23514'].includes(err.code)) return toolError(id, 'VALIDATION_FAILED');
     throw err;
   }
   // guard C4 (Addendum A1 Rev 1, 9011b): an AI host never receives a SIN/ITN candidate; refused, audited without the value
-  const hits = ctx.scanJson(r);
-  if (hits.length) {
-    await ctx.auditRefusal(e.name, [...new Set(hits.map((x) => x.rule))].sort());
-    return rpcReply(id, { isError: true, content: [{ type: 'text', text: 'SIN_CANDIDATE_REFUSED' }] });
-  }
+  if (await ctx.refuseSin(e.name, r)) return rpcReply(id, { isError: true, content: [{ type: 'text', text: 'SIN_CANDIDATE_REFUSED' }] });
   const text = JSON.stringify(r);
   if (text.length > RESULT_LIMIT) return toolError(id, 'RESULT_TOO_LARGE', { limit: RESULT_LIMIT });
   const structured = r && typeof r === 'object' && !Array.isArray(r) ? r : { result: r };

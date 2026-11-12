@@ -1,6 +1,9 @@
 {
  "format": "bnx-pwa-menu/1",
  "note": "Closed V1 menu (OR-U-02 items 1-8) plus Settings (AE \u00a76). Each task names a catalog core function; a task whose function is absent from the catalog or above the caller's tier is not shown (OR-U-01).",
+ "reached_elsewhere": {
+  "bnx.cmd_approve_ai_connection": "AI-host consent: GET /oauth/authorize -> #/consent -> POST /oauth/authorize only; the generic command route refuses it (RV-AIH-01)"
+ },
  "items": [
   {
    "id": "identity",
@@ -169,7 +172,6 @@
     "bnx.cmd_doc_declare_redacted",
     "bnx.cmd_doc_tag_sin_bearing",
     "bnx.q_ai_connections",
-    "bnx.cmd_approve_ai_connection",
     "bnx.cmd_revoke_ai_connection"
    ]
   }
