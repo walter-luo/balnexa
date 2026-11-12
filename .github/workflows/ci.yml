@@ -103,3 +103,21 @@ jobs:
             ci-evidence
             !ci-evidence/**/*.dump
           retention-days: 30
+
+  executor-image:
+    # M0-A preparation: the Executor image builds, and its tools and package are present (nothing is pushed or deployed)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: docker build -f apps/executor/Dockerfile -t bnx-exec:ci .
+      - name: smoke (tools and package; no credentials, no network calls)
+        run: |
+          docker run --rm --entrypoint sh bnx-exec:ci -c '
+            set -e
+            /usr/lib/postgresql/16/bin/pg_dump --version; /usr/lib/postgresql/17/bin/pg_restore --version
+            age --version; tesseract --version | head -1
+            python -c "import bnx_exec.jobs as j, bnx_exec.sin_detector as s; print(sorted(j.JOBS)); print(s.VERSION)"
+            id -u'
+          rc=0; docker run --rm bnx-exec:ci run --kind DOC_PROCESS || rc=$?
+          test "$rc" -eq 2                                                     # configuration error: no gateway configured
