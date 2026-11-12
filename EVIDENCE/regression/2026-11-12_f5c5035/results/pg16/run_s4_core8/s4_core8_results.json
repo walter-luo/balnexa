@@ -1,0 +1,68 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 19.3,
+ "pass": 8,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-R28-GOLD",
+   "ref": "AT-R28-01...15 (V1.1, 30 fixtures) and AT-R28-16...23 (V1.2) \u2014 engine = oracle byte for byte",
+   "status": "PASS",
+   "detail": "41 fixtures (30 of V1.1 unchanged, SHA-256 checked; 11 of V1.2): bnx.r28_evaluate output, including every rounding event, is byte-equal to the oracle's canonical JSON and matches each fixture's expected fields",
+   "seconds": 2.77
+  },
+  {
+   "id": "AT-R28-NEG",
+   "ref": "AT-R28-NEG-01/02 (mutations: HALF_EVEN substituted; actual-day compounding substituted)",
+   "status": "PASS",
+   "detail": "three mutants of the engine, each killed by its fixture: HALF_EVEN in place of HALF_UP (12a), actual-day compounding (daily compounding, 03b), rounding per rate segment instead of per event (22, gap G1)",
+   "seconds": 0.02
+  },
+  {
+   "id": "AT-R28-HIST-01",
+   "ref": "AT-R28-04a/04b on the command path; OR-L-01, OR-S-04 (terms are bitemporal; history reproducible)",
+   "status": "PASS",
+   "detail": "terms declared by command (rates 4 % then 6 % from 2026-04-01) give 124.11 (fixture 04a); a backdated correction retracts that rate event and adds 6 % from 2026-03-01: now 132.60 (04b), while terms_recorded_as_of = the first recording still gives 124.11; 9 events, none updated",
+   "seconds": 2.92
+  },
+  {
+   "id": "AT-R28-05,20",
+   "ref": "AT-R28-05 on posted journals; AT-R28-20 (payment reversed by a correction at N+1); OR-L-04",
+   "status": "PASS",
+   "detail": "two payments posted as journals and linked: at version 12 the position equals fixture 05 (interest paid 164.23, principal 0.00); the second journal corrected at 13: the position at 13 counts one payment (principal outstanding 10088.77, interest outstanding 75.46) and re-emits the rounding events; the position at 12 is unchanged",
+   "seconds": 3.02
+  },
+  {
+   "id": "AT-R28-09",
+   "ref": "AT-R28-09 (authorization: grants, partial view, revocation; never an existence leak)",
+   "status": "PASS",
+   "detail": "without a grant the position is NOT_FOUND (same as an unknown id) and declaring is NOT_POSTABLE; a view grant on one side shows the position with partial_view = true; terms need post rights on every household side; revoking the grants hides the loan again; a viewer cannot declare",
+   "seconds": 2.56
+  },
+  {
+   "id": "AT-R28-11",
+   "ref": "AT-R28-11 (idempotency, rollback, ledger-version reproducibility)",
+   "status": "PASS",
+   "detail": "a repeated idempotency key returns the same loan (one row) and a changed payload under it is IDEMPOTENCY_CONFLICT; a term batch with one invalid event writes nothing; INVALID_PRINCIPAL for 3 decimals in CAD; a link is versioned (position at the earlier ledger version counts 0 payments, after the link 1, after unlinking 0); a loan without terms is TERMS_UNVERIFIED with null figures, never zero",
+   "seconds": 2.64
+  },
+  {
+   "id": "AT-R28-CONS",
+   "ref": "AT-R28-CONS-01 (household_internal only from verified ownership facts); F-C2-07 enforcement points",
+   "status": "PASS",
+   "detail": "household_internal is true only when both sides are household accounts whose recorded ownership names the lender and the borrower; false for an external borrower and for a payable account owned by another party; the three loan tables carry their t_scope_flag triggers",
+   "seconds": 2.68
+  },
+  {
+   "id": "AT-R28-FAM",
+   "ref": "L-9012-1 OWNER_DECISION 2026-11-11 option 2: FAMILY pseudo-institution for intra-family loan accounts",
+   "status": "PASS",
+   "detail": "FAMILY seeded (kind other, no jurisdiction, ACTIVE_SEED, display names en/zh-CN); loan accounts on FAMILY declare their region (refused without one); bank_deposit, credit_card, e_wallet and investment refused on create, on reassignment and by a kind change; a 'Family' proposal resolves to the seed; a loan between FAMILY accounts evaluates OK and household_internal",
+   "seconds": 2.67
+  }
+ ]
+}
