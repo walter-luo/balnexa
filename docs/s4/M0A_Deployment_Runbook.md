@@ -84,3 +84,14 @@
 | Neon | delete the project (recoverable for 7 days) |
 
 No real data exists, so a teardown loses nothing. Every deletion needs the Owner's confirmation.
+
+## Execution log (2026-11-12, synthetic-test-01)
+
+| Step | Result |
+|---|---|
+| Neon install | 35 migrations, head 9023, `privilege_violations=0`; config v1 ACTIVE |
+| Worker deploy | by the installer with a 7-day Owner-scoped Cloudflare API token (Owner chose this over running wrangler himself); `https://balnexa-test.<owner subdomain>.workers.dev`; health `bindings.ok` |
+| F-M0A-02 | PWA `Referrer-Policy: no-referrer` left the Google button unrendered; now `strict-origin-when-cross-origin` (GIS setup guide) |
+| F-M0A-03 | the probe note was removed by `fail()` re-booting to a fresh login screen; the subject was read from `wrangler tail` (digits logged as letters) and the PWA fixed. No automated test covers the probe note yet |
+| Owner binding | `--bind-owner-sub` done; Owner signed in; `BNX_INSTALL_PROBE=0` redeployed (0.7.4-m0a) |
+| F-M0A-01 | handoff SIN guard false positive on UUIDs (about 0.1% per UUID in free text); next DB batch |
