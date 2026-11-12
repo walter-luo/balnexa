@@ -20,6 +20,8 @@ if caps[0]:
     cv = h.as_definer_via_migrator(server, db, "select bnx.adopt_existing_household('bb-household', %s, %s::jsonb, '{}'::jsonb)", (uid, json.dumps(mods)))[0][0]
     h.as_definer_via_migrator(server, db, "select bnx.install_activate_config(%s, %s, %s::jsonb)",
                               (cv, "e" * 64, json.dumps({"project_id": "bb-household", "instance_uid": uid, "modules": mods})))
+    # CORE-7: the Worker env a deploy renders (AE §5): binding values the Gateway checks (B1/B2/B8)
+    out["binding"] = {"BNX_PROJECT_ID": "bb-household", "BNX_INSTANCE_UID": uid, "BNX_CONFIG_DIGEST": "e" * 64, "BNX_MODULES": mods}
 if caps[1]:
     out["institution_id"] = str(h.as_definer_via_migrator(server, db,
         "insert into bnx.institution(id, name_en, country, code, kind, jurisdiction, status, verification_provenance) "

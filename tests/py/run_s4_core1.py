@@ -594,6 +594,9 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.backup_restorable", "bnx.backup_tier", "bnx.billing_month", "bnx.capacity_state", "bnx.usage_insert", "bnx.usage_month",
     "bnx.cmd_authorize_restore", "bnx.cmd_backup_key_mark_compromised", "bnx.cmd_backup_key_register", "bnx.cmd_set_cost_policy",
     "bnx.wrk_admission_decide", "bnx.wrk_backup_due", "bnx.wrk_backup_key_pruned", "bnx.wrk_capacity_update",
+    # 9017 CORE-7 Gateway support, not in the V1.2 register (D-CORE7-1; register update recorded in
+    # docs/s4/S4_CORE7_Implementation_Notes.md, L-CORE7-1)
+    "bnx.catalog_entries", "bnx.wrk_catalog", "bnx.wrk_binding_facts", "bnx.wrk_defer_item", "bnx.q_evidence_upload_target",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

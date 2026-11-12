@@ -19,12 +19,27 @@ export async function shouldReadNeon(kv, nowMs) {
   return { run: hint > drained || isBackstopTick(nowMs), hint, drained, backstop: isBackstopTick(nowMs) };
 }
 
+// CORE-7 (UA §9.1, S4B-F13; OBJ-259 MODIFY): known kinds are dispatched by this table; an unknown kind is never completed
+// (R1 completed it as a no-op, so a Worker rollback lost work): it is deferred by bnx.wrk_defer_item (back-off; Owner
+// alert after 3 attempts) and processed once a release that knows it is deployed (AT-Q-02).
+export const DEFER = Symbol('defer');
+export const KINDS = {
+  'staging.promote': promoteStaged,
+  'plan.execute': executePlan,
+};
+export const isKnownKind = (kind) => Object.prototype.hasOwnProperty.call(KINDS, kind);
+
 export async function handleItem(db, it) {
-  if (it.kind === 'staging.promote') {                   // S4 9010: Executor results staged through the lease API
-    const st = await db.one('bnx_worker', 'select bnx.wrk_promote_staged($1::uuid) r', [it.payload.staging_id]);
-    return ['promoted', 'rejected', 'blocked', 'awaiting_promoter', 'not_found'].includes(st);
-  }
-  if (it.kind !== 'plan.execute') return true;           // unknown kinds complete as no-ops (future milestones)
+  if (!isKnownKind(it.kind)) return DEFER;
+  return KINDS[it.kind](db, it);
+}
+
+async function promoteStaged(db, it) {                   // S4 9010: Executor results staged through the lease API
+  const st = await db.one('bnx_worker', 'select bnx.wrk_promote_staged($1::uuid) r', [it.payload.staging_id]);
+  return ['promoted', 'rejected', 'blocked', 'awaiting_promoter', 'not_found'].includes(st);
+}
+
+async function executePlan(db, it) {
   const plan = it.payload.plan_id;
   let st = await db.one('bnx_worker', 'select bnx.wrk_post_plan_chunk($1::uuid) r', [plan]);
   // S4 9008: a plan larger than one chunk returns 'executing'; continue within this tick up to MAX_CHUNKS_PER_ITEM, then the
@@ -40,18 +55,23 @@ export async function handleItem(db, it) {
 export async function dispatch(env, nowMs = Date.now()) {
   const decision = await shouldReadNeon(env.KV, nowMs);
   if (!decision.run) return { ...decision, neon: false, processed: 0 };
-  let processed = 0;
+  let processed = 0, deferred = 0;
   for (let round = 0; round < 4; round++) {               // bounded per tick (Workers CPU budget; M0-A)
     const claim = await env.db.one('bnx_worker', 'select bnx.wrk_claim(10) r', []);
     if (!claim.items.length) break;
     for (const it of claim.items) {
       let ok = false;
       try { ok = await handleItem(env.db, it); } catch { ok = false; }
+      if (ok === DEFER) {
+        await env.db.one('bnx_worker', 'select bnx.wrk_defer_item($1::bigint) r', [it.id]);
+        deferred++;
+        continue;
+      }
       await env.db.one('bnx_worker', 'select bnx.wrk_complete($1::bigint, $2::boolean) r', [it.id, ok]);
       processed++;
     }
   }
   const st = await env.db.one('bnx_worker', 'select bnx.wrk_queue_status() r', []);
   await env.KV.put('bnx:drained', String(st.drained_generation));
-  return { ...decision, neon: true, processed, status: st };
+  return { ...decision, neon: true, processed, deferred, status: st };
 }
