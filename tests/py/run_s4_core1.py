@@ -605,6 +605,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.q_audit_trail",
     # 9021 AIH-1/AIH-2 stage: OAuth client check and the PWA connection list, not in the V1.2 register (D-AIH-1)
     "bnx.authn_oauth_client", "bnx.q_ai_connections",
+    # 9024 F-M0A-01 digit-free generated ids, not in the V1.2 register (D-M0A-1)
+    "bnx.digitless_id",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

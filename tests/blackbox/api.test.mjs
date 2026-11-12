@@ -457,7 +457,7 @@ test('BB-OAUTH-03 DCR: host profile inferred from the redirect URIs; outside the
   const ok = await reg({ client_name: 'Claude', redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], token_endpoint_auth_method: 'none',
     grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'] });
   assert.equal(ok.status, 201, ok.text);
-  assert.match(ok.json.client_id, /^dcr-[0-9a-f]{32}$/);
+  assert.match(ok.json.client_id, /^dcr-[a-p]{32}$/);
   assert.deepEqual([ok.json.token_endpoint_auth_method, ok.json.grant_types], ['none', ['authorization_code', 'refresh_token']]);
   const d = await call('/oauth/authorize', { body: { action: 'describe', client_id: ok.json.client_id, redirect_uri: 'https://claude.ai/api/mcp/auth_callback' },
     cookie: S.owner, headers: { origin: ORIGIN } });

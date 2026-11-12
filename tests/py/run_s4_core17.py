@@ -22,6 +22,18 @@ def test(tid, ref):
     return deco
 
 
+def luhn_run(prefix8):
+    """the Mod-10 check digit appended to eight digits"""
+    tot = 0
+    for i, ch in enumerate(reversed(prefix8)):
+        d = int(ch)
+        if i % 2 == 0:
+            d *= 2
+            d = d - 9 if d > 9 else d
+        tot += d
+    return prefix8 + str((10 - tot % 10) % 10)
+
+
 def reg(H, **kw):
     return H.authn.call("authn_register_client", kw)
 
@@ -155,6 +167,24 @@ def t_env(server, ev):
     check(before == {"loopback": True, "claude": True, "prereg": True} and after == {"loopback": False, "claude": True, "prereg": True}, f"{before} {after}")
     return ("a loopback client registered on a synthetic instance is refused (redirect_ok false) once data_class is real; a production "
             "host redirect and a preregistered client are unaffected")
+
+
+@test("AT-ID-01", "F-M0A-01; 9024 (generated ids written into audited payloads carry no digit, so guard C2 can never refuse them)")
+def t_digitless(server, ev):
+    import re
+    H = C4.household(server, "bnx_c17ids")
+    gen = [r[0] for r in C2.sql(H, "select bnx.digitless_id() from generate_series(1, 2000)")]
+    # an id of the old shape (prefix + hex) holding a Mod-10-valid run of nine: the guard refuses it under a non-hex key, which
+    # is the failure 9024 removes (the run is built at run time, so the repository scan C6 never sees one)
+    run9 = luhn_run("04645428")
+    old_shape = C2.sql(H, "select bnx.sin_json_has(jsonb_build_object('message_id', 'phm_abc' || %s || repeat('a', 20)))", (run9,))[0][0]
+    dcr = [reg(H, redirect_uris=[CLAUDE_CB], client_name=f"Claude {chr(65 + i)}")["client_id"] for i in range(25)]
+    H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Chequing", currencies=["CAD"])
+    H.close()
+    ok = all(re.fullmatch(r"[a-p]{32}", g) for g in gen) and len(set(gen)) == len(gen)
+    check(ok and old_shape is True and all(re.fullmatch(r"dcr-[a-p]{32}", c) for c in dcr), f"{gen[:3]} {old_shape} {dcr[:3]}")
+    return (f"2000 bnx.digitless_id() values: 32 letters a-p, all distinct, no digit; 25 DCR client ids 'dcr-' + 32 letters; "
+            f"the old 'phm_' + hex shape with a Luhn run is refused by guard C2 (sin_json_has = {old_shape}), which is why 9024 removes digits")
 
 
 def main():

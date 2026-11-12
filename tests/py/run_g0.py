@@ -493,7 +493,7 @@ def t_conc_posts(server, ev):
         a = apps[i % 10]
         cred = H.owner if i % 2 else H.member
         return a.call("cmd_post_transaction", cred, dict(economic_type="consumption_expense", transaction_date="2026-03-02",
-                      description=f"c{i}", idempotency_key=str(uuid.uuid4()),
+                      description=f"c{i}", idempotency_key=F.new_key(),
                       lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-0.01"},
                              {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "0.01"}]))
     with cf.ThreadPoolExecutor(10) as ex:
@@ -681,7 +681,7 @@ def t_conc_activation(server, ev):
     app2 = psycopg.connect(h.dsn(server, "bnx_app", H.db))           # transaction held open across the activation attempt
     app2.execute("select bnx.cmd_post_transaction(%s::jsonb, %s::jsonb)", (json.dumps(H.member), json.dumps(dict(
         economic_type="consumption_expense", transaction_date="2026-04-11", description="racing direct post",
-        idempotency_key=str(uuid.uuid4()), lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-2.00"},
+        idempotency_key=F.new_key(), lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-2.00"},
                                                             {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "2.00"}]))))
     res = {}
     def activate():
@@ -709,7 +709,7 @@ def t_conc_activation(server, ev):
 def t_fault_kill(server, ev):
     H = household(server)
     c0 = counts(H)
-    key = str(uuid.uuid4())
+    key = F.new_key()
     cx = psycopg.connect(h.dsn(server, "bnx_app", H.db))
     cx.execute("select bnx.cmd_post_transaction(%s::jsonb, %s::jsonb)", (json.dumps(H.owner), json.dumps(dict(
         economic_type="consumption_expense", transaction_date="2026-03-09", description="killed", idempotency_key=key,
@@ -1064,7 +1064,7 @@ def t_queue(server, ev):
     def approve():
         res["r"] = H.app.cx.execute("select 1").fetchone() and h.Role(server, H.db, "bnx_app").call(
             "cmd_approve_plan", H.owner, {"plan_id": p["plan_id"], "plan_hash": p["plan_hash"], "scope_digest": p["scope_digest"],
-                                          "idempotency_key": str(uuid.uuid4())})
+                                          "idempotency_key": F.new_key()})
     th = threading.Thread(target=approve); th.start(); time.sleep(0.7)
     check(th.is_alive(), "enqueue did not serialize behind the open claim")
     w.commit(); th.join(10)

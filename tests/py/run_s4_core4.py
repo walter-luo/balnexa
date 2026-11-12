@@ -313,7 +313,7 @@ def activation_cases(H, ac2, acc2_id):
 
     def revoke_sql(cx):
         cx.execute("select bnx.cmd_set_grant(%s::jsonb, %s::jsonb)", (json.dumps(H.owner), json.dumps({
-            "member_id": H.member_id, "account_id": acc2_id, "can_view": True, "can_post": False, "idempotency_key": str(uuid.uuid4())})))
+            "member_id": H.member_id, "account_id": acc2_id, "can_view": True, "can_post": False, "idempotency_key": F.new_key()})))
 
     res = {}
     # control: no revocation -> activated, journals visible, 'activated' events
@@ -592,6 +592,8 @@ def t_handoff(server, ev):
     cad = H.cad["account_currency_id"]
     j = H.expense(H.owner, "25.00", date="2026-03-01")["journal_id"]
     pr = H.cmd(H.owner, "handoff_prepare", journal_id=j, recipient={"label": "Tambition CFO AI", "system_code": "TCFO"}, note="to corporate")
+    import re
+    check(re.fullmatch(r"phm_[a-p]{32}", pr["message_id"]) and re.fullmatch(r"ptr_[a-p]{32}", pr["transfer_id"]), f"9024 ids {pr['message_id']}")
     full_no = expect_err(H.cmd, "VALIDATION_FAILED", H.owner, "handoff_prepare", journal_id=j, recipient={"label": "T", "system_code": "TCFO"},
                          note="acct 9999000011112222")
     H.cmd(H.owner, "handoff_mark_sent", message_id=pr["message_id"])
