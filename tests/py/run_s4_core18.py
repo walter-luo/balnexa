@@ -347,6 +347,24 @@ def t_installer(server, ev):    # noqa: ARG001 - no database needed
     return f"valid inputs pass; each of {len(bad)} bad inputs gives exactly one problem ({', '.join(bad)}); --plan prints the steps and creates nothing"
 
 
+@test("AT-DPL-01", "INS-1 deploy rule; 9029 (activation refused when the deployed Worker's schema range excludes the applied head)")
+def t_deploy_rule(server, ev):
+    import json as _j
+    import run_s4_core1 as C1c
+    import run_s4_core2 as C2c
+    H = C1c.v2_household(server, "bnx_c18dpl")
+    head = C2c.sql(H, "select max(version) from bnx.schema_migrations where version >= '9000'")[0][0]
+    env_ok = _j.loads(C1c.env(H, C1c.MODULES))
+    old = {**env_ok, "worker_supports_extension": ["9017", "9023"]}
+    refused = C4.err(C1c.installer_sql, server, H.db, "select bnx.install_activate_config(1, %s, %s::jsonb)", (C1c.DIGEST, _j.dumps(old)))
+    good = {**env_ok, "worker_supports_extension": [str(int(head) - 1).zfill(4), head]}
+    C1c.installer_sql(server, H.db, "select bnx.install_activate_config(1, %s, %s::jsonb)", (C1c.DIGEST, _j.dumps(good)))
+    state = C2c.sql(H, "select state from bnx.config_version_anchor where config_version = 1")[0][0]
+    H.close()
+    check(refused[0] == "BNX_BINDING_MISMATCH" and "B3" in (refused[1] or "") and state == "ACTIVE", f"{refused} {state}")
+    return f"schema head {head}: a Worker supporting 9017-9023 is refused (B3); one supporting N-1..{head} activates the configuration"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)

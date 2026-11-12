@@ -241,9 +241,15 @@
    "min_worker_release": "0.8.3-p2",
    "sha256": "821d95b5b7861e9417156e0ca92a244f066c328f21ba8961f1edcd1b571d6417",
    "version": "9028"
+  },
+  {
+   "file": "9029_s4_deploy_rule.sql",
+   "min_worker_release": "0.8.4-p2",
+   "sha256": "88aaf51cedebae14f7d2fcaa2cc86afab407b97279f3697bdddf1b47540b0343",
+   "version": "9029"
   }
  ],
- "pwa_shell": "bnx-shell-0.8.3-p2",
+ "pwa_shell": "bnx-shell-0.8.4-p2",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -434,11 +440,11 @@
     "0109"
    ],
    "extension": [
-    "9027",
-    "9028"
+    "9028",
+    "9029"
    ]
   },
-  "version": "0.8.3-p2",
+  "version": "0.8.4-p2",
   "work_kinds": [
    "plan.execute",
    "staging.promote"
