@@ -20,7 +20,7 @@ process.stdin.on('end', async () => {
       db: {
         one: async (role, sql, params) => {
           if (sql.includes('wrk_binding_facts')) return { identity: { project_id: 'guard-household', instance_uid: '00000000-0000-4000-8000-0000000000c4' },
-            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9019' },
+            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9020' },
             active: { flags: { Canada: 'YES', International: 'YES', CRA: 'YES' } }, catalog_sha256: 'none' };
           if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', entries: [], uncatalogued: [] };
           if (sql.includes('wrk_audit_sin_refusal')) { audits.push({ role, payload: JSON.parse(params[0]) }); return 1; }

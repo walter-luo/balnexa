@@ -98,6 +98,18 @@ async function pwaAsset(req, env, p) {
   return new Response(req.method === 'HEAD' ? null : r.body, { status: 200, headers: h });
 }
 
+// Idempotency keys (D-CORE10-3; closes L-CORE9-9): the client's key reaches the database as a digest spelled in letters only,
+// so a client whose keys contain digits (an AI host, a script) is never refused by the audit guard for a Luhn-valid 9-digit run
+// (9011 guard C2), and no raw client key is stored. Deterministic: a retry with the same key replays; another body under the
+// same key is still IDEMPOTENCY_KEY_REUSED. A key outside 8..80 printable characters is passed through so that the database
+// reports its own error code.
+const KEY_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEF';
+async function gatewayKey(raw) {
+  if (!/^[\x21-\x7e]{8,80}$/.test(raw)) return raw;
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)));
+  return `gk-${Array.from(d, (b) => KEY_LETTERS[b & 31]).join('')}`;
+}
+
 const uploadsConfigured = (env) => !!(env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
 
 export default {
@@ -151,6 +163,7 @@ export default {
         const bd = (await body(req)) ?? {};                             // R1: an absent or unparsable body is {}
         if (typeof bd !== 'object' || Array.isArray(bd)) return json(422, { error: 'VALIDATION_FAILED', field: '$' });
         if (kind === 'commands' && req.headers.get('idempotency-key')) bd.idempotency_key = req.headers.get('idempotency-key');
+        if (kind === 'commands' && typeof bd.idempotency_key === 'string') bd.idempotency_key = await gatewayKey(bd.idempotency_key);
         const bad = validate(entry.input_schema, bd);
         if (bad) return json(422, { error: 'VALIDATION_FAILED', field: bad.path });
         const r = await env.db.one('bnx_app', `select ${entry.core_function}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(bd)]);
