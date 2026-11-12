@@ -15,8 +15,9 @@ Usage:
                       --runtime-host ep-….us-east-2.aws.neon.tech --project-id synthetic-test-01 --owner-name "Owner"
                       --worker-name balnexa-test --app-origin https://balnexa-test.<sub>.workers.dev --kv-id … --google-client-id …
   install_instance.py … --bind-owner-sub SUB      (after the probe: adds the Owner's Google identity, removes the placeholder)
+  install_instance.py … --plan                    (INS-2: validate every input and print the steps; touches nothing)
 """
-import argparse, hashlib, json, os, secrets, subprocess, sys, uuid
+import argparse, hashlib, json, os, re, secrets, subprocess, sys, uuid
 import psycopg
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
@@ -49,6 +50,57 @@ def save(path, data):
         json.dump(data, f, indent=1)
 
 
+MODULES = {"Canada", "International", "CRA"}
+
+
+def validate(a):
+    """INS-2 validator: every input is checked before anything is touched (IL V1.2 §3). Returns a list of problems."""
+    p = []
+    try:
+        d = conninfo_to_dict(a.pg)
+        if not d.get("dbname") or not d.get("user"):
+            p.append("--pg needs dbname and user")
+        elif d["user"].startswith("bnx_"):
+            p.append("--pg user must not be a bnx_* role: the privilege audit treats those as system roles (runbook note)")
+    except Exception:  # noqa: BLE001
+        p.append("--pg is not a libpq conninfo")
+    if a.bind_owner_sub is not None:                     # binding touches only the identity table: the other inputs are unused
+        if not re.fullmatch(r"[0-9]{6,30}", a.bind_owner_sub):
+            p.append("--bind-owner-sub must be the numeric Google subject shown by the install probe")
+        return p
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{3,253}", a.runtime_host or ""):
+        p.append("--runtime-host must be a host name")
+    if not re.fullmatch(r"[a-z][a-z0-9-]{2,40}", a.project_id or ""):
+        p.append("--project-id: lower-case letters, digits and '-', 3-41 characters")
+    try:
+        mods = json.loads(a.modules)
+        if set(mods) != MODULES or any(v not in ("YES", "NO") for v in mods.values()):
+            p.append("--modules must set exactly Canada, International and CRA to YES or NO")
+        elif mods.get("CRA") == "YES":
+            p.append("--modules CRA=YES needs the Owner gate G-CRA-1 (closed)")
+    except ValueError:
+        p.append("--modules is not JSON")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", a.worker_name or ""):
+        p.append("--worker-name: a Cloudflare Worker name")
+    if not re.fullmatch(r"https://[a-z0-9.-]+(:[0-9]{2,5})?", (a.app_origin or "").rstrip("/")):
+        p.append("--app-origin must be an https origin without a path")
+    if not re.fullmatch(r"[0-9a-f]{32}", a.kv_id or ""):
+        p.append("--kv-id must be a 32-hex Cloudflare KV namespace id")
+    if not re.fullmatch(r"[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com", a.google_client_id or ""):
+        p.append("--google-client-id must be a Google OAuth web client id")
+    return p
+
+
+def plan(a):
+    steps = ["1. B001/B002 as the installer (skipped when applied)", "2. passwords for bnx_migrator, bnx_app, bnx_authn, bnx_worker",
+             "3. migrations as bnx_migrator (B003 on request)", f"4. install_household_v2 for project {a.project_id} (data_class synthetic), "
+             "install_activate_config", f"5. render apps/worker/wrangler.toml for {a.worker_name} at {a.app_origin}; runtime secrets to "
+             f"{a.secrets_dir} (0600)"]
+    if a.bind_owner_sub:
+        steps = ["bind the Owner's Google subject and remove the placeholder (then set BNX_INSTALL_PROBE=0 and redeploy)"]
+    return "install plan (nothing done):\n  " + "\n  ".join(steps)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pg", required=True, help="libpq conninfo of the installer identity")
@@ -63,7 +115,14 @@ def main():
     ap.add_argument("--install-probe", default="1", choices=["0", "1"])
     ap.add_argument("--secrets-dir", default=os.path.expanduser("~/.balnexa"))
     ap.add_argument("--bind-owner-sub")
+    ap.add_argument("--plan", action="store_true", help="validate the inputs and print the steps; touch nothing (INS-2)")
     a = ap.parse_args()
+    problems = validate(a)
+    if problems:
+        sys.exit("invalid installer input:\n  " + "\n  ".join(problems))
+    if a.plan:
+        print(plan(a))
+        return
     os.makedirs(a.secrets_dir, mode=0o700, exist_ok=True)
     spath = os.path.join(a.secrets_dir, f"{a.project_id}.secrets.json")
     st = load(spath)

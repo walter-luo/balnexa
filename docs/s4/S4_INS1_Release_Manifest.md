@@ -23,4 +23,9 @@ CI runs `--check` in the `secret-scan` job. After adding a migration or changing
 
 - `install_activate_config` reading `min_worker_release` (database side).
 - Signed releases.
-- The installer validator and plan, and the setup wizard (INS-2). `deploy/install_instance.py` (M0-A) is the current CLI.
+- INS-2, part done: `deploy/install_instance.py --plan` validates every input before anything is touched, and prints the steps (AT-INS-01). Its rules:
+  - the installer role is not `bnx_*`;
+  - the modules are exactly Canada, International and CRA, and CRA=YES is refused while G-CRA-1 is closed;
+  - the app origin is https;
+  - the KV id, Google client id and Owner subject have the right shape.
+- INS-2 remaining: the setup wizard (a PWA setup mode).

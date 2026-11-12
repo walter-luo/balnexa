@@ -321,6 +321,28 @@ def t_generator(server, ev):
     return f"generator: {len(want)} Inbox files, {recs} index records, {mails} messages; every file reached its expected state {kinds}"
 
 
+@test("AT-INS-01", "INS-2 (installer validator and plan: every input checked before anything is touched)")
+def t_installer(server, ev):    # noqa: ARG001 - no database needed
+    import importlib.util, subprocess, types
+    spec = importlib.util.spec_from_file_location("install_instance", os.path.join(h.ROOT, "deploy", "install_instance.py"))
+    I = importlib.util.module_from_spec(spec); spec.loader.exec_module(I)
+    good = dict(pg="host=127.0.0.1 dbname=balnexa user=balnexa_owner", runtime_host="ep-synthetic.c-8.us-east-2.aws.neon.tech",
+                project_id="synthetic-test-01", modules='{"Canada":"YES","International":"YES","CRA":"NO"}', worker_name="balnexa-test",
+                app_origin="https://balnexa-test.synthetic.workers.dev", kv_id="0" * 32,
+                google_client_id="1000000000001-abcdefghijklmnop.apps.googleusercontent.com", bind_owner_sub=None, secrets_dir="/nonexistent")
+    ok = I.validate(types.SimpleNamespace(**good))
+    bad = {k: I.validate(types.SimpleNamespace(**{**good, k: v})) for k, v in (
+        ("pg", "host=x dbname=balnexa user=bnx_installer"), ("modules", '{"Canada":"YES","International":"YES","CRA":"YES"}'),
+        ("app_origin", "http://balnexa-test.synthetic.workers.dev"), ("kv_id", "abc"), ("project_id", "Bad_Id"),
+        ("google_client_id", "client"), ("bind_owner_sub", "pending-owner-probe"))}
+    r = subprocess.run([sys.executable, os.path.join(h.ROOT, "deploy", "install_instance.py"), "--pg", good["pg"], "--runtime-host", good["runtime_host"],
+                        "--project-id", good["project_id"], "--app-origin", good["app_origin"], "--kv-id", good["kv_id"],
+                        "--google-client-id", good["google_client_id"], "--secrets-dir", "/nonexistent-dir", "--plan"], capture_output=True, text=True)
+    check(ok == [] and all(len(v) == 1 for v in bad.values()) and r.returncode == 0 and "nothing done" in r.stdout
+          and not os.path.exists("/nonexistent-dir"), f"{ok} {bad} {r.returncode} {r.stdout} {r.stderr}")
+    return f"valid inputs pass; each of {len(bad)} bad inputs gives exactly one problem ({', '.join(bad)}); --plan prints the steps and creates nothing"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)
