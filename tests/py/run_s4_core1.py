@@ -603,6 +603,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.q_ledger_accounts",
     # 9020 CORE-10 stage: audit trail for PWA menu item 7, not in the V1.2 register (D-CORE10-1)
     "bnx.q_audit_trail",
+    # 9021 AIH-1/AIH-2 stage: OAuth client check and the PWA connection list, not in the V1.2 register (D-AIH-1)
+    "bnx.authn_oauth_client", "bnx.q_ai_connections",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

@@ -1,6 +1,6 @@
-# apps/pwa — status (S4 CORE-9)
+# apps/pwa — status (S4 CORE-9 … AIH)
 
-Status: **PARTIAL (built, not deployed, not claimed for G2).** CORE-10 added the handoff screens and the item-7 audit trail. The PWA is in `public/app/` and is served by the Gateway
+Status: **PARTIAL (built, not deployed, not claimed for G2).** CORE-10 added the handoff screens and the item-7 audit trail. AIH-1 added the AI-host consent screen (`#/consent`) and Settings → AI connections (`#/connections`). The PWA is in `public/app/` and is served by the Gateway
 (`apps/worker`, `GET /app/*`). Details: `docs/s4/S4_CORE9_Implementation_Notes.md`.
 
 What it has:
@@ -17,3 +17,5 @@ It is exercised headless by `tests/pwa/pwa.test.mjs` with every AI route and eve
 | Dedicated onboarding progress screens (Draft-04 C5) | WP-DOC | AT-NOAI-03 extended, C5 tests |
 | Evidence upload widget (needs R2, O-7), IndexedDB queue / upload resume | M2 / O-7 | AT-PWA-* (Architecture), G2 |
 | AT-NOAI-09 (tax screens) | WP-TAX TAX-6 (Owner gate G-CRA-1) | AT-NOAI-09, AT-CRA-10 |
+| Consent subsets for `documents.read` (document classes) and `tax.*` (taxpayers) | WP-DOC / WP-TAX (G-CRA-1) | AT-AIH-10 extended |
+| MCP App confirmation card | AIH-4 | AT-CONF-04, PV-UI-01…03 |

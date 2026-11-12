@@ -184,6 +184,10 @@ def main():
     want = {(nsp, name): e for nsp, name, e in entries}
     if a.write:
         target = os.path.abspath(a.into) if a.into else files[-1]
+        newest = os.path.join(MIGDIR, sorted(f for f in os.listdir(MIGDIR) if f.endswith(".sql"))[-1])
+        if not a.into and target != newest:
+            # never rewrite the block of an earlier (committed) migration by default: the newest migration must carry markers
+            print(f"catalog_build: the newest migration {os.path.basename(newest)} has no catalog markers; add them or pass --into"); sys.exit(2)
         if target not in files:
             print("catalog_build: markers missing in " + target); sys.exit(2)
         before = merged(files[:files.index(target)])

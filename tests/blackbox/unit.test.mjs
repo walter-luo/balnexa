@@ -1,5 +1,5 @@
-// CORE-7 unit tests for the Gateway modules that need no database: SigV4 presigning (AWS published vector), the JSON
-// Schema subset, binding evaluation B1/B2/B3/B8, JWKS rotation, and the dispatcher's unknown-kind path (AT-Q-02).
+// Unit tests for the Gateway modules that need no database (CORE-7, AIH): SigV4 presigning (AWS published vector), the JSON
+// Schema subset, binding evaluation B1/B2/B3/B8, JWKS rotation, the dispatcher's unknown-kind path (AT-Q-02), the MCP tool set and OAuth metadata.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -9,6 +9,8 @@ import { evaluate } from '../../apps/worker/src/binding.js';
 import { jwksResolver, verifyGoogleIdToken, AuthError } from '../../apps/worker/src/jwt.js';
 import { dispatch, handleItem, KINDS, DEFER, isBackstopTick } from '../../apps/worker/src/dispatch.js';
 import { RELEASE } from '../../apps/worker/src/release.js';
+import * as mcp from '../../apps/worker/src/mcp.js';
+import * as oauth from '../../apps/worker/src/oauth.js';
 
 test('UT-PRESIGN-01 SigV4 query-string presigning equals the AWS documented example', async () => {
   // AWS S3 API Reference, "Authenticating Requests: Using Query Parameters (AWS Signature Version 4)", worked example 1.
@@ -54,13 +56,13 @@ test('UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, addit
 test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes', () => {
   const env = { BNX_PROJECT_ID: 'p1', BNX_INSTANCE_UID: 'u1', BNX_CONFIG_DIGEST: 'd'.repeat(64), BNX_MODULES: '{"Canada":"YES","International":"NO","CRA":"YES"}' };
   const facts = { identity: { project_id: 'p1', instance_uid: 'u1' }, deployable_sha256: ['d'.repeat(64)],
-                  schema_head: { core: '0109', extension: '9020' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
+                  schema_head: { core: '0109', extension: '9021' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
   assert.deepEqual(evaluate(env, facts), { ok: true, failed: [], error: null });
   const cases = [
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_INSTANCE_UID: undefined }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_CONFIG_DIGEST: 'e'.repeat(64) }, facts, ['B2'], 'BNX_BINDING_MISMATCH'],
-    [env, { ...facts, schema_head: { core: '0109', extension: '9021' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
+    [env, { ...facts, schema_head: { core: '0109', extension: '9022' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
     [env, { ...facts, schema_head: { core: '0109', extension: '9016' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
     [{ ...env, BNX_MODULES: '{"Canada":"YES","International":"YES","CRA":"YES"}' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{ ...env, BNX_MODULES: 'not json' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
@@ -138,4 +140,36 @@ test('UT-EXEC-SCHEMA-01 completion schemas per (job kind, staging kind) load and
   assert.equal(validate(schemaFor('BACKUP', 'backup_recorded'), { run_id: id, started_at: ok.rendered_at, ended_at: ok.rendered_at, outcome: 'FAILED',
                                                                     failure_reason: 'TOOL_MAJOR' }), null);
   assert.equal(schemaFor('INDEX_CONSUME', 'index_consumed'), null);           // 9010 contract: the database validates
+});
+
+test('UT-MCP-01 MCP tool set from the catalog: mcp channel and RC-READ/RC-DRAFT only, host-valid names, consent coverage incl. legacy scopes (AIH-2)', () => {
+  const e = (name, risk, scopes, legacy = { read: false, propose: false }, channels = ['pwa', 'mcp']) => ({ name, risk_class: risk, scopes, legacy, channels,
+    kind: 'query', version: '1.0.0', description: name, input_schema: { type: 'object', properties: {} }, output_schema: { type: 'object' }, mcp: { readOnlyHint: risk === 'RC-READ' } });
+  const cat = { entries: [e('fin.balances.as_of', 'RC-READ', ['finance.read'], { read: true, propose: false }), e('fin.draft.create_transaction', 'RC-DRAFT', ['finance.draft'], { read: false, propose: true }),
+    e('pwa.post_transaction', 'RC-POST', [], undefined, ['pwa']), e('adm.leak', 'RC-ADMIN', [], undefined, ['pwa', 'mcp']), e('sys.whoami', 'RC-READ', [], { read: true, propose: true }),
+    e('handoff.status', 'RC-READ', ['handoff.read'])] };
+  const tools = mcp.mcpTools(cat);
+  assert.deepEqual([...tools.keys()].sort(), ['fin_balances_as_of', 'fin_draft_create_transaction', 'handoff_status', 'sys_whoami']);
+  const names = (scopes) => [...tools.values()].filter((x) => mcp.covered(x, scopes)).map(mcp.toolName).sort();
+  assert.deepEqual(names(['finance.read']), ['fin_balances_as_of', 'sys_whoami']);
+  assert.deepEqual(names(['finance.read', 'finance.draft', 'handoff.read']), ['fin_balances_as_of', 'fin_draft_create_transaction', 'handoff_status', 'sys_whoami']);
+  assert.deepEqual(names(['read']), ['fin_balances_as_of', 'sys_whoami']);                  // legacy R1 read (CROSS-02)
+  assert.deepEqual(names(['propose']), ['fin_draft_create_transaction', 'sys_whoami']);      // legacy R1 propose
+  assert.deepEqual(names([]), ['sys_whoami']);
+  const d = mcp.describe(tools.get('fin_balances_as_of'));
+  assert.deepEqual([d.title, d.annotations.destructiveHint, d.annotations.readOnlyHint, d.annotations.idempotentHint], ['fin.balances.as_of', false, true, true]);
+  assert.ok(['TR-01', 'TR-02', 'TR-03', 'TR-04', 'TR-05', 'TR-06', 'TR-07', 'TR-08', 'TR-09', 'TR-10', 'TR-11', 'TR-12', 'TR-13', 'TR-14'].every((x) => mcp.INSTRUCTIONS.includes(x)));
+});
+
+test('UT-OAUTH-01 metadata documents derive every URL from the instance URL (RFC 8414, RFC 9728; AIH-1)', () => {
+  const env = { APP_ORIGIN: 'https://h.example/' };
+  assert.equal(oauth.instanceUrl(env), 'https://h.example');
+  assert.equal(oauth.instanceUrl({ ...env, BNX_PUBLIC_URL: 'https://pub.example' }), 'https://pub.example');
+  const as = oauth.asMetadata(env);
+  assert.deepEqual([as.issuer, as.registration_endpoint, as.code_challenge_methods_supported, as.token_endpoint_auth_methods_supported],
+    ['https://h.example', 'https://h.example/oauth/register', ['S256'], ['none']]);
+  assert.deepEqual(oauth.prMetadata(env, 'api'), { resource: 'https://h.example/api', authorization_servers: ['https://h.example'], scopes_supported: oauth.SCOPES,
+    bearer_methods_supported: ['header'], resource_name: 'Balnexa Business API' });
+  assert.ok(oauth.CONSENTABLE.every((s) => oauth.SCOPES.includes(s)) && !oauth.CONSENTABLE.some((s) => s.startsWith('tax.')));
+  assert.equal(oauth.challenge(env, true), 'Bearer resource_metadata="https://h.example/.well-known/oauth-protected-resource/mcp", scope="finance.read reports.read offline_access", error="invalid_token"');
 });

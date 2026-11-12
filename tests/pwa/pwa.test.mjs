@@ -1,16 +1,18 @@
 // Headless PWA acceptance suite (S4 CORE-9; TST-3 subset; Owner Requirements OR-U-01…08, OR-T-01): the real PWA in Chromium
 // against the real Worker and a real PostgreSQL database, with every AI route and every other host blocked and recorded.
 // AT-NOAI-00 (no hidden LLM call, no external request), AT-NOAI-01…08 (one per menu item), AT-MENU-01…03, AT-CAL-01,
-// AT-CONF-01…03, AT-A11Y-01/02, AT-UI-01/02. Synthetic data only.
+// AT-CONF-01…03, AT-A11Y-01/02, AT-UI-01/02, AT-AIH-10 (consent screen; AIH-1). Synthetic data only.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { start, context, ROOT } from './harness.mjs';
 
 let S, B, owner, member, viewer, ac, ac2, groceries, salary;
 const contexts = [];
+const aiContexts = [];                                          // AIH-1 consent contexts: allowed /oauth/authorize; not part of AT-NOAI-00
 const MONTH = '2026-02';
 
 async function page(cookie, opts) {
@@ -52,7 +54,7 @@ before(async () => {
 
 after(async () => {
   // AT-NOAI-00 is asserted over every context the suite opened
-  for (const c of contexts) await c.close();
+  for (const c of [...contexts, ...aiContexts]) await c.close();
   if (B) await B.close();
   if (S) await S.stop();
 });
@@ -454,6 +456,74 @@ test('AT-UI-02 offline: the service worker serves the shell and the app says it 
   assert.match(await p.textContent('.offline-banner'), /Offline/);
   assert.equal(await p.locator('main table').count(), 0);
   await p.context().setOffline(false);
+});
+
+test('AT-AIH-10 consent screen (AIH-1): an AI host is allowed only the scopes and accounts the Owner ticks; deny; revoke in Settings (OR-AIH-06, OR-M-05)', async () => {
+  const CB = 'https://claude.ai/api/mcp/auth_callback';
+  const reg = await S.call('/oauth/register', { body: { client_name: 'Claude', redirect_uris: [CB] } });
+  assert.equal(reg.status, 201, reg.text);
+  const cid = reg.json.client_id;
+  const verifier = crypto.randomBytes(40).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const authorize = (state) => `${S.base}/oauth/authorize?${new URLSearchParams({ response_type: 'code', client_id: cid, redirect_uri: CB, code_challenge: challenge,
+    code_challenge_method: 'S256', state, scope: 'finance.read finance.draft reports.read tax.read offline_access', resource: `${S.base}/mcp` })}`;
+  const ctx = await context(B, S.base, owner, { bypassCSP: true }, { aiPaths: ['/oauth/authorize'], capture: ['https://claude.ai'] });
+  aiContexts.push(ctx);
+  let p = await ctx.newPage();
+  // after the browser is sent to the (blocked) host URI the page shows an error document: continue in a fresh page
+  const fresh = async () => { await p.close(); p = await ctx.newPage(); };
+  const axe = fs.readFileSync(path.join(ROOT, 'tests/pwa/node_modules/axe-core/axe.min.js'), 'utf8');
+  const a11y = async () => { await p.evaluate(axe); return p.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations
+    .filter((v) => ['serious', 'critical'].includes(v.impact)).map((v) => v.id)); };
+  // deny first: the host gets error=access_denied and no code
+  await p.goto(authorize('st-deny'));
+  await p.waitForSelector('#cs-allow');
+  assert.match(p.url(), /\/app\/#\/consent\?/);
+  // the browser is sent to the host's redirect URI (captured, never reached)
+  const sentBack = async (n) => { for (let i = 0; i < 100 && ctx.log.captured.length < n; i++) await new Promise((r) => setTimeout(r, 50)); };
+  await p.click('#cs-deny');
+  await sentBack(1);
+  const denied = new URL(ctx.log.captured.at(-1));
+  assert.deepEqual([denied.origin + denied.pathname, denied.searchParams.get('error'), denied.searchParams.get('state'), denied.searchParams.get('code')],
+    [CB, 'access_denied', 'st-deny', null]);
+  // allow: the screen shows who asks, what is not offered, and pre-selects only read scopes and no account
+  await fresh();
+  await p.goto(authorize('st-allow'));
+  await p.waitForSelector('#cs-allow');
+  assert.match(await p.textContent('#cs-who'), /Claude \(Claude\) asks to connect/);
+  assert.match(await p.textContent('#cs-absent'), /Read tax status/);
+  const ticked = await p.$$eval('input[name=scope]', (xs) => Object.fromEntries(xs.map((x) => [x.value, x.checked])));
+  assert.deepEqual(ticked, { 'finance.read': true, 'finance.draft': false, 'reports.read': true, 'offline_access': true });
+  assert.equal(await p.locator('input[name=ac]:checked').count(), 0);
+  assert.deepEqual(await a11y(), []);
+  await p.click('#cs-allow');
+  assert.match(await statusText(p), /at least one account/);
+  await p.check(`input[name=ac][value="${ac.account_currency_id}"]`);
+  await p.click('#cs-allow');
+  await sentBack(2);
+  const back = new URL(ctx.log.captured.at(-1));
+  assert.deepEqual([back.origin + back.pathname, back.searchParams.get('state')], [CB, 'st-allow']);
+  const tok = await fetch(`${S.base}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({
+    grant_type: 'authorization_code', code: back.searchParams.get('code'), client_id: cid, redirect_uri: CB, code_verifier: verifier, resource: `${S.base}/mcp` }) });
+  const T = (await tok.json()).access_token;
+  const mcp = async (method, params) => (await fetch(`${S.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${T}` },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }));
+  const tools = (await (await mcp('tools/list')).json()).result.tools.map((t) => t.name);
+  assert.ok(tools.includes('fin_balances_as_of') && tools.includes('fin_reports_create_snapshot') && !tools.includes('fin_draft_create_transaction'), `${tools}`);
+  const bal = (await (await mcp('tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } })).json()).result.structuredContent;
+  assert.deepEqual(bal.balances.map((x) => x.account_currency_id), [ac.account_currency_id], 'only the ticked account-currency');
+  // Settings -> AI connections: listed with the ticked account, revoked there; the next MCP request is refused
+  await fresh();
+  await p.goto(`${S.base}/app/#/settings`);
+  await p.click('a[href="#/connections"]');
+  await p.waitForSelector('button[data-connection]');
+  assert.match(await p.textContent('main table'), /Claude[\s\S]*finance\.read, offline_access, reports\.read[\s\S]*Joint chequing · CAD/);
+  assert.deepEqual(await a11y(), []);
+  await p.click('button[data-connection]');
+  await p.waitForFunction(() => document.querySelector('#status').textContent.includes('can no longer use'));
+  await p.waitForSelector('main .st-revoked');
+  assert.equal((await mcp('ping')).status, 401);
+  assert.deepEqual([ctx.log.external, ctx.log.ai], [[], []], 'nothing but the host redirect left this origin; /mcp never from the page');
 });
 
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {

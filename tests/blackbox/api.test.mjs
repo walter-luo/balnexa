@@ -121,45 +121,73 @@ test('BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
   assert.equal(forged.status, 401);
 });
 
+const R_MCP = `${ORIGIN}/mcp`, R_API = `${ORIGIN}/api`;
+const pkce = () => { const v = crypto.randomBytes(40).toString('base64url'); return { v, c: crypto.createHash('sha256').update(v).digest('base64url') }; };
+// consent through the PWA route (session + same origin) and code redemption, as an AI host would do it after the consent screen
+async function consent({ client = 'chatgpt-test', redirect = 'https://host.example/cb', scopes = ['finance.read'], resource = R_MCP,
+                         acs = [S.ac.account_currency_id], cookie = S.owner } = {}) {
+  const k = pkce();
+  const az = await call('/oauth/authorize', { body: { client_id: client, redirect_uri: redirect, code_challenge: k.c, code_challenge_method: 'S256',
+    scopes, account_currency_ids: acs, resource, state: 'st-abc' }, cookie, headers: { origin: ORIGIN } });
+  assert.equal(az.status, 200, az.text);
+  const u = new URL(az.json.redirect);
+  assert.equal(u.searchParams.get('state'), 'st-abc');
+  const tok = await call('/oauth/token', { form: { grant_type: 'authorization_code', code: u.searchParams.get('code'), client_id: client,
+    redirect_uri: redirect, code_verifier: k.v, resource } });
+  assert.equal(tok.status, 200, tok.text);
+  return { ...tok.json, connection_id: az.json.connection_id };
+}
+const rpcAt = (bearer, method, params, extra = {}) => call('/mcp', { body: { jsonrpc: '2.0', id: 1, method, ...(params ? { params } : {}) }, bearer, ...extra });
+
 test('BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope', async () => {
-  const verifier = crypto.randomBytes(40).toString('base64url');
-  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-  const plain = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
-    code_challenge_method: 'plain', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id] }, cookie: S.owner, headers: { origin: ORIGIN } });
+  const k = pkce();
+  const plain = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: k.c,
+    code_challenge_method: 'plain', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id], resource: R_MCP }, cookie: S.owner, headers: { origin: ORIGIN } });
   assert.equal(plain.status, 400);
-  // S4 re-baseline (9009): catalog scopes; a replayed code revokes the connection's tokens, so a fresh consent follows
-  const authorize = () => call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
-    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft', 'reports.read'], account_currency_ids: [S.ac.account_currency_id], state: 'xyz' }, cookie: S.owner, headers: { origin: ORIGIN } });
+  // S4 re-baseline (9009): catalog scopes; a replayed code revokes the connection's tokens, so a fresh consent follows.
+  // AIH-1 re-baseline: every new consent names the resource (surface) it is for
+  const authorize = () => call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: k.c,
+    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft', 'reports.read'], account_currency_ids: [S.ac.account_currency_id], state: 'xyz',
+    resource: R_MCP }, cookie: S.owner, headers: { origin: ORIGIN } });
   let az = await authorize();
   assert.equal(az.status, 200, az.text);
   let code = new URL(az.json.redirect).searchParams.get('code');
   const tokenReq = (v) => call('/oauth/token', { form: { grant_type: 'authorization_code', code, client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_verifier: v } });
   const wrong = await tokenReq(crypto.randomBytes(40).toString('base64url'));
   assert.deepEqual([wrong.status, wrong.json.error], [400, 'invalid_grant']);
-  const tok0 = await tokenReq(verifier);
+  const tok0 = await tokenReq(k.v);
   assert.equal(tok0.status, 200, tok0.text);
-  const replay = await tokenReq(verifier);
+  const replay = await tokenReq(k.v);
   assert.deepEqual([replay.status, replay.json.error], [400, 'invalid_grant']);
-  const revoked = await call('/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_balances', arguments: {} } }, bearer: tok0.json.access_token });
-  assert.ok(revoked.json.result.isError, 'token issued before the replay must be revoked');
+  // AIH-2 re-baseline: a revoked token is refused by the MCP transport itself (401 + RFC 9728 challenge), not as a tool error
+  const revoked = await rpcAt(tok0.json.access_token, 'tools/call', { name: 'fin_balances_as_of', arguments: {} });
+  assert.equal(revoked.status, 401, 'token issued before the replay must be revoked');
+  assert.match(revoked.headers.get('www-authenticate'), /error="invalid_token"/);
   az = await authorize();
   code = new URL(az.json.redirect).searchParams.get('code');
-  const tok = await tokenReq(verifier);
+  const tok = await tokenReq(k.v);
   assert.equal(tok.status, 200, tok.text);
   S.bearer = tok.json.access_token;
-  const rpc = (method, params) => call('/mcp', { body: { jsonrpc: '2.0', id: 1, method, params }, bearer: S.bearer });
+  const rpc = (method, params) => rpcAt(S.bearer, method, params);
   const list = await rpc('tools/list');
-  assert.deepEqual(list.json.result.tools.map(t => t.name).sort(), ['create_report_snapshot', 'get_balances', 'replay_snapshot']);
-  const bal = await rpc('tools/call', { name: 'get_balances', arguments: { as_of: '2026-12-31' } });
+  const names = list.json.result.tools.map((t) => t.name);
+  // AIH-2: the R1 static tools survive as catalog tools (OBJ-268); the list covers the consented scopes only
+  for (const n of ['fin_balances_as_of', 'fin_reports_create_snapshot', 'fin_reports_replay_snapshot', 'fin_draft_create_transaction', 'sys_whoami']) {
+    assert.ok(names.includes(n), n);
+  }
+  assert.ok(!names.some((n) => n.startsWith('handoff_') || n.startsWith('doc_')), `${names}`);
+  const bal = await rpc('tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } });
   assert.equal(bal.json.result.structuredContent.balances.length, 1);
-  const w = await rpc('tools/call', { name: 'post_transaction', arguments: {} });
+  const w = await rpc('tools/call', { name: 'pwa_post_transaction', arguments: {} });
   assert.equal(w.json.error.code, -32602);
-  // the database, not the Worker, refuses AI-channel writes even when the AI host calls REST directly
+  // the database, not the Worker, refuses AI-channel writes even when the AI host calls REST directly (with an /api token)
+  S.bearerApi = (await consent({ scopes: ['finance.read', 'finance.draft', 'reports.read'], resource: R_API })).access_token;
   const rest = await call('/api/v1/commands/post_transaction', { body: { idempotency_key: 'bb-ai-00000001', economic_type: 'fee', transaction_date: '2026-02-02',
-    description: 'ai', lines: [] }, bearer: S.bearer });
+    description: 'ai', lines: [] }, bearer: S.bearerApi });
   assert.deepEqual([rest.status, rest.json.error], [403, 'FORBIDDEN_CHANNEL']);
   const noBearer = await call('/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'tools/list' }, cookie: S.owner });
   assert.equal(noBearer.status, 401);
+  assert.equal(noBearer.headers.get('www-authenticate'), `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="finance.read reports.read offline_access"`);
 });
 
 test('BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) ', async () => {
@@ -249,14 +277,14 @@ test('BB-CAT-01 catalog from the Core: session sees every entry, bearer only MCP
   assert.equal(s.json.format, 'bnx-tools/1.0');
   assert.match(s.json.catalog_sha256, /^[0-9a-f]{64}$/);
   assert.ok(s.json.entries.length > 100 && s.json.entries.every((e) => e.rest && e.core_function && e.input_schema), 'every entry routable');
-  const b = await call('/api/v1/catalog', { method: 'GET', bearer: S.bearer });
+  const b = await call('/api/v1/catalog', { method: 'GET', bearer: S.bearerApi });
   assert.equal(b.status, 200, b.text);
   assert.ok(b.json.entries.length > 0 && b.json.entries.every((e) => e.channels.includes('mcp') && ['RC-READ', 'RC-DRAFT'].includes(e.risk_class)));
   assert.ok(b.json.entries.length < s.json.entries.length);
   assert.equal((await call('/api/v1/catalog', { method: 'GET' })).status, 401);
   // equivalence contract: the same actor, input and version give the same structured result on REST and MCP
-  const rest = await call('/api/v1/queries/balances', { body: { as_of: '2026-12-31' }, bearer: S.bearer });
-  const mcp = await call('/mcp', { body: { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'get_balances', arguments: { as_of: '2026-12-31' } } }, bearer: S.bearer });
+  const rest = await call('/api/v1/queries/balances', { body: { as_of: '2026-12-31' }, bearer: S.bearerApi });
+  const mcp = await call('/mcp', { body: { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } } }, bearer: S.bearer });
   assert.equal(rest.status, 200, rest.text);
   assert.deepEqual(mcp.json.result.structuredContent, rest.json);
 });
@@ -302,22 +330,23 @@ test('BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answer
   assert.equal(good.json.identity_present, true);
 });
 
-test('BB-B7-01 a token bound to another resource is refused at this Gateway (B7)', async () => {
-  const R = 'https://bb.balnexa.test/mcp';
-  const verifier = crypto.randomBytes(40).toString('base64url');
-  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-  const az = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: challenge,
-    code_challenge_method: 'S256', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id], resource: R }, cookie: S.owner, headers: { origin: ORIGIN } });
-  assert.equal(az.status, 200, az.text);
-  const tok = await call('/oauth/token', { form: { grant_type: 'authorization_code', code: new URL(az.json.redirect).searchParams.get('code'),
-    client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_verifier: verifier, resource: R } });
-  assert.equal(tok.status, 200, tok.text);
-  const q = (b2) => callAt(b2, '/api/v1/queries/balances', { body: {}, bearer: tok.json.access_token });
-  await at({ ...env, KV: makeKv(), BNX_RESOURCE: R }, async (b2) => assert.equal((await q(b2)).status, 200));
-  await at({ ...env, KV: makeKv(), BNX_RESOURCE: 'https://other-instance.balnexa.test/mcp' }, async (b2) => {
-    const r = await q(b2);
-    assert.deepEqual([r.status, r.json.error], [401, 'UNAUTHENTICATED']);
+test('BB-B7-01 a token is accepted only on the surface and instance it was issued for (B7; AIH-1 resource binding)', async () => {
+  // AIH-1 re-baseline: the audience is the surface (<instance>/mcp or <instance>/api), derived from the instance URL
+  const tm = await consent({ resource: R_MCP }), ta = await consent({ resource: R_API });
+  const onMcp = (b2, t) => callAt(b2, '/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'fin_balances_as_of', arguments: {} } }, bearer: t });
+  const onApi = (b2, t) => callAt(b2, '/api/v1/queries/balances', { body: {}, bearer: t });
+  assert.equal((await onMcp(base, tm.access_token)).status, 200);
+  assert.equal((await onApi(base, ta.access_token)).status, 200);
+  const x1 = await onApi(base, tm.access_token), x2 = await onMcp(base, ta.access_token);
+  assert.deepEqual([x1.status, x1.json.error, x2.status], [401, 'UNAUTHENTICATED', 401]);
+  assert.match(x2.headers.get('www-authenticate'), /error="invalid_token"/);
+  await at({ ...env, KV: makeKv(), APP_ORIGIN: 'https://other-instance.balnexa.test' }, async (b2) => {
+    assert.equal((await onMcp(b2, tm.access_token)).status, 401);
+    assert.equal((await onApi(b2, ta.access_token)).status, 401);
   });
+  const bad = await call('/oauth/authorize', { body: { client_id: 'chatgpt-test', redirect_uri: 'https://host.example/cb', code_challenge: pkce().c,
+    code_challenge_method: 'S256', scopes: ['finance.read'], account_currency_ids: [S.ac.account_currency_id] }, cookie: S.owner, headers: { origin: ORIGIN } });
+  assert.deepEqual([bad.status, bad.json.error], [400, 'invalid_target'], 'a consent without a resource is refused (L-CORE7-4)');
 });
 
 test('BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for R2 (AT-EV-01)', async () => {
@@ -385,6 +414,227 @@ test('BB-EXEC-02 Executor end to end over HTTP: lease with work order, render, c
   assert.deepEqual([t.status, t.json.error], [502, 'ARTIFACT_INTEGRITY']);
   const anon = await call(`/api/v1/artifacts/${sid}`, { method: 'GET' });
   assert.equal(anon.status, 401);
+});
+
+// ------------------------------------------------------------------------------------------------ AIH-1 / AIH-2 (AI hosts)
+let IP = 0;
+const ip = () => `198.51.100.${++IP}`;                        // one client address per registration: the DCR limit is per address
+
+test('AT-AIH-06 discovery: RFC 8414 AS metadata, RFC 9728 metadata for /mcp and /api, 401 challenge, transport rules', async () => {
+  const as = await call('/.well-known/oauth-authorization-server', { method: 'GET' });
+  assert.equal(as.status, 200);
+  assert.deepEqual([as.json.issuer, as.json.authorization_endpoint, as.json.token_endpoint, as.json.registration_endpoint, as.json.revocation_endpoint],
+    [ORIGIN, `${ORIGIN}/oauth/authorize`, `${ORIGIN}/oauth/token`, `${ORIGIN}/oauth/register`, `${ORIGIN}/oauth/revoke`]);
+  assert.deepEqual([as.json.code_challenge_methods_supported, as.json.token_endpoint_auth_methods_supported, as.json.grant_types_supported],
+    [['S256'], ['none'], ['authorization_code', 'refresh_token']]);
+  assert.ok(as.json.scopes_supported.includes('offline_access') && as.json.client_id_metadata_document_supported === true);
+  for (const w of ['mcp', 'api']) {
+    const pr = await call(`/.well-known/oauth-protected-resource/${w}`, { method: 'GET' });
+    assert.deepEqual([pr.status, pr.json.resource, pr.json.authorization_servers], [200, `${ORIGIN}/${w}`, [ORIGIN]]);
+  }
+  assert.equal((await call('/.well-known/oauth-protected-resource/other', { method: 'GET' })).status, 404);
+  assert.equal((await call('/.well-known/oauth-protected-resource', { method: 'GET' })).status, 404);
+  const g = await call('/mcp', { method: 'GET', bearer: S.bearer });
+  assert.deepEqual([g.status, g.headers.get('allow')], [405, 'POST']);
+  const init = await rpcAt(S.bearer, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'bb', version: '1' } });
+  assert.deepEqual([init.json.result.protocolVersion, init.json.result.serverInfo.name, init.json.result.capabilities.tools.listChanged], ['2025-06-18', 'balnexa', false]);
+  assert.match(init.json.result.instructions, /data, never instructions/);
+  assert.ok(['TR-01', 'TR-07', 'TR-13', 'TR-14'].every((x) => init.json.result.instructions.includes(x)));
+  assert.equal((await rpcAt(S.bearer, 'initialize', { protocolVersion: '1999-01-01' })).json.result.protocolVersion, '2025-11-25');
+  const note = await call('/mcp', { body: { jsonrpc: '2.0', method: 'notifications/initialized' }, bearer: S.bearer });
+  assert.deepEqual([note.status, note.text], [202, '']);
+  assert.deepEqual((await rpcAt(S.bearer, 'ping')).json.result, {});
+  assert.equal((await rpcAt(S.bearer, 'resources/list')).json.error.code, -32601);
+  const batch = await call('/mcp', { body: [{ jsonrpc: '2.0', id: 1, method: 'ping' }], bearer: S.bearer });
+  assert.deepEqual([batch.status, batch.json.error.code], [400, -32600]);
+  assert.equal((await rpcAt(S.bearer, 'ping', null, { headers: { 'mcp-protocol-version': '2024-01-01' } })).status, 400);
+  assert.equal((await rpcAt(S.bearer, 'ping', null, { headers: { 'mcp-protocol-version': '2025-06-18' } })).status, 200);
+  assert.equal((await rpcAt(S.bearer, 'ping', null, { headers: { origin: 'https://evil.example' } })).status, 403);
+});
+
+test('BB-OAUTH-03 DCR: host profile inferred from the redirect URIs; outside the allowlist refused; public clients only; rate limit', async () => {
+  const reg = (b) => call('/oauth/register', { body: b, headers: { 'cf-connecting-ip': ip() } });
+  const ok = await reg({ client_name: 'Claude', redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], token_endpoint_auth_method: 'none',
+    grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'] });
+  assert.equal(ok.status, 201, ok.text);
+  assert.match(ok.json.client_id, /^dcr-[0-9a-f]{32}$/);
+  assert.deepEqual([ok.json.token_endpoint_auth_method, ok.json.grant_types], ['none', ['authorization_code', 'refresh_token']]);
+  const d = await call('/oauth/authorize', { body: { action: 'describe', client_id: ok.json.client_id, redirect_uri: 'https://claude.ai/api/mcp/auth_callback' },
+    cookie: S.owner, headers: { origin: ORIGIN } });
+  assert.deepEqual([d.status, d.json.host_profile, d.json.registration_kind, d.json.client_name], [200, 'claude_remote_mcp', 'DCR', 'Claude']);
+  const cg = await reg({ redirect_uris: ['https://chatgpt.com/connector_platform_oauth_redirect'] });
+  assert.equal(cg.status, 201, cg.text);
+  for (const [b, err] of [
+    [{ redirect_uris: ['https://evil.example/cb'] }, 'invalid_redirect_uri'],
+    [{ redirect_uris: ['https://claude.ai/api/mcp/auth_callback', 'https://chatgpt.com/connector_platform_oauth_redirect'] }, 'invalid_redirect_uri'],
+    [{ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], token_endpoint_auth_method: 'client_secret_basic' }, 'invalid_client_metadata'],
+    [{ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'], grant_types: ['client_credentials'] }, 'invalid_client_metadata'],
+    [{ redirect_uris: [] }, 'invalid_redirect_uri'],
+    [[], 'invalid_client_metadata']]) {
+    const r = await reg(b);
+    assert.deepEqual([r.status, r.json.error], [400, err], JSON.stringify(b));
+  }
+  await at({ ...env, KV: makeKv(), DCR_LIMIT_PER_DAY: 2 }, async (b2) => {
+    const one = (a) => callAt(b2, '/oauth/register', { body: { redirect_uris: ['https://claude.ai/api/mcp/auth_callback'] }, headers: { 'cf-connecting-ip': a } });
+    assert.equal((await one('192.0.2.7')).status, 201);
+    assert.equal((await one('192.0.2.7')).status, 201);
+    const third = await one('192.0.2.7');
+    assert.deepEqual([third.status, third.json.error], [429, 'too_many_requests']);
+    assert.equal((await one('192.0.2.8')).status, 201);
+  });
+});
+
+test('AT-AIH-07 a host connects end to end: DCR, authorize -> PWA consent, deny, approve, token, MCP; the audit chain carries host provenance', async () => {
+  const CB = 'https://claude.ai/api/mcp/auth_callback';
+  const cid = (await call('/oauth/register', { body: { client_name: 'Claude', redirect_uris: [CB] }, headers: { 'cf-connecting-ip': ip() } })).json.client_id;
+  const k = pkce();
+  const get = (o) => fetch(`${base}/oauth/authorize?${new URLSearchParams({ response_type: 'code', client_id: cid, redirect_uri: CB, code_challenge: k.c,
+    code_challenge_method: 'S256', state: 'st-host', scope: 'finance.read reports.read offline_access openid', resource: R_MCP, ...o })}`, { redirect: 'manual' });
+  const g = await get({});
+  assert.equal(g.status, 302);
+  const loc = g.headers.get('location');
+  assert.ok(loc.startsWith('/app/#/consent?'), loc);
+  const cp = new URLSearchParams(loc.split('?')[1]);
+  assert.deepEqual([cp.get('client_id'), cp.get('resource'), cp.get('scope'), cp.get('state')], [cid, R_MCP, 'finance.read reports.read offline_access', 'st-host']);
+  assert.equal(new URLSearchParams((await get({ resource: '' })).headers.get('location').split('?')[1]).get('resource'), R_MCP);
+  // an untrusted client or redirect URI gets an error page, never a redirect (RFC 6749 §4.1.2.1)
+  for (const o of [{ redirect_uri: 'https://evil.example/cb' }, { client_id: 'dcr-unknown' }, { client_id: '' }]) {
+    const r = await get(o);
+    assert.deepEqual([r.status, r.headers.get('location')], [400, null], JSON.stringify(o));
+  }
+  for (const [o, e] of [[{ code_challenge_method: 'plain' }, 'invalid_request'], [{ response_type: 'token' }, 'unsupported_response_type'],
+                        [{ resource: 'https://other.example/mcp' }, 'invalid_target']]) {
+    const r = await get(o);
+    const u = new URL(r.headers.get('location'));
+    assert.deepEqual([r.status, u.origin + u.pathname, u.searchParams.get('error'), u.searchParams.get('state')], [302, CB, e, 'st-host']);
+  }
+  // the consent screen's calls (session + same origin)
+  const pwa = (b, o = { origin: ORIGIN }) => call('/oauth/authorize', { body: { client_id: cid, redirect_uri: CB, ...b }, cookie: S.owner, headers: o });
+  const d = await pwa({ action: 'describe' });
+  assert.deepEqual([d.json.client_name, d.json.host_profile, d.json.resources.mcp], ['Claude', 'claude_remote_mcp', R_MCP]);
+  assert.ok(!d.json.consentable.includes('tax.read') && d.json.consentable.includes('offline_access'));
+  assert.equal((await pwa({ action: 'describe' }, {})).status, 403, 'no Origin: refused (CSRF)');
+  assert.equal((await pwa({ action: 'describe', redirect_uri: 'https://evil.example/cb' })).status, 400);
+  const du = new URL((await pwa({ action: 'deny', state: 'st-host' })).json.redirect);
+  assert.deepEqual([du.origin + du.pathname, du.searchParams.get('error'), du.searchParams.get('state'), du.searchParams.get('code')], [CB, 'access_denied', 'st-host', null]);
+  const approve = (b) => pwa({ code_challenge: k.c, code_challenge_method: 'S256', resource: R_MCP, account_currency_ids: [S.ac.account_currency_id], state: 'st-host', ...b });
+  const bs = await approve({ scopes: ['tax.read'] });
+  assert.deepEqual([bs.status, bs.json.error], [400, 'invalid_scope']);
+  const ap = await approve({ scopes: ['finance.read', 'reports.read', 'offline_access'] });
+  assert.equal(ap.status, 200, ap.text);
+  const au = new URL(ap.json.redirect);
+  assert.deepEqual([au.origin + au.pathname, au.searchParams.get('state')], [CB, 'st-host']);
+  const tok = await call('/oauth/token', { form: { grant_type: 'authorization_code', code: au.searchParams.get('code'), client_id: cid, redirect_uri: CB,
+    code_verifier: k.v, resource: R_MCP } });
+  assert.equal(tok.status, 200, tok.text);
+  assert.ok(tok.json.refresh_token, 'offline_access consented -> refresh token');
+  assert.equal(tok.json.scope, 'finance.read offline_access reports.read', 'granted scope returned (RFC 6749 §5.1)');
+  const T = tok.json.access_token;
+  const who = (await rpcAt(T, 'tools/call', { name: 'sys_whoami', arguments: {} })).json.result.structuredContent;
+  assert.deepEqual([who.channel, [...who.scopes].sort()], ['mcp', ['finance.read', 'offline_access', 'reports.read']]);
+  // a host's own key may hold a Luhn-valid 9-digit run: the Gateway normalizes it before the audited call (D-CORE10-3); built at runtime
+  const luhn = (d) => { let sum = 0; [...`${d}0`].reverse().forEach((c, i) => { let x = Number(c); if (i % 2) { x *= 2; if (x > 9) x -= 9; } sum += x; }); return `${d}${(10 - (sum % 10)) % 10}`; };
+  const snap = await rpcAt(T, 'tools/call', { name: 'fin_reports_create_snapshot', arguments: { report_code: 'R-BAL', as_of: '2026-12-31',
+    idempotency_key: `host-key-${luhn(String(10000000 + crypto.randomInt(89999999)))}` } });
+  assert.ok(!snap.json.result.isError, snap.text);
+  const tr = await call('/api/v1/queries/audit_trail', { body: { command: 'create_report_snapshot', limit: 5 }, cookie: S.owner });
+  const ev = tr.json.events[0];
+  assert.deepEqual([ev.channel, ev.host_profile, ev.tool_name], ['mcp', 'claude_remote_mcp', 'fin.reports.create_snapshot']);
+  // the connection is the Owner's to see and revoke in the PWA (OR-M-05)
+  const row = (await call('/api/v1/queries/ai_connections', { body: {}, cookie: S.owner })).json.connections.find((c) => c.client_id === cid);
+  assert.deepEqual([row.state, row.host_profile, row.resource, row.account_currency_ids], ['active', 'claude_remote_mcp', R_MCP, [S.ac.account_currency_id]]);
+});
+
+test('BB-OAUTH-02 refresh rotation; reuse of a rotated refresh revokes the connection; RFC 7009 and PWA revocation (PV-AIH-03)', async () => {
+  const t = await consent({ scopes: ['finance.read', 'offline_access'] });
+  const refresh = (rt) => call('/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: rt, client_id: 'chatgpt-test' } });
+  const r1 = await refresh(t.refresh_token);
+  assert.equal(r1.status, 200, r1.text);
+  assert.ok(r1.json.refresh_token && r1.json.refresh_token !== t.refresh_token);
+  assert.equal((await rpcAt(r1.json.access_token, 'ping')).status, 200);
+  const reuse = await refresh(t.refresh_token);
+  assert.deepEqual([reuse.status, reuse.json.error], [400, 'invalid_grant']);
+  assert.equal((await rpcAt(r1.json.access_token, 'ping')).status, 401, 'reuse of a rotated refresh token revokes the connection');
+  assert.equal((await refresh(r1.json.refresh_token)).status, 400);
+  const t2 = await consent({ scopes: ['finance.read'] });
+  assert.equal(t2.refresh_token, undefined, 'no refresh token without offline_access');
+  const rv = await call('/oauth/revoke', { form: { token: t2.access_token, client_id: 'chatgpt-test' } });
+  assert.deepEqual([rv.status, rv.json], [200, {}]);
+  assert.equal((await rpcAt(t2.access_token, 'ping')).status, 401);
+  assert.equal((await call('/oauth/revoke', { form: { token: 'unknown-token', client_id: 'chatgpt-test' } })).status, 200);
+  const t3 = await consent({ scopes: ['finance.read'] });
+  const row = (await call('/api/v1/queries/ai_connections', { body: {}, cookie: S.owner })).json.connections.find((c) => c.connection_id === t3.connection_id);
+  assert.deepEqual([row.state, row.client_name, row.scopes, row.resource, row.legacy], ['active', 'Synthetic AI host', ['finance.read'], R_MCP, false]);
+  const rk = await cmd('revoke_ai_connection', { connection_id: t3.connection_id }, S.owner, { 'idempotency-key': 'bb-revoke-aaaaaaaa' });
+  assert.equal(rk.status, 200, rk.text);
+  assert.equal((await rpcAt(t3.access_token, 'ping')).status, 401, 'revocation in the PWA is effective on the next request');
+  const after = (await call('/api/v1/queries/ai_connections', { body: {}, cookie: S.owner })).json.connections.find((c) => c.connection_id === t3.connection_id);
+  assert.equal(after.state, 'revoked');
+  const lb = await call('/api/v1/queries/ai_connections', { body: {}, bearer: S.bearerApi });
+  assert.equal(lb.json.error, 'SCOPE_NOT_CONSENTED', 'the connection list is not an AI tool');
+});
+
+test('AT-AIH-04 tool classes: no RC-POST/RC-ADMIN tool is listed; read-only connections see no draft tool and are refused by the Core with the REST code (AT-AIH-01/03/05/08)', async () => {
+  const ro = await consent({ scopes: ['finance.read'] }), roApi = await consent({ scopes: ['finance.read'], resource: R_API });
+  const cat = (await call('/api/v1/catalog', { method: 'GET', cookie: S.owner })).json.entries;
+  const byName = new Map(cat.map((e) => [e.name.replace(/\./g, '_'), e]));
+  const mcpNames = cat.filter((e) => e.channels.includes('mcp')).map((e) => e.name.replace(/\./g, '_'));
+  assert.equal(new Set(mcpNames).size, mcpNames.length, 'tool names stay unique after "." -> "_"');
+  const list = (await rpcAt(ro.access_token, 'tools/list')).json.result.tools;
+  assert.ok(list.length > 10 && list.every((t) => byName.get(t.name).risk_class === 'RC-READ'), 'read-only connection: RC-READ tools only');
+  assert.ok(list.every((t) => t.annotations.destructiveHint === false && t.annotations.readOnlyHint === true && t.inputSchema.type === 'object'
+    && t.title === byName.get(t.name).name && /^[A-Za-z0-9_-]{1,64}$/.test(t.name)));
+  const full = (await rpcAt(S.bearer, 'tools/list')).json.result.tools;
+  assert.ok(full.some((t) => byName.get(t.name).risk_class === 'RC-DRAFT'));
+  assert.ok(full.every((t) => ['RC-READ', 'RC-DRAFT'].includes(byName.get(t.name).risk_class)), 'never RC-POST / RC-ADMIN');
+  // equivalence (AT-AIH-01): same member, grants and version -> byte-identical structured result on MCP and REST
+  const f1m = await rpcAt(S.bearer, 'tools/call', { name: 'fin_reports_f1', arguments: { as_of: '2026-12-31' } });
+  const f1r = await call('/api/v1/queries/f1_balances', { body: { as_of: '2026-12-31' }, bearer: S.bearerApi });
+  assert.equal(f1r.status, 200, f1r.text);
+  assert.equal(f1m.json.result.content[0].text, f1r.text);
+  assert.deepEqual(f1m.json.result.structuredContent, f1r.json);
+  // error equivalence (AT-AIH-05): schema refusal with the same code and field
+  const mv = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_reports_f1', arguments: { as_of: '2026-02-30' } })).json.result;
+  const rv = await call('/api/v1/queries/f1_balances', { body: { as_of: '2026-02-30' }, bearer: S.bearerApi });
+  assert.deepEqual([mv.isError, mv.structuredContent.error, mv.structuredContent.field], [true, rv.json.error, rv.json.field]);
+  // a draft through a read-only connection: the Core refuses it with the same code on both surfaces (AT-AIH-03)
+  const args = { account_currency_id: S.ac.account_currency_id, transaction_date: '2026-03-01', economic_type: 'consumption_expense', amount: '-1.00',
+    counter_ledger_account_id: S.groc };
+  const m = (await rpcAt(ro.access_token, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, idempotency_key: 'bb-ro-draft-one' } })).json.result;
+  const r = await call('/api/v1/commands/draft_create_transaction', { body: args, bearer: roApi.access_token, headers: { 'idempotency-key': 'bb-ro-draft-two' } });
+  assert.deepEqual([m.isError, m.structuredContent.error, r.json.error], [true, 'SCOPE_NOT_CONSENTED', 'SCOPE_NOT_CONSENTED']);
+  // with finance.draft the AI host creates a draft, never a posting (AT-AIH-08): the plan waits for approval in the PWA
+  const bal0 = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } })).json.result.structuredContent;
+  const dr = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_draft_create_transaction', arguments: { ...args, idempotency_key: 'bb-full-draft-one' } })).json.result;
+  assert.ok(!dr.isError, JSON.stringify(dr));
+  const bal = (await rpcAt(S.bearer, 'tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } })).json.result.structuredContent;
+  assert.deepEqual(bal, bal0, 'nothing posted');
+  const bad = await rpcAt(S.bearer, 'tools/call', { name: 'fin_balances_as_of', arguments: [1] });
+  assert.deepEqual([bad.json.result.isError, bad.json.result.structuredContent.error], [true, 'VALIDATION_FAILED']);
+});
+
+test('AT-AIH-06b CIMD: an allowlisted client-id URL is fetched once and registered; any other URL is never fetched', async () => {
+  const fetched = [];
+  const CID = 'https://chatgpt.com/oauth/client.json', CB = 'https://chatgpt.com/connector_platform_oauth_redirect';
+  const e2 = { ...env, KV: makeKv(), CIMD_FETCH: async (u) => {
+    fetched.push(u);
+    return new Response(JSON.stringify({ client_id: u, client_name: 'ChatGPT', redirect_uris: [CB], token_endpoint_auth_method: 'none' }), { status: 200 });
+  } };
+  await at(e2, async (b2) => {
+    const k = pkce();
+    const q = (cid, ru) => fetch(`${b2}/oauth/authorize?${new URLSearchParams({ response_type: 'code', client_id: cid, redirect_uri: ru, code_challenge: k.c,
+      code_challenge_method: 'S256' })}`, { redirect: 'manual' });
+    assert.equal((await q('https://evil.example/client.json', 'https://evil.example/cb')).status, 400);
+    assert.equal((await q('https://chatgpt.com/oauth/../../evil/client.json', CB)).status, 400);
+    assert.deepEqual(fetched, [], 'a URL outside the CIMD allowlist is never fetched');
+    const ok = await q(CID, CB);
+    assert.equal(ok.status, 302);
+    assert.ok(ok.headers.get('location').startsWith('/app/#/consent?'));
+    assert.equal((await q(CID, CB)).status, 302);
+    assert.deepEqual(fetched, [CID], 'fetched once, then known');
+    const d = await callAt(b2, '/oauth/authorize', { body: { action: 'describe', client_id: CID, redirect_uri: CB }, cookie: S.owner, headers: { origin: ORIGIN } });
+    assert.deepEqual([d.json.host_profile, d.json.registration_kind, d.json.client_name], ['chatgpt_plugin_mcp', 'CIMD', 'ChatGPT']);
+  });
 });
 
 test('BB-AUTH-02 logout revokes the session server-side', async () => {

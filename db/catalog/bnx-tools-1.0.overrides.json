@@ -9,6 +9,7 @@
     "q_health"
   ],
   "descriptions": {
+    "q_ai_connections": "The caller's AI connections: client, host profile, scopes, consented account-currencies, last token issue, revocation state (PWA only)",
     "q_audit_trail": "Audit chain events (command, subject, member, channel, version, host provenance); Owner and admins see the household, others their own",
     "q_ledger_accounts": "Ledger accounts the caller may book against (visible account-currencies with can_post) and active income and expense categories (PWA Quick Entry)",
     "q_health": "Instance health without identity values; answers while a binding check fails",
@@ -29,6 +30,7 @@
     "cmd_create_account": "Create an account with its account-currencies"
   },
   "names": {
+    "q_ai_connections": "sys.ai_connections",
     "q_health": "sys.health",
     "q_ledger_accounts": "fin.ledger.accounts",
     "q_audit_trail": "sys.audit_trail",

@@ -28,7 +28,8 @@ function screen(titleKey, ...kids) {
 }
 
 // tasks with a dedicated screen; every other task uses the generic renderers
-const DEDICATED = { 'bnx.q_handoff_status': 'handoff', 'bnx.cmd_handoff_prepare': 'handoff/prepare', 'bnx.cmd_handoff_import': 'handoff/import' };
+const DEDICATED = { 'bnx.q_handoff_status': 'handoff', 'bnx.cmd_handoff_prepare': 'handoff/prepare', 'bnx.cmd_handoff_import': 'handoff/import',
+  'bnx.q_ai_connections': 'connections' };
 const visible = (e) => !!e && e.channels.includes('pwa') && (e.tier === null || e.tier <= S.tier);
 const entry = (fn) => { const e = S.cat.get(fn); return visible(e) ? e : null; };
 
@@ -437,8 +438,79 @@ async function settings() {
   }
   const it = S.menu.items.find((x) => x.id === 'settings');
   const tasks = it.tasks.filter((fn) => entry(fn) && fn !== 'bnx.q_config_status');
-  if (tasks.length) kids.push(h('ul', { class: 'links' }, tasks.map((fn) => h('li', {}, h('a', { href: `#/task/${fn}` }, t(`task.${fn}`))))));
+  if (tasks.length) kids.push(h('ul', { class: 'links' }, tasks.map((fn) => h('li', {}, h('a', { href: `#/${DEDICATED[fn] || `task/${fn}`}` }, t(`task.${fn}`))))));
   screen('settings.title', ...kids);
+}
+
+// ------------------------------------------------------------------------------------------------- AI-host consent (AIH-1)
+// Reached from GET /oauth/authorize after the Gateway checked the client and its redirect URI (AIH V1.2 §4.2-§4.3; OR-AIH-06;
+// OR-P-07: sign-in happens here, never in an AI conversation). Nothing is pre-selected that the Owner did not choose: draft
+// scopes and account-currencies start unticked (data minimization); the AI host can never post or approve (C-04).
+const READ_SCOPES = ['finance.read', 'reports.read', 'handoff.read', 'offline_access'];
+async function consentScreen(params) {
+  const p = Object.fromEntries(params);
+  const base = { client_id: p.client_id || '', redirect_uri: p.redirect_uri || '' };
+  let d, L;
+  try { d = await api.oauth({ action: 'describe', ...base }); L = await ledger(true); } catch (e) { return fail(e); }
+  const requested = (p.scope || '').split(' ').filter(Boolean);
+  const grantable = requested.filter((x) => d.consentable.includes(x));
+  const absent = requested.filter((x) => !d.consentable.includes(x));
+  const surface = p.resource === d.resources.api ? 'api' : 'mcp';
+  const f = h('form', { class: 'task-form', novalidate: true },
+    h('p', { id: 'cs-who' }, t('consent.who', { client: d.client_name, host: t(`host.${d.host_profile || 'unknown'}`) })),
+    h('p', { class: 'hint' }, t(`consent.surface_${surface}`)),
+    h('fieldset', {}, h('legend', {}, t('consent.scopes')),
+      grantable.map((x) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'scope', value: x, checked: READ_SCOPES.includes(x) }),
+        h('span', {}, t(`scope.${x}`)))),
+      absent.length ? h('p', { class: 'hint', id: 'cs-absent' }, t('consent.not_offered', { list: absent.map((x) => t(`scope.${x}`)).join('; ') })) : ''),
+    h('fieldset', {}, h('legend', {}, t('consent.accounts')), h('p', { class: 'hint' }, t('consent.accounts_hint')),
+      L.accounts.filter((a) => a.state === 'active').map((a) => h('label', { class: 'check' },
+        h('input', { type: 'checkbox', name: 'ac', value: a.account_currency_id }), h('span', {}, `${a.label} · ${a.currency}`)))),
+    h('p', { class: 'note', id: 'cs-out' }, t('consent.disclosure')),
+    h('p', { class: 'note' }, t('consent.never_posts')),
+    h('p', { class: 'toolbar' },
+      h('button', { type: 'submit', class: 'primary', id: 'cs-allow' }, t('consent.allow')),
+      h('button', { type: 'button', id: 'cs-deny', onclick: async () => {
+        try { const r = await api.oauth({ action: 'deny', ...base, state: p.state }); status(t('consent.leaving'), 'ok'); location.assign(r.redirect); } catch (e) { fail(e); }
+      } }, t('consent.deny'))));
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const scopes = [...f.querySelectorAll('input[name=scope]:checked')].map((x) => x.value);
+    const acs = [...f.querySelectorAll('input[name=ac]:checked')].map((x) => x.value);
+    if (!scopes.some((x) => x !== 'offline_access')) return status(t('consent.need_scope'), 'error');
+    if (scopes.some((x) => ['finance.read', 'finance.draft', 'reports.read'].includes(x)) && !acs.length) return status(t('consent.need_account'), 'error');
+    try {
+      const r = await api.oauth({ ...base, code_challenge: p.code_challenge, code_challenge_method: p.code_challenge_method, resource: p.resource,
+        state: p.state, scopes, account_currency_ids: acs });
+      status(t('consent.leaving'), 'ok');
+      location.assign(r.redirect);
+    } catch (e) { fail(e); }
+  });
+  screen('consent.title', f);
+}
+
+// ------------------------------------------------------------------------------------------------- AI connections (OR-M-05)
+async function connections() {
+  let r, L;
+  try { r = await api.query('ai_connections'); L = await ledger(); } catch (e) { return fail(e); }
+  const names = new Map(L.accounts.map((a) => [a.account_currency_id, `${a.label} · ${a.currency}`]));
+  const rows = r.connections.map((c) => h('tr', {},
+    h('td', { 'data-label': t('field.client') }, c.client_name, h('br'), h('span', { class: 'hint' }, t(`host.${c.host_profile || 'unknown'}`))),
+    h('td', { 'data-label': t('field.scopes') }, c.scopes.join(', ')),
+    h('td', { 'data-label': t('consent.accounts') }, c.account_currency_ids.map((x) => names.get(x) || t('connections.hidden_account')).join('; ')),
+    h('td', { 'data-label': t('field.approved_at') }, String(c.approved_at || '').slice(0, 16).replace('T', ' ')),
+    h('td', { 'data-label': t('field.last_token_at') }, String(c.last_token_at || '').slice(0, 16).replace('T', ' ')),
+    h('td', { 'data-label': t('field.state') }, h('span', { class: `st st-${c.state}` }, t(`connections.${c.state}`))),
+    h('td', {}, c.state === 'active' && entry('bnx.cmd_revoke_ai_connection') ? h('button', { type: 'button', 'data-connection': c.connection_id, onclick: async (e) => {
+      try { await api.command('revoke_ai_connection', { connection_id: c.connection_id }); status(t('connections.revoked_ok', { client: c.client_name }), 'ok'); connections(); }
+      catch (err) { fail(err); }
+    } }, t('connections.revoke')) : '')));
+  screen('connections.title', h('p', { class: 'hint' }, t('connections.explain')),
+    rows.length ? h('div', { class: 'table' }, h('div', { class: 'scroll', tabindex: '0', role: 'region', 'aria-label': t('connections.title') },
+      h('table', { class: 'cards' }, h('caption', {}, t('connections.title')), h('thead', {}, h('tr', {},
+        ['field.client', 'field.scopes', 'consent.accounts', 'field.approved_at', 'field.last_token_at', 'field.state', 'connections.action']
+          .map((k) => h('th', { scope: 'col' }, t(k))))), h('tbody', {}, rows))))
+      : h('p', { class: 'empty' }, t('connections.none')));
 }
 
 // --------------------------------------------------------------------------------------------------------------- login
@@ -482,6 +554,8 @@ async function render() {
     if (r === 'handoff' && arg === 'prepare') return await handoffPrepare(params);
     if (r === 'handoff' && arg === 'import') return await handoffImport();
     if (r === 'handoff') return await handoff();
+    if (r === 'consent') return await consentScreen(params);
+    if (r === 'connections') return await connections();
     return await home();
   } catch (e) { fail(e); }
 }
