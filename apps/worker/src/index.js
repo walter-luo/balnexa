@@ -72,6 +72,32 @@ function jwks(env) {
   return RESOLVERS.get(env);
 }
 
+// PWA documents (CORE-9; UA V1.2 §12; OR-U-01/06): the page may talk only to this origin and to Google Identity Services for
+// sign-in (no other host, so no hidden LLM call is possible from the shell); camera, microphone and location are never asked.
+const PWA_HEADERS = {
+  'content-security-policy': "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; "
+    + "style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; "
+    + "connect-src 'self' https://accounts.google.com/gsi/; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
+    + "worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'cross-origin-opener-policy': 'same-origin-allow-popups',
+};
+const PWA_FILE = /^\/app\/(?:[a-z0-9_-]+\/)*[A-Za-z0-9_.-]*$/;
+
+async function pwaAsset(req, env, p) {
+  if (!env.ASSETS || !PWA_FILE.test(p) || p.includes('..')) return json(404, { error: 'NOT_FOUND' });
+  const file = p.endsWith('/') ? `${p}index.html` : p;
+  const r = await env.ASSETS.fetch(new Request(new URL(file, req.url), { method: req.method }));
+  if (r.status !== 200) return json(404, { error: 'NOT_FOUND' });
+  const h = new Headers(r.headers);
+  for (const [k, v] of Object.entries(PWA_HEADERS)) h.set(k, v);
+  // the shell, the service worker and the catalogs revalidate; versioned assets may be cached by the service worker
+  h.set('cache-control', /\.(html|json|webmanifest)$|\/sw\.js$/.test(file) ? 'no-cache' : 'public, max-age=300');
+  if (file.endsWith('/sw.js')) h.set('service-worker-allowed', '/app/');
+  return new Response(req.method === 'HEAD' ? null : r.body, { status: 200, headers: h });
+}
+
 const uploadsConfigured = (env) => !!(env.R2_ACCOUNT_ID && env.R2_BUCKET && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
 
 export default {
@@ -79,6 +105,14 @@ export default {
     const url = new URL(req.url);
     const p = url.pathname;
     try {
+      // CORE-9: the PWA shell is static and reveals nothing, so it is served before the binding checks (its API calls are not)
+      if ((req.method === 'GET' || req.method === 'HEAD') && (p === '/' || p === '/app')) {
+        return new Response(null, { status: 302, headers: { location: '/app/', ...PWA_HEADERS } });
+      }
+      if (req.method === 'GET' && p === '/app/config.json') {
+        return json(200, { google_client_id: env.GOOGLE_CLIENT_ID || null, release: RELEASE.version }, { ...PWA_HEADERS, 'cache-control': 'no-store' });
+      }
+      if ((req.method === 'GET' || req.method === 'HEAD') && p.startsWith('/app/')) return pwaAsset(req, env, p);
       // health answers even when a binding check fails; it reveals no identity value (q_health, 9003)
       if (req.method === 'GET' && p === '/api/v1/health') {
         const b = await bindings(env);

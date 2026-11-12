@@ -81,6 +81,12 @@ jobs:
           exit $rc
       - name: Black-box API
         run: BNX_PY="$(which python)" node --test tests/blackbox/api.test.mjs tests/blackbox/unit.test.mjs
+      - name: PWA headless suite (CORE-9; all AI routes and other hosts blocked)
+        working-directory: tests/pwa
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          BNX_SERVER="$BNX_SERVER" BNX_PY="$(which python)" node --test --test-concurrency=1 pwa.test.mjs
       - name: Dispatch simulation
         if: matrix.pg == '16'
         run: node tests/sim/dispatch_sim.mjs
