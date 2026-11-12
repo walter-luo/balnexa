@@ -365,10 +365,13 @@ test('AT-MENU-01/02 closed menu: items 1-8 + Settings; every PWA catalog entry r
   const menu = JSON.parse(fs.readFileSync(path.join(ROOT, 'apps/pwa/public/app/menu.json'), 'utf8'));
   assert.deepEqual(menu.items.map((i) => i.no), [1, 2, 3, 4, 5, 6, 7, 8, null]);
   const cat = (await S.call('/api/v1/catalog', { method: 'GET', cookie: owner })).json.entries;
-  const listed = new Set(menu.items.flatMap((i) => i.tasks));
+  // an entry reached by a dedicated route instead of a menu task is declared, with its route, in reached_elsewhere (RV-AIH-01)
+  const listed = new Set([...menu.items.flatMap((i) => i.tasks), ...Object.keys(menu.reached_elsewhere || {})]);
   const pwa = cat.filter((e) => e.channels.includes('pwa') && e.risk_class !== 'RC-PUBLIC').map((e) => e.core_function);
   assert.deepEqual(pwa.filter((f) => !listed.has(f)), [], 'every PWA catalog entry is in the closed menu');
   assert.deepEqual([...listed].filter((f) => !pwa.includes(f)), [], 'no menu task without a catalog entry');
+  assert.deepEqual(Object.keys(menu.reached_elsewhere), ['bnx.cmd_approve_ai_connection']);
+  assert.ok(!menu.items.some((i) => i.tasks.includes('bnx.cmd_approve_ai_connection')), 'consent is not a generic menu task');
   // a catalog without handoff entries: item 8 disappears instead of becoming a dead end
   const p = await page(owner);
   await p.route('**/api/v1/catalog', async (route) => {
