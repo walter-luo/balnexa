@@ -61,7 +61,12 @@ Taken under the Owner's delegation ("接手后一步做到底，需要owner决�
   completion shape refused by the Gateway (422), render, completion, promotion by the scheduled dispatcher, artifact served by the
   proxy with status `CURRENT` and a matching digest, a tampered stored object → `502 ARTIFACT_INTEGRITY`, anonymous → 401.
   Unit `UT-EXEC-SCHEMA-01`. Black box + unit 21/21.
-- Full regression on both majors: see the PR.
+- Full regression on both majors (author, before the fix below): PG16 170 PASS / 1 FAIL, PG17 167 PASS / 1 FAIL / 3 SKIP
+  (`pg_dump` 17 is CI-only). The one failure, AT-ISO-BF (core14), asserted the extension head literally as 9017; it now derives the
+  head from `db/migrations` (5/5 on both majors after the fix). Black box + unit 21/21; dispatch simulation PASS.
+- **CI finding**: the suite step piped every suite through `tee` without `pipefail`, so a failing suite did not fail the job (the
+  first CI run of this PR showed AT-ISO-BF red inside a green job). The step now sets `pipefail`, runs every suite and fails if any
+  failed. The earlier runs of #9 and `main` were re-checked from their logs: no hidden failure (0 FAIL lines).
 
 ## Limits
 
