@@ -56,6 +56,7 @@ Supersedes D-SCH-3.
 
 ### Tests
 - **AT-OUT-01** (`run_s4_core19.py`): 45 calls by the Owner in the PWA, by an AI connection over MCP and by a member. They cover all 18 tools, including an idempotent replay, `ai_draft` and `member_draft`, a transfer, a revision, a validation, a withdrawal, a withdrawn draft, and F1 with a reporting currency that has no rate. Every result conforms. The catalog in the database carries the overrides' schemas. The generator refuses an unsupported keyword and a dangling `required` key.
+- **Host-side check (one-off, not in CI):** the official MCP TypeScript SDK 1.32.2 validates `structuredContent` against `outputSchema` in its client (`AjvJsonSchemaValidator`: Ajv, non-strict, with ajv-formats). Its validator accepted all 119 captured results: the 45 from AT-OUT-01 and the 74 from the full-suite capture. So a host built on that SDK will not reject Balnexa's results.
 - **UT-MCP-OUT-01:** a conforming result is returned as is. A wrong type and a missing required key each give `OUTPUT_SCHEMA_MISMATCH` with the path. The value appears neither in the reply nor in the log. A derived `{type: object}` entry still accepts everything.
 - **BB-OAUTH-01**, extended: over HTTP, `tools/list` advertises the schemas, and the real results of `fin_balances_as_of`, `sys_whoami`, `fin_draft_create_transaction` and `fin_draft_withdraw` conform.
 
