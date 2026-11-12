@@ -1950,6 +1950,92 @@
       "description": "Quote currency (ISO 4217)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "base",
+     "quote",
+     "date",
+     "rate",
+     "quality",
+     "inverse",
+     "ledger_version",
+     "fx_policy"
+    ],
+    "properties": {
+     "base": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+     },
+     "quote": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+     },
+     "date": {
+      "type": "string",
+      "format": "date"
+     },
+     "rate": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "description": "Quote currency per 1 base, as a decimal string; null when quality is MISSING. Quote it, never compute it yourself"
+     },
+     "quality": {
+      "type": "string",
+      "enum": [
+       "IDENTITY",
+       "OVERRIDE",
+       "EVIDENCED_SETTLEMENT",
+       "REFERENCE",
+       "STALE",
+       "MISSING"
+      ],
+      "description": "Where the rate comes from; say STALE or MISSING plainly"
+     },
+     "inverse": {
+      "type": "boolean",
+      "description": "True when the stored pair was the reverse one (1/rate at 10 decimals)"
+     },
+     "rate_date": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "source": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "quote_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "override_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with the rate"
+     },
+     "fx_policy": {
+      "type": "string"
+     }
+    }
    }
   },
   "q_handoff_status": {
@@ -1957,6 +2043,68 @@
    "input": {
     "type": "object",
     "properties": {}
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "messages"
+    ],
+    "properties": {
+     "messages": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "message_id",
+        "direction",
+        "state"
+       ],
+       "properties": {
+        "sender_project": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "message_id": {
+         "type": "string"
+        },
+        "transfer_id": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "direction": {
+         "type": "string"
+        },
+        "message_type": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "state": {
+         "type": "string"
+        },
+        "plan_id": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "uuid"
+        },
+        "created_at": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
+     }
+    }
    }
   },
   "q_institutions_search": {
@@ -1982,6 +2130,64 @@
      },
      "text": {
       "description": "Search text (name or code)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "institutions"
+    ],
+    "properties": {
+     "institutions": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "institution_id",
+        "status"
+       ],
+       "properties": {
+        "institution_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "code": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "display": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "description": "Name in the requested language"
+        },
+        "jurisdiction": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "kind": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "status": {
+         "type": "string",
+         "enum": [
+          "ACTIVE_SEED",
+          "VERIFIED_ACTIVE",
+          "PENDING_VERIFICATION"
+         ]
+        }
+       }
+      }
      }
     }
    }
@@ -2232,6 +2438,62 @@
       "description": "Report code, e.g. R-BAL"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "snapshots"
+    ],
+    "properties": {
+     "snapshots": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "snapshot_id",
+        "report_code",
+        "status"
+       ],
+       "properties": {
+        "snapshot_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "report_code": {
+         "type": "string"
+        },
+        "definition_version": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "ledger_version": {
+         "type": [
+          "integer",
+          "null"
+         ]
+        },
+        "as_of": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "date"
+        },
+        "status": {
+         "type": "string",
+         "enum": [
+          "CURRENT",
+          "STALE",
+          "ACCESS_REVOKED"
+         ]
+        }
+       }
+      }
+     }
+    }
    }
   },
   "q_snapshot_status": {
@@ -2243,6 +2505,57 @@
       "format": "uuid",
       "type": "string",
       "description": "A report snapshot (from reports.snapshot.list)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "snapshot_id",
+     "status"
+    ],
+    "properties": {
+     "snapshot_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "CURRENT",
+       "STALE",
+       "ACCESS_REVOKED"
+      ],
+      "description": "ACCESS_REVOKED discloses nothing else"
+     },
+     "reasons": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "description": "Why it is STALE"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "current_ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "definition_version": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     }
    }

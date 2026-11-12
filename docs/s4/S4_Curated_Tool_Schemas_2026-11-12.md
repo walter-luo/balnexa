@@ -60,6 +60,14 @@ Supersedes D-SCH-3.
 - **UT-MCP-OUT-01:** a conforming result is returned as is. A wrong type and a missing required key each give `OUTPUT_SCHEMA_MISMATCH` with the path. The value appears neither in the reply nor in the log. A derived `{type: object}` entry still accepts everything.
 - **BB-OAUTH-01**, extended: over HTTP, `tools/list` advertises the schemas, and the real results of `fin_balances_as_of`, `sys_whoami`, `fin_draft_create_transaction` and `fin_draft_withdraw` conform.
 
+## Fourth part (migration 9033)
+
+Output schemas for 5 more read tools: `fin.fx.rate`, `reports.snapshot.list`, `reports.snapshot.status`, `reg.institutions.search` and `handoff.status`. The FX rate schema states that `rate` is a decimal string to quote, never to compute; that it is null only when `quality` is `MISSING`; and it gives the `quality` enum.
+
+- AT-OUT-01 now also calls them, as the Owner and as an AI connection with `reports.read` and `handoff.read`. The calls cover a missing rate, an identity rate, a fresh snapshot and a registry search.
+- The MCP SDK validator accepted 140 captured results, 0 invalid.
+- Release 0.8.9-p2 (extension range 9032–9033). In total, 23 tools have curated output schemas.
+
 ## Remaining
 
 - The MCP-reachable commands other than the draft tools keep derived input schemas: they are RC-ADMIN or PWA-first.
