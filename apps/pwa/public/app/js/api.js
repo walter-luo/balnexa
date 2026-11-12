@@ -31,6 +31,8 @@ export const catalog = () => send('/api/v1/catalog', { method: 'GET' });
 export const config = () => send('/app/config.json', { method: 'GET' });
 export const signIn = (idToken) => send('/auth/google/callback', { body: { id_token: idToken } });
 export const signOut = () => send('/auth/logout', { body: {} });
+// AI-host consent (AIH-1): describe | deny | approve; the Gateway re-checks the client and its redirect URI every time
+export const oauth = (b) => send('/oauth/authorize', { body: b });
 // a catalog entry's REST name: /api/v1/commands/<name>
 export const restName = (entry) => entry.rest.split('/').pop();
 export const call = (entry, body, key) => (entry.kind === 'command' ? command(restName(entry), body, key) : query(restName(entry), body));

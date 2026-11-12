@@ -168,6 +168,7 @@
     "bnx.q_doc_redaction_queue",
     "bnx.cmd_doc_declare_redacted",
     "bnx.cmd_doc_tag_sin_bearing",
+    "bnx.q_ai_connections",
     "bnx.cmd_approve_ai_connection",
     "bnx.cmd_revoke_ai_connection"
    ]

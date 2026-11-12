@@ -20,9 +20,15 @@ process.stdin.on('end', async () => {
       db: {
         one: async (role, sql, params) => {
           if (sql.includes('wrk_binding_facts')) return { identity: { project_id: 'guard-household', instance_uid: '00000000-0000-4000-8000-0000000000c4' },
-            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9020' },
+            deployable_sha256: ['c'.repeat(64)], schema_head: { core: '0109', extension: '9021' },
             active: { flags: { Canada: 'YES', International: 'YES', CRA: 'YES' } }, catalog_sha256: 'none' };
-          if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', entries: [], uncatalogued: [] };
+          // AIH-2 re-baseline: the MCP server is generated from the catalog, so the mock catalog carries the one tool used here
+          if (sql.includes('wrk_catalog')) return { format: 'bnx-tools/1.0', catalog_sha256: 'none', uncatalogued: [], entries: [{
+            name: 'fin.balances.as_of', core_function: 'bnx.q_balances', rest: '/api/v1/queries/balances', kind: 'query', version: '1.0.0',
+            channels: ['pwa', 'mcp'], risk_class: 'RC-READ', scopes: ['finance.read'], legacy: { read: true, propose: false },
+            mcp: { readOnlyHint: true, destructiveHint: false }, description: 'Balances', input_schema: { type: 'object', properties: {} },
+            output_schema: { type: 'object' } }] };
+          if (sql.includes('q_whoami')) return { member_id: 'm', channel: 'mcp', scopes: ['finance.read'] };
           if (sql.includes('wrk_audit_sin_refusal')) { audits.push({ role, payload: JSON.parse(params[0]) }); return 1; }
           if (sql.includes('q_balances')) return { balances: [{ label: `Chequing ${label}`, amount: '10.00' }] };
           throw Object.assign(new Error('UNEXPECTED'), { code: 'XX000' });
@@ -32,7 +38,7 @@ process.stdin.on('end', async () => {
     };
     const req = new Request('https://app.balnexa.test/mcp', {
       method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer synthetic-token' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_balances', arguments: {} } }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'fin_balances_as_of', arguments: {} } }),
     });
     const res = await worker.fetch(req, env, {});
     const text = await res.text();

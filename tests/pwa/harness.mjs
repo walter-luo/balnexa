@@ -59,14 +59,20 @@ export async function start({ server = process.env.BNX_SERVER || 'pg16', py = pr
 }
 
 // a browser context whose every request is recorded; anything that is not this origin is aborted and recorded as a
-// violation, and so is any AI route of this origin (/mcp, /oauth/*) - AT-NOAI-00 "no hidden LLM call"
-export async function context(browser, base, cookie, opts = {}) {
+// violation, and so is any AI route of this origin (/mcp, /oauth/*) - AT-NOAI-00 "no hidden LLM call".
+// policy (AIH-1 consent tests only, never counted in AT-NOAI-00): aiPaths = AI routes of this origin let through (the consent
+// screen's /oauth/authorize); capture = origins whose requests are still aborted but recorded in log.captured (the AI host's
+// redirect URI the browser is sent back to)
+export async function context(browser, base, cookie, opts = {}, policy = {}) {
   const ctx = await browser.newContext({ locale: 'en-CA', timezoneId: 'America/Toronto', serviceWorkers: 'block', ...opts });
-  const log = { requests: [], external: [], ai: [] };
+  const log = { requests: [], external: [], ai: [], captured: [] };
+  const aiPaths = policy.aiPaths || [], capture = policy.capture || [];
   await ctx.route('**/*', (route) => {
     const u = new URL(route.request().url());
     log.requests.push(`${route.request().method()} ${u.pathname}`);
+    if (u.origin !== base && capture.includes(u.origin)) { log.captured.push(u.href); return route.abort('blockedbyclient'); }
     if (u.origin !== base) { log.external.push(u.href); return route.abort('blockedbyclient'); }
+    if (aiPaths.includes(u.pathname)) return route.continue();
     if (u.pathname === '/mcp' || u.pathname.startsWith('/oauth')) { log.ai.push(u.pathname); return route.abort('blockedbyclient'); }
     return route.continue();
   });
