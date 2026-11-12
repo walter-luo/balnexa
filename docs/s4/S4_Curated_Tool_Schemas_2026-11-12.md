@@ -68,7 +68,15 @@ Output schemas for 5 more read tools: `fin.fx.rate`, `reports.snapshot.list`, `r
 - The MCP SDK validator accepted 140 captured results, 0 invalid.
 - Release 0.8.9-p2 (extension range 9032–9033). In total, 23 tools have curated output schemas.
 
+## Fifth part (migration 9034) and the output contract in every suite
+
+**Remaining read tools.** Output schemas for the 12 remaining MCP read tools: account proposals, balance observations, card fee progress, evidence access, investment position, onboarding job, R28 loan position, reconciliation coverage and exceptions, snapshot replay and artifact, and transfer matching.
+- They list each tool's top-level keys, typed and nullable, with no required keys and plain descriptions where a field needs care (for example a `refusal` or `partial_view` to report).
+- Every curated tool now has an output schema. Release 0.9.0-p2 (extension range 9033–9034).
+
+**Output contract (AT-OUT-02).** `tests/py/jsonschema_lite.py` holds the validator port and `check_output`. The harness calls it on every `bnx_app` call of a tool with an output schema, in **every** Python suite, so the whole regression is the contract test: every fixture of every suite exercises the schemas, including the loan, card, investment, onboarding and snapshot scenarios. A mismatch fails the calling test with the path and no value. AT-OUT-01 keeps calling the field-level tools explicitly.
+
 ## Remaining
 
 - The MCP-reachable commands other than the draft tools keep derived input schemas: they are RC-ADMIN or PWA-first.
-- Output schemas for the remaining read tools, and field-level schemas for report rows, one contract fixture at a time (D-OUT-1).
+- Field-level schemas for report rows and for the 9034 tools, one at a time; the harness contract already covers them (D-OUT-1).

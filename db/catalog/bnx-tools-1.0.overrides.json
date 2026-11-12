@@ -833,6 +833,18 @@
       "description": "Filter by state"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "proposals": {
+      "type": [
+       "array",
+       "null"
+      ]
+     }
+    }
    }
   },
   "q_balance_observations": {
@@ -867,6 +879,38 @@
       "description": "Read at this ledger version (replay); default: current"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "observations": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "conflicts": {
+      "type": [
+       "array",
+       "null"
+      ]
+     }
+    }
    }
   },
   "q_card_fee_progress": {
@@ -896,6 +940,96 @@
       "format": "date",
       "type": "string",
       "description": "First day of the card's fee period"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "card_account_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "NO_POLICY when the card has no annual-fee policy"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "policy": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "period": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "progress": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "fee": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "issuer": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "calculated": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "last_recorded_calculation": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "warnings": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Report each warning; a policy or qualification not confirmed by the issuer is an estimate"
      }
     }
    }
@@ -1017,6 +1151,25 @@
      },
      "purpose": {
       "description": "Why the evidence is opened (recorded)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "decision": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "granted or denied"
+     },
+     "url_ttl_seconds": {
+      "type": [
+       "integer",
+       "null"
+      ]
      }
     }
    }
@@ -2219,6 +2372,76 @@
       "description": "ISO 4217 code for converted totals (default: the household's)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "currency": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "instruments": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "totals": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "reporting": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "fx_policy": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "rounding": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "warnings": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Report each warning (stale or missing NAV, estimated proceeds)"
+     }
+    }
    }
   },
   "q_onboarding_job": {
@@ -2238,6 +2461,74 @@
        "string"
       ],
       "description": "Read at this ledger version (replay); default: current"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "job_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "kind": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "title": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "state": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "scope": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "files_by_state": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "source_rows_by_match_state": {
+      "type": [
+       "object",
+       "null"
+      ]
+     },
+     "histories": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "plans": {
+      "type": [
+       "array",
+       "null"
+      ]
      }
     }
    }
@@ -2269,6 +2560,102 @@
       "format": "date-time",
       "type": "string",
       "description": "Use the loan terms recorded up to this time"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "loan_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "currency": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "position": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "The loan position; null when refused (see refusal)"
+     },
+     "refusal": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Why no position is given; report it as is"
+     },
+     "partial_view": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "True when the connection does not see every account involved: label the answer as partial"
+     },
+     "household_internal": {
+      "type": [
+       "boolean",
+       "null"
+      ]
+     },
+     "payments_counted": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "rounding_events": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "terms_recorded_as_of": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "engine": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "oracle": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     }
    }
@@ -2377,6 +2764,45 @@
       "description": "Read at this ledger version (replay); default: current"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "anchor_date": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "statements": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "gaps": {
+      "type": [
+       "array",
+       "null"
+      ]
+     }
+    }
    }
   },
   "q_reconciliation_exceptions": {
@@ -2401,6 +2827,26 @@
       "description": "Filter by state"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "exceptions": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Findings; report their classification exactly (TR-06)"
+     }
+    }
    }
   },
   "q_replay_snapshot": {
@@ -2414,6 +2860,39 @@
       "description": "A report snapshot (from reports.snapshot.list)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "snapshot_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "rows": {
+      "type": [
+       "array",
+       "null"
+      ]
+     },
+     "projection_digest_verified": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "True when the replayed rows match the snapshot's recorded digest"
+     }
+    }
    }
   },
   "q_snapshot_artifact": {
@@ -2425,6 +2904,49 @@
       "format": "uuid",
       "type": "string",
       "description": "A report snapshot (from reports.snapshot.list)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "snapshot_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "seq": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "artifact_ref": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "artifact_sha256": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "renderer_version": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     }
    }
@@ -2589,6 +3111,32 @@
       "description": "Read at this ledger version (replay); default: current"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Cite this ledger version with every figure"
+     },
+     "rows": {
+      "type": [
+       "array",
+       "null"
+      ]
+     }
+    }
    }
   },
   "q_whoami": {
@@ -2650,5 +3198,5 @@
   }
  },
  "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",
- "note_output_schemas": "2.8 part 3 (9032): output schemas for the draft tools, fin.balances.as_of, sys.whoami and the report families F1-F7, R09, R30 and R31 (the common envelope of bnx.rpt_envelope is required; report-specific keys are typed and nullable). The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH); AT-OUT-01 calls every tool with a curated output schema and validates the results (D-OUT-1)."
+ "note_output_schemas": "2.8 parts 3-5 (9032, 9033, 9034): output schemas for every MCP read tool and the draft tools. Draft tools, balances, whoami, FX rate, snapshots, registry search and handoff status are field-level with required keys; the report families require the rpt_envelope keys; the other read tools (9034) list their top-level keys, typed and nullable, with no required keys. The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH). Contract: every bnx_app call in every Python suite is checked (tests/py/jsonschema_lite.py via the harness), plus AT-OUT-01."
 }
