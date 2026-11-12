@@ -5,7 +5,7 @@
 //         OAuth for AI hosts (AIH-1, oauth.js): GET /.well-known/oauth-authorization-server, GET /.well-known/oauth-protected-resource/{mcp,api},
 //         POST /oauth/register, GET|POST /oauth/authorize (PWA consent), POST /oauth/token, POST /oauth/revoke,
 //         POST /mcp (AIH-2, mcp.js: Streamable HTTP MCP server generated from the catalog),
-//         POST /exec/v1/lease, POST /exec/v1/complete (Executor lease model, S4 9010; the Executor holds no DB credential).
+//         POST /exec/v1/lease, POST /exec/v1/complete, POST /exec/v1/due (Executor lease model, S4 9010/9025; the Executor holds no DB credential).
 // CORE-7 (UA V1.2 §8; OBJ-260, OBJ-263, OBJ-264, OBJ-269, OBJ-270, OBJ-271): binding checks B1/B2/B3/B8 gate every route except /api/v1/health
 // (503, fail closed); B7 audience is passed to bnx.resolve_actor; commands and queries resolve through the bnx-tools/1.0
 // catalog read from the Core (unknown -> 404; schema-qualified dispatch) and the body is validated against its
@@ -268,7 +268,7 @@ export default {
           return json(200, { ...r, scope: [...(me.scopes || [])].sort().join(' ') });
         } catch (e) { if (e.code === 'P0401') return json(400, { error: e.message === 'INVALID_TARGET' ? 'invalid_target' : 'invalid_grant' }); throw e; }
       }
-      if (req.method === 'POST' && (p === '/exec/v1/lease' || p === '/exec/v1/complete')) {
+      if (req.method === 'POST' && (p === '/exec/v1/lease' || p === '/exec/v1/complete' || p === '/exec/v1/due')) {
         const raw = await req.text();
         if (raw.length > 300000) return json(413, { error: 'PAYLOAD_TOO_LARGE' });
         let bd = null; try { bd = JSON.parse(raw); } catch { bd = null; }
@@ -279,6 +279,11 @@ export default {
         try {
           claims = await verifyJobToken(auth.startsWith('Bearer ') ? auth.slice(7) : null, { jwks: jwks(env), audience: env.EXEC_AUDIENCE, pin });
         } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
+        if (p === '/exec/v1/due') {                                       // DOC-2 (9025): what this job kind can lease now
+          const r = await env.db.one('bnx_worker', 'select bnx.wrk_exec_due($1::jsonb) r', [JSON.stringify({
+            job_kind: bd.job_kind, limit: Number.isInteger(bd.limit) ? bd.limit : 50 })]);
+          return json(200, r);
+        }
         if (p === '/exec/v1/lease') {
           const r = await env.db.one('bnx_worker', 'select bnx.wrk_issue_exec_lease($1::jsonb) r', [JSON.stringify({
             job_kind: bd.job_kind, item_id: bd.item_id ?? null, sub: claims.sub, email: claims.email, azp: claims.azp })]);

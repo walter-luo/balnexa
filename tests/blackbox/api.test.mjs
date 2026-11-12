@@ -52,7 +52,7 @@ before(async () => {
   const jwk = kp.publicKey.export({ format: 'jwk' });
   env = { db: makeDb({ host: info.host, port: info.port, database: info.db }), KV: makeKv(), APP_ORIGIN: ORIGIN,
           GOOGLE_CLIENT_ID: 'test-client', GOOGLE_JWKS: { keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] },
-          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB, REPORT_RENDER: JOB }, ARTIFACTS: makeR2(R2DIR), ...(info.binding || {}) };
+          EXEC_AUDIENCE: EXEC_AUD, EXEC_JOBS: { INDEX_CONSUME: JOB, REPORT_RENDER: JOB, DOC_PROCESS: JOB, DOC_DISCOVER: JOB }, ARTIFACTS: makeR2(R2DIR), ...(info.binding || {}) };
   INFO = info;
   srv = await serve(env);
   base = `http://127.0.0.1:${srv.address().port}`;
@@ -419,6 +419,19 @@ test('BB-EXEC-02 Executor end to end over HTTP: lease with work order, render, c
 // ------------------------------------------------------------------------------------------------ AIH-1 / AIH-2 (AI hosts)
 let IP = 0;
 const ip = () => `198.51.100.${++IP}`;                        // one client address per registration: the DCR limit is per address
+
+test('BB-EXEC-03 Executor due list (DOC-2, 9025): pinned job identity; DOC_PROCESS items; other kinds refused', async () => {
+  const jt = (claims) => idToken({ aud: EXEC_AUD, sub: JOB.sub, email: JOB.email, azp: JOB.azp, ...claims }, kp);
+  const due = (kind, token) => call('/exec/v1/due', { body: { job_kind: kind }, bearer: token });
+  const ok = await due('DOC_PROCESS', jt({}));
+  if (ok.status === 404) return;                                          // chain without 9025
+  assert.equal(ok.status, 200, ok.text);
+  assert.deepEqual(ok.json, { job_kind: 'DOC_PROCESS', items: [] });
+  const refused = [await due('DOC_PROCESS', jt({ sub: '108000000000000000999' })), await due('DOC_PROCESS'), await due('BACKUP', jt({}))];
+  assert.deepEqual(refused.map(r => r.status), [401, 401, 401]);
+  const other = await due('DOC_DISCOVER', jt({}));
+  assert.deepEqual([other.status, other.json.error], [422, 'VALIDATION_FAILED']);
+});
 
 test('AT-AIH-06 discovery: RFC 8414 AS metadata, RFC 9728 metadata for /mcp and /api, 401 challenge, transport rules', async () => {
   const as = await call('/.well-known/oauth-authorization-server', { method: 'GET' });
