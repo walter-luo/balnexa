@@ -601,6 +601,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.artifact_object_name", "bnx.snapshot_ownership_revision", "bnx.exec_work_order", "bnx.wrk_render_done",
     # 9019 CORE-9 PWA Quick Entry ledger accounts, not in the V1.2 register (D-CORE9-1)
     "bnx.q_ledger_accounts",
+    # 9020 CORE-10 stage: audit trail for PWA menu item 7, not in the V1.2 register (D-CORE10-1)
+    "bnx.q_audit_trail",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

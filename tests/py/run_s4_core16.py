@@ -44,6 +44,34 @@ def t_ledger(server, ev):
             f"is refused ({mcp.split(':')[0]}) - the query is not an MCP tool")
 
 
+@test("AT-AUD-TRAIL-01", "OR-U-02 (7); 9020 (audit trail: household for Owner/admin, own events otherwise; filters; paging; PWA only)")
+def t_trail(server, ev):
+    H = C4.household(server, "bnx_c16aud")
+    d_id = H.cmd(H.owner, "invite_member", display_name="Member D", role="member", google_sub="g-member-d")["member_id"]
+    H.cmd(H.owner, "set_grant", member_id=d_id, account_id=H.acc, can_view=True, can_post=False)
+    D = H.login("g-member-d")
+    H.cmd(D, "draft_create_transaction", account_currency_id=H.cad["account_currency_id"], transaction_date="2026-03-02",
+          economic_type="consumption_expense", amount="-3.00", counter_ledger_account_id=H.groceries)
+    o = H.q(H.owner, "audit_trail", limit=500)
+    d = H.q(D, "audit_trail", limit=500)
+    p1 = H.q(H.owner, "audit_trail", limit=3)
+    p2 = H.q(H.owner, "audit_trail", limit=3, before_seq=p1["next_before_seq"])
+    f = H.q(H.owner, "audit_trail", command="set_")
+    bad = expect_err(H.q, "VALIDATION_FAILED", H.owner, "audit_trail", command="x'; drop")
+    B = C4.bearer(H, ["finance.read"], acs=[H.cad["account_currency_id"]])
+    mcp = expect_err(H.q, "SCOPE_NOT_CONSENTED", B, "audit_trail")
+    H.close()
+    json.dump({"owner_n": len(o["events"]), "member": d, "page1": p1, "page2": p2}, open(os.path.join(ev, "AT-AUD-TRAIL-01.json"), "w"), indent=1, default=str)
+    seqs = [e["seq"] for e in o["events"]]
+    check(o["scope"] == "household" and seqs == sorted(seqs, reverse=True) and len({e["member_id"] for e in o["events"]}) >= 2, f"{o['scope']} {seqs[:5]}")
+    check(d["scope"] == "own" and d["events"] and all(e["member_id"] == d_id for e in d["events"]) and any(e["command"] == "draft_create_transaction" for e in d["events"]), f"{d}")
+    check([e["seq"] for e in p1["events"]] == seqs[:3] and [e["seq"] for e in p2["events"]] == seqs[3:6], f"{p1} {p2}")
+    check(f["events"] and all(e["command"].startswith("set_") for e in f["events"]) and all("payload" not in e for e in o["events"]), f"{f}")
+    return (f"Owner: {len(o['events'])} household events newest first; member: {len(d['events'])} own events only; paging by before_seq "
+            f"continues exactly; command-prefix filter; malformed filter -> {bad.split(':')[0]}; no payload is ever returned; AI bearer -> "
+            f"{mcp.split(':')[0]}")
+
+
 @test("AT-CAT-02", "D-CORE9-2 (catalog delta blocks: committed migrations are never edited; merged blocks = derivation)")
 def t_delta(server, ev):
     H = C1.v2_household(server, "bnx_c16cat")
@@ -51,17 +79,18 @@ def t_delta(server, ev):
     H.close()
     gen = subprocess.run([sys.executable, os.path.join(h.ROOT, "tools/s4/catalog_build.py"), "--server", server, "--db", db, "--check"],
                          capture_output=True, text=True)
-    blocks = {}
+    blocks, names = {}, set()
     for f in sorted(os.listdir(os.path.join(h.ROOT, "db", "migrations"))):
         src = open(os.path.join(h.ROOT, "db", "migrations", f)).read()
         if "@@CATALOG-BEGIN" in src:
-            blocks[f[:4]] = len(re.findall(r"^comment on function ", src, re.M))
+            fns = re.findall(r"^comment on function ([a-z0-9_.]+)\(", src, re.M)
+            blocks[f[:4]] = len(fns); names.update(fns)
     with psycopg.connect(h.dsn(server, "bnx_migrator", db)) as cx:
         live = cx.execute("select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace "
                           "where n.nspname = 'bnx' and obj_description(p.oid, 'pg_proc') like '{\"channels\"%'").fetchone()[0]
     json.dump({"check": gen.stdout, "blocks": blocks, "live_comments": live}, open(os.path.join(ev, "AT-CAT-02.json"), "w"), indent=1)
     check(gen.returncode == 0 and "OK" in gen.stdout, gen.stdout + gen.stderr)
-    check(blocks.get("9017") == 113 and blocks.get("9019") == 1 and live == 114, f"{blocks} {live}")
+    check(blocks.get("9017") == 113 and all(n >= 1 for k, n in blocks.items() if k != "9017") and live == len(names), f"{blocks} {live} {len(names)}")
     return f"{gen.stdout.strip()}; blocks per migration {blocks}; {live} catalogued functions in the database"
 
 

@@ -9,6 +9,7 @@
     "q_health"
   ],
   "descriptions": {
+    "q_audit_trail": "Audit chain events (command, subject, member, channel, version, host provenance); Owner and admins see the household, others their own",
     "q_ledger_accounts": "Ledger accounts the caller may book against (visible account-currencies with can_post) and active income and expense categories (PWA Quick Entry)",
     "q_health": "Instance health without identity values; answers while a binding check fails",
     "q_whoami": "The calling member, channel, connection and scopes",
@@ -30,6 +31,7 @@
   "names": {
     "q_health": "sys.health",
     "q_ledger_accounts": "fin.ledger.accounts",
+    "q_audit_trail": "sys.audit_trail",
     "q_whoami": "sys.whoami",
     "q_config_status": "sys.config_status",
     "q_replay_snapshot": "fin.reports.replay_snapshot",

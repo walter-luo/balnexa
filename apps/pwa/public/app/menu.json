@@ -133,6 +133,7 @@
    "id": "audit",
    "no": 7,
    "tasks": [
+    "bnx.q_audit_trail",
     "bnx.q_evidence_trace",
     "bnx.q_backup_status",
     "bnx.q_cost_status",
