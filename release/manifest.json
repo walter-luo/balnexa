@@ -1,0 +1,435 @@
+{
+ "executor": "bnx-exec-0.1.0-core8",
+ "format": "bnx-release-manifest/1.0",
+ "migrations": [
+  {
+   "file": "0002_reference_and_accounts.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "705660726d0ae9fee82f1777aae7f6b14f3e1eeff6d60613895be8a80c071ed0",
+   "version": "0002"
+  },
+  {
+   "file": "0003_ledger.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "0da834f92271feec302abbea7fcb25f3475a28d098c85e99a6dcba31520f9e6b",
+   "version": "0003"
+  },
+  {
+   "file": "0004_evidence.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "f0fe79fa984d48c8ccf639ac8809a264e02795c00fbb7bc54ecaa278cc57498b",
+   "version": "0004"
+  },
+  {
+   "file": "0005_matching.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "b69a31fe480cde2ffe0b50f5a03b5615c44d0c1612a9d4d3c7b227db3ee73d79",
+   "version": "0005"
+  },
+  {
+   "file": "0006_version_aware_readers.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "f4626897b7cf903be23d426aa17acea06f305f920b7ac1b1cd23745fa26f2a53",
+   "version": "0006"
+  },
+  {
+   "file": "0101_grants_r1.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "6e215cac6626a2255f92f862363ad164eca7ba2b4ab2c38518ec5cd610b9be01",
+   "version": "0101"
+  },
+  {
+   "file": "0102_journal_completeness.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "f9a2d524ad6f3bb907ce7ab91d565e7c3d5acd635830383c2eae171960998c2c",
+   "version": "0102"
+  },
+  {
+   "file": "0103_currency_integrity.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "623df431fc8c794ff71c0d17062554d8ccde213848ea0053a7383b58de0eabfd",
+   "version": "0103"
+  },
+  {
+   "file": "0104_ownership_determinism.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "958d7443f7c61f0fd2519dae24ed3da09696eba04f2c17c90d6d462397e51c23",
+   "version": "0104"
+  },
+  {
+   "file": "0105_source_link_events.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "0c0ae8e1bcc6d36178630183d38c92a51346dbad0148c034a8c01c1bfcaf6fdc",
+   "version": "0105"
+  },
+  {
+   "file": "0106_command_core.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "413621fb8e68312c9b77e77508b07eb3910a1248c2e562375453d6b38e059ad0",
+   "version": "0106"
+  },
+  {
+   "file": "0107_snapshot_authz.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "c60c02c0ba66183925852545a5c18e3878cb4e5cb9d77a2a55b38d96e202d088",
+   "version": "0107"
+  },
+  {
+   "file": "0108_grants_and_privilege_audit.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "4615ba8de2bf8f8fc445cc57efe10c97d677b15788f75e94f356670d735c8b49",
+   "version": "0108"
+  },
+  {
+   "file": "0109_archive_integrity_and_dual_copy_gate.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "82ace89c511b9b795efc49421d42a37e6b90bfa299c65eaec56dc3a6c7db4733",
+   "version": "0109"
+  },
+  {
+   "file": "9001_import_draft02_logical_state.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "48ef95fc696746873f2193627baa6fa24ad828171ef3c8d18241b8661c9a4773",
+   "version": "9001"
+  },
+  {
+   "file": "9002_s4_bootstrap_assert_and_privileges.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "ce2edae8df2e42389e6e587b22484bed4742028a16496cc5180380632645e8eb",
+   "version": "9002"
+  },
+  {
+   "file": "9003_s4_identity_config_release.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "87d451c602c04dfd7aaa057362a4db2745e322e62387fbca238def762f4c4711",
+   "version": "9003"
+  },
+  {
+   "file": "9004_s4_constraint_replacements.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "bf22de72ad933d362eb7659e627cf6ed8ca0c0798788760c2523743d1f86795b",
+   "version": "9004"
+  },
+  {
+   "file": "9005_s4_audit_chain_v2.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "c7cd02f96869cf07a8aa814d138bbb5797da3581e52bf0f5c36cd5abad246a55",
+   "version": "9005"
+  },
+  {
+   "file": "9006_s4_registry_policy_accounts.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "baab56222f1699c3c9929a1023d7eb2ca7888665af21e5177bac7a4870012284",
+   "version": "9006"
+  },
+  {
+   "file": "9007_s4_module_flag_enforcement.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "db50e24f8d8a4b1a089bbd336e79274fa67248e48105e236f17624d682c05366",
+   "version": "9007"
+  },
+  {
+   "file": "9008_s4_economic_type_rule.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "0f7abec7fbd318bea5490f571406834d80a059fd6c31175b42e87c0b8acb39d2",
+   "version": "9008"
+  },
+  {
+   "file": "9009_s4_oauth.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "c4230cfa8d9a2aceaeb8763e9d6d1caff0efe1c151c16aaa29e99e329ecf9f8c",
+   "version": "9009"
+  },
+  {
+   "file": "9010_s4_intake_drafts_validation_lease.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "eecc2e0a19dbf112a68db65dc913af5258fa04180379fa735ae9f624ec575c7e",
+   "version": "9010"
+  },
+  {
+   "file": "9011_s4_documents_evidence_renditions.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "8246b95e88bb0fbd6a0a771059f9afe854c0d7428aeab67b2c507917add2ab1c",
+   "version": "9011"
+  },
+  {
+   "file": "9012_s4_observations_reconciliation_loans.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "7b44e68afdd788c56a8655f45f1038559634ea520399aa84475979475851cf06",
+   "version": "9012"
+  },
+  {
+   "file": "9013_s4_report_families_snapshot_status.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "544614b749f3c83dda41f95b54704711a085cd40a9c769c96e7b4a6e8cbe113b",
+   "version": "9013"
+  },
+  {
+   "file": "9016_s4_backup_registry_cloud_usage.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "6be0cc7ba72ce8ea3e69e25585160ad095ce14711918d66f658c7358fe6d272b",
+   "version": "9016"
+  },
+  {
+   "file": "9017_s4_gateway_catalog_binding.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "0b0424bdbe8c9f26292196627c1c641754cda1a06333b02e1e6606e4cba123af",
+   "version": "9017"
+  },
+  {
+   "file": "9018_s4_executor_work_orders.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "24278fe7fbcdf1cf8df04cda1e7092977cd2808aa15b3423b0868553a82813ed",
+   "version": "9018"
+  },
+  {
+   "file": "9019_s4_pwa_ledger_accounts.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "6df061172d62c5e184fca3f222970df461870e075f9c8fac3fb841062c4dc188",
+   "version": "9019"
+  },
+  {
+   "file": "9020_s4_audit_trail_query.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "beab0880059eccdab46850d84a4d5c3c5c2f6a0bc48a138459c1413854947578",
+   "version": "9020"
+  },
+  {
+   "file": "9021_s4_ai_host_oauth.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "e9953f3a3c94d972616df7c21bb821c066de53c3040c919cdff023a8b7a45320",
+   "version": "9021"
+  },
+  {
+   "file": "9022_s4_ai_host_cards.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "1f341449d913b08475f3674ab26d2a325456277bed6ed968cc6ac29380adad44",
+   "version": "9022"
+  },
+  {
+   "file": "9023_s4_ai_host_review_fixes.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "c378580329b347de2d05444deda5628a6791160bf53950c51f34fb175ad7f028",
+   "version": "9023"
+  },
+  {
+   "file": "9024_s4_digitless_generated_ids.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "b49cb694a5dec39bdefdc75ad13b7506b3733cc32ef649a371b1f6cd24d905e0",
+   "version": "9024"
+  },
+  {
+   "file": "9025_s4_doc_pipeline_work_orders.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "40fc4d7c4de142ccfd36ecc1413d103d5be0d837f94855bd8bee2537a4543c63",
+   "version": "9025"
+  },
+  {
+   "file": "9026_s4_curated_tool_schemas.sql",
+   "min_worker_release": "0.8.1-p2",
+   "sha256": "a872e3d43eaf79104c422d915611b1aac8d7c4d97cbf3bfc68cc0db118a295e3",
+   "version": "9026"
+  }
+ ],
+ "pwa_shell": "bnx-shell-0.8.1-p2",
+ "sbom": [
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-tnaqgixUengZQNd9ZrS3ytQfamJzLKY8QxgqWQTNHHtB+KrFQWk77JTbbpg4RD+J3qE4eO2lVytvGDX5Kj6FdQ==",
+   "name": "@neondatabase/serverless",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.2.0"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-OUir1A0rPNZlX//c7ksiu7crsGZTKSOXJPgtNiHGIlC9H0lO+NC6ZDYksSgBYY/thSWhnSRBv8w1lieNNGATNQ==",
+   "name": "pg",
+   "source": "apps/worker/package-lock.json",
+   "version": "8.13.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==",
+   "name": "pg-cloudflare",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.4.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==",
+   "name": "pg-connection-string",
+   "source": "apps/worker/package-lock.json",
+   "version": "2.14.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==",
+   "name": "pg-int8",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.0.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
+   "name": "pg-pool",
+   "source": "apps/worker/package-lock.json",
+   "version": "3.14.0"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==",
+   "name": "pg-protocol",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.16.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
+   "name": "pg-types",
+   "source": "apps/worker/package-lock.json",
+   "version": "2.2.0"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-lqIfH7bdgsxHAY/ZnUOwm+aCFKrsHBDhSFuk9O0B9uCqJAIkrKTo/+LQqLPLUS4e04+jCmQVikxE3QipH5chPw==",
+   "name": "pgpass",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.0.6"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==",
+   "name": "postgres-array",
+   "source": "apps/worker/package-lock.json",
+   "version": "2.0.0"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ==",
+   "name": "postgres-bytea",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.0.1"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q==",
+   "name": "postgres-date",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.0.7"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
+   "name": "postgres-interval",
+   "source": "apps/worker/package-lock.json",
+   "version": "1.2.0"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==",
+   "name": "xtend",
+   "source": "apps/worker/package-lock.json",
+   "version": "4.0.2"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==",
+   "name": "agent-base",
+   "source": "deploy/package-lock.json",
+   "version": "7.1.4"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
+   "name": "debug",
+   "source": "deploy/package-lock.json",
+   "version": "4.4.3"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==",
+   "name": "https-proxy-agent",
+   "source": "deploy/package-lock.json",
+   "version": "7.0.6"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+   "name": "ms",
+   "source": "deploy/package-lock.json",
+   "version": "2.1.3"
+  },
+  {
+   "ecosystem": "npm",
+   "integrity": "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==",
+   "name": "ws",
+   "source": "deploy/package-lock.json",
+   "version": "8.18.3"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "pypdf",
+   "source": "apps/executor/requirements.txt",
+   "version": "6.17.0"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "openpyxl",
+   "source": "apps/executor/requirements.txt",
+   "version": "3.1.5"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "et-xmlfile",
+   "source": "apps/executor/requirements.txt",
+   "version": "2.0.0"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "pillow",
+   "source": "apps/executor/requirements.txt",
+   "version": "12.3.0"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "pypdfium2",
+   "source": "apps/executor/requirements.txt",
+   "version": "4.30.0"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "psycopg",
+   "source": "apps/executor/requirements.txt",
+   "version": "3.2.3"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "psycopg-binary",
+   "source": "apps/executor/requirements.txt",
+   "version": "3.2.3"
+  },
+  {
+   "ecosystem": "pypi",
+   "name": "typing_extensions",
+   "source": "apps/executor/requirements.txt",
+   "version": "4.12.2"
+  }
+ ],
+ "worker": {
+  "supports_schema": {
+   "core": [
+    "0109",
+    "0109"
+   ],
+   "extension": [
+    "9025",
+    "9026"
+   ]
+  },
+  "version": "0.8.1-p2",
+  "work_kinds": [
+   "plan.execute",
+   "staging.promote"
+  ]
+ }
+}
