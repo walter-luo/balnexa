@@ -70,6 +70,24 @@ Taken under the Owner's delegation ("继续完成到底", "继续").
 - AT-PWA-LA-01: visibility, `can_post`, the viewer rule, categories, and AI bearer refused.
 - AT-CAT-02: merged delta blocks equal the derivation; 113 + 1 blocks; 114 live comments.
 
+## Finding during CI — idempotency keys and the SIN guard (F-CORE9-1)
+
+The first CI run of this PR failed in the PWA suite: `invite_member: 422 SIN_CANDIDATE`. The cause is that the command's
+idempotency key is part of the audited payload. `bnx.audit` (9011 guard C2) refuses any audited payload that contains a
+Luhn-valid 9-digit run, and the test helper's keys (`pwa-test-<n>-<uuid>`) and the PWA's own keys (`pwa-<uuid>`) were random
+UUIDs.
+
+Measured with the reference detector, a `pwa-<uuid>` key is refused in about **1 command in 500**. The local runs had passed
+by chance. This was a real product defect: a user's command would occasionally be refused for no visible reason.
+
+**Fixed in this PR:**
+- The PWA's keys are 24 letters from a 32-letter alphabet (120 random bits, no digit).
+- The test helper uses the same scheme.
+- AT-UI-00 asserts that 2,000 generated keys contain no digit and no duplicate.
+
+**Still open (L-CORE9-9):** any other client that puts digits in its keys, such as an AI host on MCP, is exposed to the same
+refusal.
+
 ## Limits
 
 | ID | Limit | Follow-up |
@@ -81,4 +99,5 @@ Taken under the Owner's delegation ("继续完成到底", "继续").
 | L-CORE9-5 | Quick Entry covers same-currency expense, income and transfer only (D-CORE9-6). Card, FX, investment and loan entries use the generic forms; there is no evidence upload widget yet (`register_evidence` and `evidence_upload_target` exist as forms, and R2 is O-7). | CORE-9 follow-up after O-7. |
 | L-CORE9-6 | Offline means the shell only: no IndexedDB queue or upload resume (`apps/pwa` M2 item). | M2. |
 | L-CORE9-7 | Server error texts are localized by code. Free-text database details are not shown, by design. Generic-form field labels without a catalog key fall back to the English key. | Extend `field.*` keys as screens are dedicated. |
+| L-CORE9-9 | The database's audit guard scans the client-chosen `idempotency_key`; a client whose keys contain digit runs (an AI host, a script) is randomly refused (F-CORE9-1). | Exempt `idempotency_key` from the C2 scan, provided it matches the key pattern and is stored only as a hash, or have the Gateway normalize keys; decide with AIH-2. |
 | L-CORE9-8 | AT-NOAI covers the eight items with representative tasks, not every one of the 114 tasks. AT-NOAI-09/10, the remaining TST-3 rows, and CORE-10's dedicated handoff screens are not done here. | TST-3, CORE-10. |

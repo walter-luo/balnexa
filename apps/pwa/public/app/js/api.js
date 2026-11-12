@@ -19,7 +19,11 @@ async function send(path, { method = 'POST', body, headers = {} } = {}) {
   return j;
 }
 
-export const newKey = () => `pwa-${crypto.randomUUID()}`;
+// Idempotency keys carry no digit at all: the key is part of the audited command payload, and the database refuses any payload
+// holding a Luhn-valid 9-digit run as a possible SIN (9011 guard C2). A "pwa-<uuid>" key has such a run in about 1 command in 500 (measured with the reference detector).
+// 24 letters from a 32-letter alphabet = 120 random bits.
+const KEY_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEF';
+export const newKey = () => `pwa-${Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => KEY_ALPHABET[b & 31]).join('')}`;
 export const query = (name, body = {}) => send(`/api/v1/queries/${name}`, { body });
 // one idempotency key per user intent: the caller keeps it across retries and replaces it after a success
 export const command = (name, body = {}, key = newKey()) => send(`/api/v1/commands/${name}`, { body, headers: { 'idempotency-key': key } });

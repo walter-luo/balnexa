@@ -42,9 +42,9 @@ export async function start({ server = process.env.BNX_SERVER || 'pg16', py = pr
     if (r.status !== 200) throw new Error(`login ${sub}: ${r.status} ${r.text}`);
     return decodeURIComponent(/bnx_session=([^;]+)/.exec(r.headers.get('set-cookie'))[1]);
   }
-  let n = 0;
+  const letters = () => Array.from(crypto.randomBytes(24), (b) => 'abcdefghijklmnopqrstuvwxyzABCDEF'[b & 31]).join('');
   const cmd = async (cookie, name, body) => {
-    const r = await call(`/api/v1/commands/${name}`, { body, cookie, key: `pwa-test-${++n}-${crypto.randomUUID()}` });
+    const r = await call(`/api/v1/commands/${name}`, { body, cookie, key: `pwa-test-${letters()}` });   // no digits: see api.js newKey
     if (r.status !== 200) throw new Error(`${name}: ${r.status} ${r.text}`);
     return r.json;
   };

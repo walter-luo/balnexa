@@ -67,6 +67,12 @@ test('AT-UI-00 shell: served from the Gateway with a same-origin CSP, no camera/
   assert.match(r.headers.get('permissions-policy'), /camera=\(\), microphone=\(\)/);
   assert.equal((await S.call('/', { method: 'GET' })).status, 302);
   assert.equal((await S.call('/app/../src/index.js', { method: 'GET' })).status, 404);
+  // idempotency keys never contain a digit (a Luhn-valid 9-digit run in an audited payload is refused as a possible SIN)
+  const p = await page(owner);
+  await open(p, 'home');
+  const keys = await p.evaluate(async () => { const m = await import('/app/js/api.js'); return Array.from({ length: 2000 }, () => m.newKey()); });
+  assert.equal(keys.filter((k) => /\d/.test(k) || k.length < 8 || k.length > 80).length, 0);
+  assert.equal(new Set(keys).size, keys.length);
   const cfg = await S.call('/app/config.json', { method: 'GET' });
   assert.deepEqual(Object.keys(cfg.json).sort(), ['google_client_id', 'release']);
 });
