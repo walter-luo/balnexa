@@ -20,7 +20,7 @@ def drop_all(server):
         dbs = [r[0] for r in cx.execute("select datname from pg_database where datname like 'bnx\\_%'")]
         for d in dbs:
             cx.execute(f'drop database "{d}" with (force)')
-        roles = [r[0] for r in cx.execute("select rolname from pg_roles where rolname like 'bnx\\_%'")]
+        roles = [r[0] for r in cx.execute("select rolname from pg_roles where rolname like 'bnx\\_%' or rolname = 'balnexa_audit_owner'")]
         for r in roles:
             cx.execute(f'drop role "{r}"')
 
@@ -42,7 +42,10 @@ def bootstrap(server, db, b002=True):
         run_bootstrap(server, db, "B002_bootstrap_s4.sql")
 
 
-def migrate(server, db, *extra, check=True, log=None, mdir=None):
+def migrate(server, db, *extra, check=True, log=None, mdir=None, b003=True):
+    """Run the migrator. b003=True (default) performs the documented installer step: when the runner stops before 9011
+    with BOOTSTRAP_MISSING for B003, run db/bootstrap/B003_audit_owner.sql as the installer and run the runner again.
+    The returned stdout holds both runs."""
     cmd = [sys.executable, os.path.join(ROOT, "db/tools/run_migrations.py"), "--dsn", dsn(server, "bnx_migrator", db)]
     if mdir:
         cmd += ["--dir", mdir]
@@ -50,6 +53,10 @@ def migrate(server, db, *extra, check=True, log=None, mdir=None):
         cmd += ["--log", log]
     cmd += list(extra)
     r = subprocess.run(cmd, capture_output=True, text=True)
+    if b003 and r.returncode == 6 and "BOOTSTRAP_MISSING: B003" in r.stdout:
+        run_bootstrap(server, db, "B003_audit_owner.sql")
+        r2 = subprocess.run(cmd, capture_output=True, text=True)
+        r = subprocess.CompletedProcess(r2.args, r2.returncode, r.stdout + r2.stdout, r.stderr + r2.stderr)
     if check and r.returncode:
         raise RuntimeError("migrations failed:\n" + r.stdout + r.stderr)
     return r

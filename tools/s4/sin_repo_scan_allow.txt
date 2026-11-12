@@ -1,0 +1,11 @@
+# Reviewed false positives of guard C6 in immutable git history (detector v1.1.0, D-9011R-1). One entry per line:
+#   <git blob SHA-1> <line> <rule>   # reason
+# Only a blob reached through --all-history is matched; the current tree never uses this list. History is public and is not
+# rewritten. Each entry was checked by the author: the hit is an object-id list "OBJ-nnn/nnn/nnn" (three disposition object
+# numbers separated by slashes), read as a slash-separated 3-3-3 sequence by v1.1 (R-03); the current file says
+# "OBJ-nnn, OBJ-nnn, OBJ-nnn".
+ff92c6adcb5454ddacfa2d684415872b817653c4 18 R_MOD10   # docs/s4/S4_CORE4_Implementation_Notes.md, object-id list
+c131a69f6caa6d5ddaca30831b11050b4663cb90 18 R_MOD10   # docs/s4/S4_CORE4_Implementation_Notes.md, object-id list
+68a8e1b6758a97af2e9993c6dc8c3018d452e71a 18 R_MOD10   # docs/s4/S4_CORE4_Implementation_Notes.md, object-id list
+14f2717f284f9ea19b9efca54868031af2cddb0f 18 R_MOD10   # docs/s4/S4_CORE4_Implementation_Notes.md, object-id list
+296ba31974bb2cd92f0ca58b2faab29c99f0d39e 18 R_MOD10   # docs/s4/S4_CORE4_Implementation_Notes.md, object-id list

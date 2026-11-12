@@ -68,7 +68,7 @@ class Household:
         return {"kind": "session", "secret": self.authn.call("authn_begin_session", claims(sub))["session_token"]}
 
     def cmd(self, cred, _cmd, key=None, **body):
-        body["idempotency_key"] = key or ("k-" + uuid.uuid4().hex)
+        body["idempotency_key"] = key or str(uuid.uuid4())
         return self.app.call("cmd_" + _cmd, cred, body)
 
     def q(self, cred, _q, **body):

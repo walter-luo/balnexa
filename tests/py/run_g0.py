@@ -493,7 +493,7 @@ def t_conc_posts(server, ev):
         a = apps[i % 10]
         cred = H.owner if i % 2 else H.member
         return a.call("cmd_post_transaction", cred, dict(economic_type="consumption_expense", transaction_date="2026-03-02",
-                      description=f"c{i}", idempotency_key=f"conc-{uuid.uuid4().hex}",
+                      description=f"c{i}", idempotency_key=str(uuid.uuid4()),
                       lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-0.01"},
                              {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "0.01"}]))
     with cf.ThreadPoolExecutor(10) as ex:
@@ -681,7 +681,7 @@ def t_conc_activation(server, ev):
     app2 = psycopg.connect(h.dsn(server, "bnx_app", H.db))           # transaction held open across the activation attempt
     app2.execute("select bnx.cmd_post_transaction(%s::jsonb, %s::jsonb)", (json.dumps(H.member), json.dumps(dict(
         economic_type="consumption_expense", transaction_date="2026-04-11", description="racing direct post",
-        idempotency_key="race-" + uuid.uuid4().hex, lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-2.00"},
+        idempotency_key=str(uuid.uuid4()), lines=[{"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-2.00"},
                                                             {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "2.00"}]))))
     res = {}
     def activate():
@@ -709,7 +709,7 @@ def t_conc_activation(server, ev):
 def t_fault_kill(server, ev):
     H = household(server)
     c0 = counts(H)
-    key = "kill-" + uuid.uuid4().hex
+    key = str(uuid.uuid4())
     cx = psycopg.connect(h.dsn(server, "bnx_app", H.db))
     cx.execute("select bnx.cmd_post_transaction(%s::jsonb, %s::jsonb)", (json.dumps(H.owner), json.dumps(dict(
         economic_type="consumption_expense", transaction_date="2026-03-09", description="killed", idempotency_key=key,
@@ -751,14 +751,20 @@ def t_cmd_audit(server, ev):
             cx.rollback()
         cx.execute("set role bnx_definer")
         # S4 re-baseline (9005): a forged row must carry at_hashed (chain v2 CHECK); verification must still detect it
-        cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
-                   "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', now() from bnx.audit_event")
-        bad = cx.execute("select bnx.audit_verify()").fetchone()[0]
+        # 9011 review R-10: from B003 the audit owner's t_chain_append refuses the forged row at insert; before B003 (R1 head)
+        # the row is stored and audit_verify() detects it
+        try:
+            cx.execute("insert into bnx.audit_event(seq, channel, command, subject, payload_sha256, prev_hash, hash, at_hashed) "
+                       "select max(seq)+1, 'pwa', 'forged', '{}', '\\x00', (select hash from bnx.audit_event order by seq desc limit 1), '\\x00', now() from bnx.audit_event")
+            bad, refused = cx.execute("select bnx.audit_verify()").fetchone()[0], None
+        except psycopg.Error as e:
+            bad, refused = None, e.diag.message_primary or str(e)
         cx.rollback()
         cx.execute("set role bnx_definer")
         ob = cx.execute("select count(*) from bnx.outbox where topic = 'journal.posted'").fetchone()[0]
-    check(ok == 0 and bad == n + 1, f"verify={ok} forged-detected-at={bad} n={n}")
-    return f"{n} audit events hash-chained (verify=0); UPDATE refused (append-only); forged row detected at seq {bad}; {ob} outbox rows for postings"
+    check(ok == 0 and (bad == n + 1 or (refused is not None and "AUDIT_CHAIN_APPEND" in refused)), f"verify={ok} forged={bad} {refused} n={n}")
+    forged = f"forged row detected at seq {bad}" if bad is not None else "forged row refused at insert (AUDIT_CHAIN_APPEND)"
+    return f"{n} audit events hash-chained (verify=0); UPDATE refused (append-only); {forged}; {ob} outbox rows for postings"
 
 
 @test("AT-CMD-07", "AUD-053")
@@ -1058,7 +1064,7 @@ def t_queue(server, ev):
     def approve():
         res["r"] = H.app.cx.execute("select 1").fetchone() and h.Role(server, H.db, "bnx_app").call(
             "cmd_approve_plan", H.owner, {"plan_id": p["plan_id"], "plan_hash": p["plan_hash"], "scope_digest": p["scope_digest"],
-                                          "idempotency_key": "ap-" + uuid.uuid4().hex})
+                                          "idempotency_key": str(uuid.uuid4())})
     th = threading.Thread(target=approve); th.start(); time.sleep(0.7)
     check(th.is_alive(), "enqueue did not serialize behind the open claim")
     w.commit(); th.join(10)
@@ -1094,12 +1100,13 @@ def t_backup(server, ev):
         snap = bk.execute("select pg_export_snapshot()").fetchone()[0]
         cust = os.path.join(ev, f"AT-BAK-01_{tag}.dump")
         out = os.path.join(ev, f"AT-BAK-01_{tag}.sql")
-        # exact production command of Backup §6 step 4 (custom format, data only, both schemas, exported snapshot)
+        # exact production command of Backup §6 step 4 (custom format, data only, exported snapshot); G0R (B003): the audit
+        # chain lives in schema bnx_audit, which is part of the scope from then on
         cmd = [pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--format=custom", "--data-only",
-               "--schema=bnx", "--schema=auth", "-f", cust]
+               "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", cust]
         r = subprocess.run(cmd, capture_output=True, text=True)
         sch = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--schema-only",
-                              "--schema=bnx", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
+                              "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
         bk.rollback(); bk.close()
         conv = subprocess.run([pg_restore, "--data-only", "-f", out, cust], capture_output=True, text=True)
         open(os.path.join(ev, f"AT-BAK-01_{tag}.cmd"), "w").write(" ".join(cmd).replace(H.db, "<db>") +
@@ -1152,6 +1159,20 @@ def t_backup(server, ev):
     # source-link state machine accept verbatim rows); auth tables are loaded by their owner bnx_auth. The migration
     # ledger is compared, never restored.
     bnx_part, auth_part, cur, skip = [], [], None, False
+    # 9011 review R-10: the audit owner's t_chain_append accepts only the next seq on top of the current head, so the chain
+    # is loaded in seq order (pg_dump writes heap order, which need not be seq order)
+    lines, out_lines, k = body.splitlines(), [], 0
+    while k < len(lines):
+        out_lines.append(lines[k])
+        if lines[k].startswith("COPY bnx_audit.audit_event "):
+            blk = []
+            k += 1
+            while lines[k] != "\\.":
+                blk.append(lines[k]); k += 1
+            out_lines += sorted(blk, key=lambda x: int(x.split("\t", 1)[0]))
+            out_lines.append(lines[k])
+        k += 1
+    body = "\n".join(out_lines)
     for line in body.splitlines():
         if line.startswith("COPY bnx.schema_migrations") or line.startswith("COPY bnx.schema_bootstrap"):
             skip = True
@@ -1185,6 +1206,7 @@ def t_backup(server, ev):
             tabs = [r[0] for r in cx.execute("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
                                              "where n.nspname = 'bnx' and c.relkind = 'r' order by 1")]
             cnt = {t: cx.execute(f"select count(*) from bnx.{t}").fetchone()[0] for t in tabs}
+            cnt["bnx_audit.audit_event"] = cx.execute("select count(*) from bnx_audit.audit_event").fetchone()[0]   # G0R (B003)
             av = cx.execute("select bnx.audit_verify()").fetchone()[0]
             js = [r[0] for r in cx.execute("select id from bnx.journal_entry")]
             for j in js:
@@ -1207,7 +1229,7 @@ def t_backup(server, ev):
     check(b_src == b_dst, "balances differ after restore")
     json.dump({"source_counts": src[0], "restored_counts": dst[0], "journals_checked": dst[2], "ledger_version": dst[4],
                "migrations": dst[3]}, open(os.path.join(ev, "AT-BAK-01_restore_verification.json"), "w"), indent=1)
-    return (f"pg_dump --snapshot --data-only --schema=bnx --schema=auth as bnx_backup succeeds before and after a new bnx table+identity "
+    return (f"pg_dump --snapshot --data-only --schema=bnx --schema=bnx_audit --schema=auth as bnx_backup succeeds before and after a new bnx table+identity "
             f"and an auth table+serial; {denied} write/DDL attempts by bnx_backup denied; isolated restore: {len(src[0])} tables equal counts, "
             f"audit chain intact, {dst[2]} journals re-asserted complete, migrations and ledger version V{dst[4]} equal, identical q_balances; no session secret in dump")
 

@@ -1,0 +1,15 @@
+# Executor document validator (9011c, zone Z1). Installed from PyPI only, pinned with hashes (pip --require-hashes).
+# Wheels: pure Python, plus Pillow for CPython 3.12 (CI) and 3.13 (development) on manylinux x86_64.
+# pypdfium2 (9011R, review R-28; DELEGATED_DECISION D-9011R-4): renders PDF pages for OCR; its wheel bundles the PDFium
+# library (manylinux x86_64, any CPython 3).
+pypdf==6.17.0 \
+    --hash=sha256:5bd827266a21553b74d910e350131a6227b72f2ab4209bf372814b8195fa11c5
+openpyxl==3.1.5 \
+    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
+et-xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
+pillow==12.3.0 \
+    --hash=sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91 \
+    --hash=sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3
+pypdfium2==4.30.0 \
+    --hash=sha256:f1f78d2189e0ddf9ac2b7a9b9bd4f0c66f54d1389ff6c17e9fd9dc034d06eb3f

@@ -5,6 +5,10 @@
 //         POST /exec/v1/lease, POST /exec/v1/complete (Executor lease model, S4 9010; the Executor holds no DB credential).
 import { verifyGoogleIdToken, verifyJobToken, AuthError } from './jwt.js';
 import { dispatch } from './dispatch.js';
+import { scanJson, scrub } from './sin_detector.js';
+
+// guard C3 (Addendum A1 Rev 1): every log line passes the SIN/ITN scrubber
+const log = (...parts) => console.log(parts.map((x) => scrub(typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
 
 const NAME = /^[a-z][a-z_]{2,40}$/;
 const STATUS = { P0401: 401, P0403: 403, P0404: 404, P0409: 409, P0422: 422, '42501': 404, '42883': 404, '22P02': 422, '23503': 422, '23505': 409, '23514': 422 };
@@ -154,6 +158,13 @@ export default {
           if (t.cmd) args.idempotency_key = args.idempotency_key || crypto.randomUUID();
           try {
             const r = await env.db.one('bnx_app', `select bnx.${t.cmd ? 'cmd_' + t.cmd : 'q_' + t.q}($1::jsonb, $2::jsonb) r`, [JSON.stringify(cred), JSON.stringify(args)]);
+            // guard C4 (Addendum A1 Rev 1, 9011b): an AI host never receives a SIN/ITN candidate; refused, audited without the value
+            const hits = scanJson(r);
+            if (hits.length) {
+              await env.db.one('bnx_worker', 'select bnx.wrk_audit_sin_refusal($1::jsonb) r',
+                [JSON.stringify({ tool: rpc.params.name, rules: [...new Set(hits.map((h) => h.rule))].sort() })]);
+              return reply({ isError: true, content: [{ type: 'text', text: 'SIN_CANDIDATE_REFUSED' }] });
+            }
             return reply({ content: [{ type: 'text', text: JSON.stringify(r) }], structuredContent: r });
           } catch (e) {
             if (String(e.code || '').startsWith('P0')) return reply({ isError: true, content: [{ type: 'text', text: String(e.message).split(/[\s:]/)[0] }] });
@@ -165,6 +176,7 @@ export default {
       return json(404, { error: 'NOT_FOUND' });
     } catch (e) {
       if (e && e.code) return dbError(e);
+      log('worker_error', String((e && e.message) || e));
       return json(500, { error: 'INTERNAL' });
     }
   },
