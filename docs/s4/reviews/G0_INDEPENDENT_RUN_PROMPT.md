@@ -4,8 +4,8 @@
 
 ## For the Owner: how to use this file
 
-1. Give the reviewer this file's URL on branch `s4/g0-remediation`, or paste the section "Prompt" below:
-   `https://github.com/walter-luo/balnexa/blob/s4/g0-remediation/docs/s4/reviews/G0_INDEPENDENT_RUN_PROMPT.md`
+1. Give the reviewer this file's URL on branch `s4/g0-remediation-2`, or paste the section "Prompt" below:
+   `https://github.com/walter-luo/balnexa/blob/s4/g0-remediation-2/docs/s4/reviews/G0_INDEPENDENT_RUN_PROMPT.md`
 2. **Who counts.** Only a reviewer of **another model family** (for example ChatGPT/Codex) or a human can produce `VERIFIED_INDEPENDENT` evidence, which is what closes gate G0 (doc 03 §6). A fresh Claude chat, in any mode, is the same family: its result is `SAME_FAMILY_VERIFICATION`. That is useful as a second opinion, but it does not close G0.
 3. **Execution.** Runtime evidence needs a reviewer that can run commands, such as a code-execution sandbox or a cloud dev environment. A reviewer that can only read the repository can still do Parts C and D. It must mark Parts A and B `NOT_EXECUTED`.
 4. **Getting results back** (OD-GH-2: exchange through GitHub, the Owner as dispatcher, no GitHub Actions automation). The reviewer pushes a report branch and opens a draft PR (return path R1). If it cannot push, it gives you the report in its answer (return path R2), and you hand that answer to the next Claude session to commit unchanged.
@@ -19,8 +19,8 @@ You are the **independent G0 runner** for the open-source repository `walter-luo
 
 ### Target
 
-- **Code under test:** the head of branch `s4/g0-remediation` (draft PR #39, the top of the stacked PRs #17 → #39). It contains the remediation of the first independent run (2026-11-13, `docs/s4/reviews/G0_IND_REMEDIATION_2026-11-13.md`, migration 9038).
-- The first run tested `69138694a3c896b58c076a130738a328b1873075` (#37); its report is `docs/s4/reviews/g0/20261113_chatgpt-codex/REPORT.md`. A re-run checks the remediation and repeats every part.
+- **Code under test:** the head of branch `s4/g0-remediation-2` (draft PR #40, the top of the stacked PRs #17 → #40). It contains the remediation of the first independent run (`docs/s4/reviews/G0_IND_REMEDIATION_2026-11-13.md`, migration 9038) and of the first re-run (`docs/s4/reviews/G0_IND_R2_REMEDIATION_2026-11-13.md`, migration 9039).
+- The first run tested `69138694a3c896b58c076a130738a328b1873075` (#37); its report is `docs/s4/reviews/g0/20261113_chatgpt-codex/REPORT.md`. The first re-run tested `109a6c7254de0acceebb43f37619226d89f808fc` (#39); its report is `docs/s4/reviews/g0/20261113_chatgpt-codex-r2/REPORT.md`. A re-run checks the remediation and repeats every part.
 - **Base of the stack:** `main` at `9edbed7` (PRs #1–#16 merged).
 - Verify the SHA you test (`git rev-parse HEAD`) and state it in your report.
 
@@ -87,12 +87,12 @@ for srv in pg16 pg17; do (cd tests/pwa && BNX_SERVER=$srv BNX_PY="$(which python
 
 | Run | Claimed result |
 |---|---|
-| PG16 Python suites (`run_g0` + 20 `run_s4_core*`) | 195 tests, 0 fail, 0 skip |
-| PG17 Python suites | 195 tests, 0 fail. The author skipped 3 (`pg_dump` 17 was missing). **With `pg_dump` 17 you should see 0 skips** |
+| PG16 Python suites (`run_g0` + 20 `run_s4_core*`) | 196 tests, 0 fail, 0 skip |
+| PG17 Python suites | 196 tests, 0 fail. The author's local runs skip 3 (`pg_dump` 17 is missing there); CI runs them with `pg_dump` 17.12 and they pass. **With `pg_dump` 17 you should see 0 skips** |
 | Black-box and unit (Node) | 35 pass, 0 fail |
 | PWA (Playwright), each major | 23 pass, 0 fail |
 | Dispatcher simulation | `"result": "PASS"` |
-| **Total with `pg_dump` 17** | **472 pass, 0 fail, 0 skip** |
+| **Total with `pg_dump` 17** | **474 pass, 0 fail, 0 skip** |
 
 The claim holds for **any default collation** of your clusters: byte order (`C.UTF-8`, as in the recipe) and linguistic (for example ICU en-US). If you can, run Part A on both and report both.
 
@@ -173,6 +173,6 @@ Put raw outputs (the `*.txt` files of Part A, your SQL and its output) in a `raw
 - **R1 (you can push):**
   1. Create branch `review/g0-<runner>-<YYYYMMDD>` from the tested commit.
   2. Commit only your report folder.
-  3. Push, and open a **draft** PR into `s4/g0-remediation`, titled `G0 independent run — <runner> — <date>`.
+  3. Push, and open a **draft** PR into `s4/g0-remediation-2`, titled `G0 independent run — <runner> — <date>`.
   4. Put the verdict table in the PR body.
 - **R2 (you cannot push):** reply with the full `REPORT.md` in one fenced block, and list the raw files you produced, with their most important lines. The Owner will hand this to the author's next session, which commits it unchanged under your runner id.

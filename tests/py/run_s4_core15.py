@@ -264,7 +264,15 @@ def t_drill(server, ev):
         run_id = str(one(H, "select run_id from bnx.backup_run where outcome = 'VERIFIED'")[0])
         ctx, logs = ctx_for(server, H, root, K)
         W = WorkerShim(H)
-        dcode, dres = runner.run_items(ctx, W, W, "RESTORE_DRILL", [run_id])
+        # G0 R2: the drill must not depend on whichever "python3" is first on PATH; a decoy that always fails is put first
+        decoy = os.path.join(root, "decoy-bin"); os.makedirs(decoy)
+        open(os.path.join(decoy, "python3"), "w").write("#!/bin/sh\necho decoy >&2\nexit 1\n"); os.chmod(os.path.join(decoy, "python3"), 0o755)
+        path0 = os.environ.get("PATH", "")
+        os.environ["PATH"] = decoy + os.pathsep + path0
+        try:
+            dcode, dres = runner.run_items(ctx, W, W, "RESTORE_DRILL", [run_id])
+        finally:
+            os.environ["PATH"] = path0
         dprom = promote_all(H)
         d = one(H, "select outcome, reasons, decrypt_key_id, cleanup_verified from bnx.restore_drill order by recorded_at desc limit 1")
         left = one(H, "select count(*) from pg_database where datname like 'bnx\\_drill\\_%%'")[0]
@@ -292,7 +300,11 @@ def t_drill(server, ev):
           and d[2] == "drill-k2a" and left == 0 and restorable is True, f"{dres} {dprom} {d} {left} {restorable}")
     check(nres[0]["outcome"] == "FAIL" and n[0] == "FAIL" and "DRILL_KEY_NOT_RECIPIENT" in json.dumps(n[1]), f"{nres} {n}")
     check(tres[0]["outcome"] == "FAIL" and t[0] == "FAIL" and left2 == 0, f"{tres} {t}")
-    return (f"RESTORE_DRILL job: vault object downloaded, generation checked, decrypted with the drill identity, digests checked, isolated target "
+    # a failed runner is reported by its exception class only (never the message: it can quote a DSN)
+    exc = [restore._exc_name("Traceback (most recent call last):\n  File \"x\"\nModuleNotFoundError: No module named 'psycopg'"),
+           restore._exc_name("psycopg.OperationalError: connection to server failed: host=/x user=bnx_migrator"), restore._exc_name("")]
+    check(exc == ["ModuleNotFoundError", "OperationalError", "no output"], f"{exc}")
+    return (f"RESTORE_DRILL job (a failing decoy python3 first on PATH: the runner uses the Executor's interpreter): vault object downloaded, generation checked, decrypted with the drill identity, digests checked, isolated target "
             f"bootstrapped and migrated to the recorded versions (equal), loaded through the generated preamble, post-checks (audit_verify 0, "
             f"journals re-asserted), restored header facts staged; promoter stored PASS (key {d[2]}, cleanup verified, no drill database left) and "
             f"the run is restorable; Owner identity in the drill job -> FAIL DRILL_KEY_NOT_RECIPIENT; tampered object -> FAIL ({t[1]})")

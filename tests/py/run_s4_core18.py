@@ -357,12 +357,18 @@ def t_deploy_rule(server, ev):
     env_ok = _j.loads(C1c.env(H, C1c.MODULES))
     old = {**env_ok, "worker_supports_extension": ["9017", "9023"]}
     refused = C4.err(C1c.installer_sql, server, H.db, "select bnx.install_activate_config(1, %s, %s::jsonb)", (C1c.DIGEST, _j.dumps(old)))
+    # 9039: a range that is not exactly two versions is refused too (an empty range used to skip the check)
+    malformed = {json_r: C4.err(C1c.installer_sql, server, H.db, "select bnx.install_activate_config(1, %s, %s::jsonb)",
+                                (C1c.DIGEST, _j.dumps({**env_ok, "worker_supports_extension": _j.loads(json_r)})))
+                 for json_r in ("[]", f'["{head}"]', f'[null, "{head}"]', f'["{head}", "9xx9"]', '{"lo": "9000"}')}
     good = {**env_ok, "worker_supports_extension": [str(int(head) - 1).zfill(4), head]}
     C1c.installer_sql(server, H.db, "select bnx.install_activate_config(1, %s, %s::jsonb)", (C1c.DIGEST, _j.dumps(good)))
     state = C2c.sql(H, "select state from bnx.config_version_anchor where config_version = 1")[0][0]
     H.close()
     check(refused[0] == "BNX_BINDING_MISMATCH" and "B3" in (refused[1] or "") and state == "ACTIVE", f"{refused} {state}")
-    return f"schema head {head}: a Worker supporting 9017-9023 is refused (B3); one supporting N-1..{head} activates the configuration"
+    check(all(v[0] == "BNX_BINDING_MISMATCH" and "B3" in (v[1] or "") for v in malformed.values()), f"{malformed}")
+    return (f"schema head {head}: a Worker supporting 9017-9023 is refused (B3); malformed ranges {sorted(malformed)} are refused (B3, 9039); "
+            f"one supporting N-1..{head} activates the configuration")
 
 
 @test("AT-AUD-01", "F-AUD-01; 9030 (correct_transaction: journal UUIDs in the audit subject sit under *_id keys, so guard C2 exempts them)")
@@ -383,6 +389,35 @@ def t_audit_ids(server, ev):
     check(set(subj) == {"original_journal_id", "reversal_journal_id", "replacement_journal_id"} and old_shape is True and new_shape is False
           and r["replacement_journal_id"], f"{subj} {old_shape} {new_shape}")
     return f"subject keys {sorted(subj)}; a UUID with a Mod-10 run in a group: refused under 'original' (old), exempt under 'original_journal_id' (9030)"
+
+
+@test("AT-NULL-01", "G0 R2 remediation; 9039 (a command without a required array is refused: guards are NULL-safe)")
+def t_null_guards(server, ev):
+    H = C4.v2_full(server, "bnx_c18nul")
+    ac = H.cad["account_currency_id"]
+    plans0 = C2s(H, "select count(*) from bnx.posting_plan")
+    accts0 = C2s(H, "select count(*) from bnx.account")
+    out = {
+        "import plan without items": C4.err(H.cmd, H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30"),
+        "import plan with items null": C4.err(H.cmd, H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30", items=None),
+        "import plan with items []": C4.err(H.cmd, H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30", items=[]),
+        "account without currencies": C4.err(H.cmd, H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="NoCur"),
+        "account without kind": C4.err(H.cmd, H.owner, "create_account", **H.inst("Synthetic Bank"), label="NoKind", currencies=["CAD"]),
+    }
+    plans1 = C2s(H, "select count(*) from bnx.posting_plan")
+    accts1 = C2s(H, "select count(*) from bnx.account")
+    ok = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="WithCur", currencies=["CAD"])
+    H.close()
+    json.dump(out, open(os.path.join(ev, "AT-NULL-01.json"), "w"), indent=1, default=str)
+    check(all(v[0] == "VALIDATION_FAILED" for v in out.values()) and (plans1, accts1) == (plans0, accts0) and len(ok["account_currencies"]) == 1,
+          f"{out} {plans0}->{plans1} {accts0}->{accts1} {ok}")
+    return (f"{len(out)} commands with an absent, null or empty required field -> VALIDATION_FAILED and nothing stored "
+            f"({sorted(set(v[1] for v in out.values()))}); the same account with currencies is created")
+
+
+def C2s(H, q):
+    import run_s4_core2 as C2c
+    return C2c.sql(H, q)[0][0]
 
 
 def main():

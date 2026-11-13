@@ -8,7 +8,9 @@ in seq order (R-10); tables the preamble lists as never loaded are skipped; ``au
 Post-checks: header facts recomputed by ``bnx_backup`` on the target, ``audit_verify() = 0`` and every journal re-asserted.
 """
 import os
+import re
 import subprocess
+import sys
 
 import psycopg
 
@@ -124,6 +126,12 @@ def applied_migrations(target):
         return [r[0] for r in cx.execute("select version from bnx.schema_migrations order by version")]
 
 
+def _exc_name(stderr):
+    """the exception class of a Python traceback, nothing else: the message may quote a DSN or row values"""
+    m = re.search(r"^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Exit|Interrupt))\b", (stderr or "").strip().splitlines()[-1] if (stderr or "").strip() else "")
+    return m.group(1).rsplit(".", 1)[-1] if m else "no output"
+
+
 class LocalProvisioner:
     """Isolated drill database on a PostgreSQL server the drill identity administers (local runs, tests, and the shape of
     the Neon drill branch of M0-E). Creates the database, runs the bootstrap files as the installer and the migration runner
@@ -142,14 +150,16 @@ class LocalProvisioner:
         t = Target(self.conninfo, name)
         for f in ("B001_bootstrap.sql", "B002_bootstrap_s4.sql"):
             _psql(t.dsn(self.admin), open(os.path.join(self.db_dir, "bootstrap", f)).read(), single=True)
-        cmd = ["python3", os.path.join(self.db_dir, "tools", "run_migrations.py"), "--dsn", t.dsn("bnx_migrator"),
+        # the runner runs under the Executor's own interpreter, never a "python3" found on PATH (G0 R2: a PATH python3
+        # without psycopg made every drill FAIL with an empty reason)
+        cmd = [sys.executable, os.path.join(self.db_dir, "tools", "run_migrations.py"), "--dsn", t.dsn("bnx_migrator"),
                "--dir", os.path.join(self.db_dir, "migrations"), "--upto", upto]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode == 6 and "BOOTSTRAP_MISSING: B003" in r.stdout:      # documented installer step (harness.migrate)
             _psql(t.dsn(self.admin), open(os.path.join(self.db_dir, "bootstrap", "B003_audit_owner.sql")).read(), single=True)
             r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode:
-            raise RestoreError("migration runner exit " + str(r.returncode) + ": " + r.stdout[-300:])
+            raise RestoreError("migration runner exit " + str(r.returncode) + ": " + (r.stdout[-300:] or _exc_name(r.stderr)))
         return t
 
     def drop(self, name):
