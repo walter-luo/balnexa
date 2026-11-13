@@ -1,0 +1,89 @@
+{
+ "server": "pg17",
+ "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 82.4,
+ "pass": 11,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-BAK-04",
+   "ref": "S4B-F10/F11; UA V1.2 \u00a79.3 steps 2-4, 6, 9 (header facts in the snapshot; concurrent write; generated preamble; all schemas)",
+   "status": "PASS",
+   "detail": "header facts read by bnx_backup in the exported snapshot (141 tables, 653 rows, ledger V25, audit head 39); a posting committed during the dump changes the live facts (['audit_head', 'ledger_version', 'row_total']...) but not the dump; restored via the generated preamble (20 seeded tables truncated, 8 schemas, 19 sequences set) on paths ['copy']: recomputed facts equal the header (bkp_header_compare = []), audit_verify 0, 10 journals re-asserted, q_balances equal to the pre-write state; pg_dump path SKIPPED: pg_dump 17 not available here (CI runs it); preamble on a live database -> RESTORE_TARGET_NOT_EMPTY: bnx.member holds 3 rows",
+   "seconds": 7.94
+  },
+  {
+   "id": "AT-BAK-03",
+   "ref": "ADO-004; UA V1.2 \u00a79.3 step 9 (restore mode is the migrator's only; a runtime role with the GUC is still refused)",
+   "status": "PASS",
+   "detail": "with bnx.restore_mode = on in a bnx_app session the S4 flag trigger still refuses (SCOPE_DISABLED); restore_mode() is true only for the migrator with the GUC (False -> True)",
+   "seconds": 3.88
+  },
+  {
+   "id": "AT-BKP-REC",
+   "ref": "UA V1.2 \u00a79.3 steps 7-8; S4B-F24; R-11; AT-NEON-04 (backup_recorded promoter: K2 recipients, majors, verification, anchor)",
+   "status": "PASS",
+   "detail": "no K2 recipients -> due=false (K2_RECIPIENTS_MISSING); key registration Owner-only, key material and bad fingerprints refused; 120 randomized results pass the staging SIN guard (KiB sizes, derived object path, _sha256 keys); 12 invalid results REJECTED (['KEY_MATERIAL_REFUSED', 'NOT_VERIFIED', 'RECIPIENTS', 'RETENTION_SHORT', 'TIER_MISMATCH', 'TOOL_MAJOR', 'UNKNOWN_FIELD']); a verified run is promoted with tier DAILY, policy P-A, anchor MATCH at seq 40; a second verified point for the same local date REJECTED; a header whose head hash the live chain does not hold -> anchor MISMATCH + Owner alert; a FAILED run is recorded but never verified; every case alerts the Owner",
+   "seconds": 27.52
+  },
+  {
+   "id": "AT-BKP-DRILL",
+   "ref": "UA V1.2 \u00a79.3 step 9; Backup \u00a77-\u00a78; AT-BKP-15/20; S4B-F24 (drill outcome is the database's; restorable; authorization)",
+   "status": "PASS",
+   "detail": "a verified run is not restorable until a drill passes; the drill outcome is the database's: owner key in a drill job, a key that is not a recipient, unverified cleanup and differing header facts each FAIL (job reported PASS); a later failure blocks restorability until the next pass; a production restore needs a one-time Owner authorization (without -> REJECTED + alert; reuse REJECTED; with -> PASS and release_install_event RESTORE); lease kind binding holds",
+   "seconds": 6.08
+  },
+  {
+   "id": "AT-BKP-12-16",
+   "ref": "Backup \u00a73, AT-BKP-12/16 (7D+4W+12M: one object per run, longest tier wins, retained count, DST-safe local dates)",
+   "status": "PASS",
+   "detail": "730 daily runs: one object per local date; tiers {'DAILY': 605, 'WEEKLY': 100, 'MONTHLY': 24} (a 1st falling on a Sunday is MONTHLY, the longest wins); retained objects in steady state 21..22 (avg 21.7; Draft-04 simulation 21-22, avg 21.7); DST weeks (Mar 8, Nov 1 2026): 15 and 14 runs -> as many distinct local dates; 03:30Z/04:30Z on Nov 1 -> ('2026-10-31', '2026-11-01')",
+   "seconds": 3.9
+  },
+  {
+   "id": "AT-BKP-13",
+   "ref": "Backup \u00a75; AT-BKP-13, AT-NEON-03 (egress-aware policy switch, alert, daily gap, Neon egress budget)",
+   "status": "PASS",
+   "detail": "policy from the measured wire size: none/50 MB -> P-A; 200 MB -> P-B (alert); daily tier then reported as a gap (DAILY_TIER_NEON_BRANCH_UNAVAILABLE; Neon branch restore points need the reviewed Neon API key), weekly and monthly stay due; 2 GB -> P-D (alert; weekly WEEKLY_TIER_NOT_IN_POLICY); Neon egress at the 60 % budget stops the daily off-provider dump (NEON_EGRESS_BUDGET)",
+   "seconds": 8.02
+  },
+  {
+   "id": "AT-BKP-17-19",
+   "ref": "Backup \u00a710.4; AT-BKP-17/18/19 (keyring survival over quarterly rotations, pruning, compromise handling)",
+   "status": "PASS",
+   "detail": "13 monthly runs over 4 quarterly drill-key rotations; each run lists the drill key active at its start (['drill-q0', 'drill-q1', 'drill-q2', 'drill-q3', 'drill-q4']); every retained run drilled in January 2026 with its own key -> 13 PASS (keyring survival); pruning q0 before prune_after (2026-03-02) -> PRUNE_PREMATURE, the active key -> PRUNE_REFUSED, after prune_after -> PRUNED and a drill with it FAILs (KEY_PRUNED); compromise: KEEP_FOR_DRILLS drill PASS, OWNER_KEY_TEST_ONLY drill FAIL; each compromise alerts the Owner",
+   "seconds": 8.32
+  },
+  {
+   "id": "AT-ANCHOR-01",
+   "ref": "9011R R-11 (O-8 precondition), G0R F-06: anchor in the backup header; worker tick and external verifier",
+   "status": "PASS",
+   "detail": "tick without a backup: NO_ANCHOR; the verified backup header records (seq 40, head hash) -> tick MATCH; the external verifier (tools/s4/audit_chain_verify.py --anchor) INTACT with that anchor -> O-8 anchor precondition met (reported only; the gate stays with the Owner); an unknown anchor -> UNKNOWN_ANCHOR; a superuser rewrite of the anchored row -> tick FAILED and the tool FAILED; failures alert the Owner",
+   "seconds": 4.73
+  },
+  {
+   "id": "AT-BKP-10",
+   "ref": "Draft-04 \u00a77 R8; AT-BKP-10; 9011R R-09 (evidence re-hash through EVIDENCE_VERIFY; status read via evidence_status)",
+   "status": "PASS",
+   "detail": "EVIDENCE_VERIFY result promoted: R2 and Drive copies MATCH, a tampered copy MISMATCH (Owner alert), an object never hashed by the executor NO_REFERENCE (not a mismatch); each row stores evidence_status (UNSCANNED, R-09); unknown object, unknown copy kind and items on a BACKUP lease are REJECTED",
+   "seconds": 4.26
+  },
+  {
+   "id": "AT-SPEND-ADM",
+   "ref": "Cost \u00a76.2-\u00a76.3, \u00a77; AT-SPEND-01/03/04/05/06/09, AT-NEON-01/02 (database part: usage ledger, capacity, admission)",
+   "status": "PASS",
+   "detail": "usage ledger (highest phase per execution; duplicates refused) drives the 70 % exec ceiling (USD 0.595): interactive throttled, backups within the USD 0.10 reserve, then BACKUP_RESERVE_EXHAUSTED; vault ceiling defers drills; notices 50 % logged, 80 % throttles extraction, 100 % caps (backups still tried within the reserve until a launch is refused, then everything waits); next month: one-item probe only, failure -> 6 h back-off, success -> normal; Neon storage/CU >= 80 % pause bulk onboarding only; caps are Owner-only versions (SC-V2 recorded with the Owner as declarer), runtime roles cannot write the policy ({'bnx_app': 'permission denied for table co', 'bnx_worker': 'permission denied for table co'})",
+   "seconds": 4.04
+  },
+  {
+   "id": "AT-BKP-PRIV",
+   "ref": "S4B-F10 c (USAGE-revoked negative); UA V1.2 \u00a76.1, \u00a79.3 step 1 (bnx_backup executes bkp_* invokers only); catalog",
+   "status": "PASS",
+   "detail": "bnx_backup may EXECUTE exactly ['bkp_header_compare', 'bkp_header_facts'] (SECURITY INVOKER, not volatile); 0 violations; a SECURITY DEFINER bkp_ function is not granted and is reported (BACKUP_FUNCTION_UNSAFE), granting it anyway adds EXECUTE_GRANT; USAGE on bnx_doc revoked from bnx_backup -> BACKUP_SCHEMA_USAGE; runtime roles cannot read or write the registries or call the preamble/policy helpers (bnx_backup reads only); backup and cost functions are outside the MCP catalog; 11 append-only tables classed; cost_policy is a seeded table (truncate_on_restore)",
+   "seconds": 3.67
+  }
+ ]
+}
