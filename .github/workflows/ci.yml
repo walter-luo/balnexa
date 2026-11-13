@@ -65,7 +65,7 @@ jobs:
           sudo -u postgres /usr/lib/postgresql/$V/bin/initdb -D "$D/data" -U postgres --auth=trust -E UTF8 --locale=C.UTF-8 $LP > /dev/null
           sudo -u postgres /usr/lib/postgresql/$V/bin/pg_ctl -D "$D/data" -o "-p 554$V -k $S -c listen_addresses=" -l "$D/server.log" -w start
           psql "host=$S port=554$V user=postgres dbname=postgres" -Atc 'select version()'
-          psql "host=$S port=554$V user=postgres dbname=postgres" -Atc "select 'default collation: ' || datlocprovider || ' ' || datcollate from pg_database where datname = 'template1'"
+          psql "host=$S port=554$V user=postgres dbname=postgres" -Atc "select 'default collation: ' || datlocprovider::text || ' ' || datcollate from pg_database where datname = 'template1'"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
