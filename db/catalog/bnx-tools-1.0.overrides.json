@@ -837,12 +837,105 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "proposals"
+    ],
     "properties": {
      "proposals": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "proposal_id",
+        "state",
+        "confidence",
+        "rule_codes",
+        "identity_conflict",
+        "institution_id",
+        "reference_display",
+        "currencies",
+        "holder_names",
+        "signal_count",
+        "match_trace",
+        "account_id"
+       ],
+       "properties": {
+        "proposal_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "state": {
+         "type": "string",
+         "enum": [
+          "PROPOSED",
+          "MERGED",
+          "SPLIT",
+          "APPROVED",
+          "REJECTED"
+         ]
+        },
+        "confidence": {
+         "type": "string",
+         "enum": [
+          "high",
+          "medium",
+          "low"
+         ],
+         "description": "Proposals are ordered high, medium, low"
+        },
+        "rule_codes": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "identity_conflict": {
+         "type": "boolean",
+         "description": "True when the signals disagree on who holds the account; ask before approving"
+        },
+        "institution_id": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "uuid"
+        },
+        "reference_display": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "description": "Masked account reference as printed; never ask for the full number"
+        },
+        "currencies": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+         }
+        },
+        "holder_names": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "signal_count": {
+         "type": "integer"
+        },
+        "match_trace": {
+         "description": "How the signals were matched (explanatory)"
+        },
+        "account_id": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "uuid",
+         "description": "The account created when the proposal was approved"
+        }
+       }
+      }
      }
     }
    }
@@ -883,32 +976,115 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "account_currency_id",
+     "ledger_version",
+     "observations",
+     "conflicts"
+    ],
     "properties": {
      "account_currency_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "observations": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "event_seq",
+        "source",
+        "observed_at",
+        "tz",
+        "amount",
+        "currency",
+        "sign_convention",
+        "recorded_version",
+        "current"
+       ],
+       "properties": {
+        "event_seq": {
+         "type": "integer"
+        },
+        "source": {
+         "type": "string",
+         "enum": [
+          "MEMBER",
+          "STATEMENT",
+          "EXPORT",
+          "EMAIL_NOTICE"
+         ]
+        },
+        "observed_at": {
+         "type": "string",
+         "format": "date-time"
+        },
+        "tz": {
+         "type": "string"
+        },
+        "amount": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Decimal string in the observation's currency"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "sign_convention": {
+         "type": "string",
+         "enum": [
+          "asset_positive",
+          "owed_positive"
+         ]
+        },
+        "revision_of": {
+         "type": "integer",
+         "description": "The observation this one revises"
+        },
+        "checkpoint_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "evidence_ref": {
+         "type": "object"
+        },
+        "recorded_version": {
+         "type": "integer"
+        },
+        "current": {
+         "type": "boolean",
+         "description": "False for a superseded observation (only with include_superseded)"
+        }
+       }
+      }
      },
      "conflicts": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "observed_at",
+        "event_seqs"
+       ],
+       "properties": {
+        "observed_at": {
+         "type": "string",
+         "format": "date-time"
+        },
+        "event_seqs": {
+         "type": "array",
+         "items": {
+          "type": "integer"
+         }
+        }
+       }
+      },
+      "description": "Current observations at the same time that disagree; report them, do not pick one"
      }
     }
    }
@@ -946,12 +1122,23 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "status",
+     "card_account_id",
+     "as_of",
+     "ledger_version"
+    ],
     "properties": {
-     "card_account_id": {
-      "type": [
-       "string",
-       "null"
+     "status": {
+      "type": "string",
+      "enum": [
+       "OK",
+       "NO_POLICY"
       ],
+      "description": "NO_POLICY when the card has no annual-fee policy"
+     },
+     "card_account_id": {
+      "type": "string",
       "format": "uuid"
      },
      "account_currency_id": {
@@ -962,61 +1149,204 @@
       "format": "uuid"
      },
      "as_of": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "date"
      },
-     "status": {
-      "type": [
-       "string",
-       "null"
-      ],
-      "description": "NO_POLICY when the card has no annual-fee policy"
-     },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
-     "policy": {
-      "type": [
-       "object",
-       "null"
-      ]
-     },
      "period": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object",
+      "required": [
+       "rule",
+       "start",
+       "end",
+       "counted_through"
+      ],
+      "properties": {
+       "rule": {
+        "type": "string",
+        "enum": [
+         "CARD_YEAR",
+         "CALENDAR_YEAR"
+        ]
+       },
+       "start": {
+        "type": "string",
+        "format": "date"
+       },
+       "end": {
+        "type": "string",
+        "format": "date"
+       },
+       "counted_through": {
+        "type": "string",
+        "format": "date"
+       }
+      }
+     },
+     "policy": {
+      "type": "object",
+      "required": [
+       "seq",
+       "effective_from",
+       "annual_fee",
+       "currency",
+       "criteria",
+       "issuer_confirmed"
+      ],
+      "properties": {
+       "seq": {
+        "type": "integer"
+       },
+       "effective_from": {
+        "type": "string",
+        "format": "date"
+       },
+       "effective_to": {
+        "type": "string",
+        "format": "date"
+       },
+       "annual_fee": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "currency": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+       },
+       "criteria": {
+        "type": "object"
+       },
+       "issuer_confirmed": {
+        "type": "boolean",
+        "description": "False: the policy is an estimate, say so"
+       }
+      }
      },
      "progress": {
-      "type": [
-       "object",
-       "null"
-      ]
-     },
-     "fee": {
-      "type": [
-       "object",
-       "null"
-      ]
-     },
-     "issuer": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object",
+      "required": [
+       "spend",
+       "purchases",
+       "refunds",
+       "purchase_count",
+       "refund_count",
+       "combine"
+      ],
+      "properties": {
+       "spend": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "purchases": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "refunds": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "purchase_count": {
+        "type": "integer"
+       },
+       "refund_count": {
+        "type": "integer"
+       },
+       "qualifying_spend": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "qualifying_count": {
+        "type": "integer"
+       },
+       "combine": {
+        "type": "string",
+        "enum": [
+         "ALL",
+         "ANY"
+        ]
+       },
+       "spend_met": {
+        "type": "boolean"
+       },
+       "count_met": {
+        "type": "boolean"
+       },
+       "spend_remaining": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "count_remaining": {
+        "type": "integer"
+       }
+      }
      },
      "calculated": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object",
+      "required": [
+       "status",
+       "basis"
+      ],
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "NO_CRITERIA",
+         "QUALIFIED",
+         "NOT_QUALIFIED",
+         "NOT_YET_QUALIFIED"
+        ]
+       },
+       "basis": {
+        "type": "string"
+       }
+      },
+      "description": "Balnexa's own calculation from the card's ledger lines; not an issuer decision"
+     },
+     "issuer": {
+      "type": "object",
+      "required": [
+       "waiver_confirmed"
+      ],
+      "properties": {
+       "waiver_confirmed": {
+        "type": "boolean"
+       }
+      }
+     },
+     "fee": {
+      "type": "object",
+      "required": [
+       "status",
+       "posted",
+       "refunded",
+       "net"
+      ],
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "NOT_POSTED",
+         "POSTED",
+         "PARTIALLY_REFUNDED",
+         "REFUNDED"
+        ]
+       },
+       "posted": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "refunded": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "net": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       }
+      }
      },
      "last_recorded_calculation": {
       "type": [
@@ -1025,10 +1355,15 @@
       ]
      },
      "warnings": {
-      "type": [
-       "array",
-       "null"
-      ],
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "POLICY_NOT_ISSUER_CONFIRMED",
+        "QUALIFICATION_NOT_CONFIRMED_BY_ISSUER",
+        "FEE_POSTED_DESPITE_QUALIFICATION_OR_WAIVER"
+       ]
+      },
       "description": "Report each warning; a policy or qualification not confirmed by the issuer is an estimate"
      }
     }
@@ -1157,19 +1492,22 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "decision",
+     "url_ttl_seconds"
+    ],
     "properties": {
      "decision": {
-      "type": [
-       "string",
-       "null"
+      "type": "string",
+      "enum": [
+       "granted",
+       "denied"
       ],
-      "description": "granted or denied"
+      "description": "Always denied over MCP: evidence files are opened in the app"
      },
      "url_ttl_seconds": {
-      "type": [
-       "integer",
-       "null"
-      ]
+      "type": "integer",
+      "description": "0 when denied"
      }
     }
    }
@@ -2376,70 +2714,395 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "account_currency_id",
+     "currency",
+     "as_of",
+     "ledger_version",
+     "instruments",
+     "totals",
+     "reporting",
+     "warnings",
+     "rounding",
+     "fx_policy"
+    ],
     "properties": {
      "account_currency_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
+     "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+     },
      "as_of": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "date"
      },
-     "currency": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "instruments": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "instrument_id",
+        "units_held",
+        "units_disposed",
+        "cost_remaining",
+        "realized",
+        "valuation",
+        "warnings",
+        "market_value",
+        "unrealized",
+        "reporting"
+       ],
+       "properties": {
+        "instrument_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "units_held": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "units_disposed": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "cost_remaining": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "realized": {
+         "type": "object",
+         "required": [
+          "confirmed",
+          "estimated",
+          "proceeds_confirmed",
+          "proceeds_estimated"
+         ],
+         "properties": {
+          "confirmed": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "estimated": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "proceeds_confirmed": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "proceeds_estimated": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          }
+         },
+         "description": "Estimated amounts rest on estimated proceeds; label them as estimates"
+        },
+        "valuation": {
+         "type": "object",
+         "required": [
+          "status"
+         ],
+         "properties": {
+          "status": {
+           "type": "string",
+           "enum": [
+            "OK",
+            "NO_UNITS_HELD",
+            "MISSING_NAV",
+            "NAV_FX_MISSING",
+            "STALE_NAV"
+           ]
+          },
+          "price": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "price_currency": {
+           "type": "string",
+           "pattern": "^[A-Z]{3}$"
+          },
+          "valuation_date": {
+           "type": "string",
+           "format": "date"
+          },
+          "source": {
+           "type": "string"
+          },
+          "valuation_id": {
+           "type": "string",
+           "format": "uuid"
+          }
+         }
+        },
+        "warnings": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "enum": [
+           "FX_STALE",
+           "FX_MISSING",
+           "ESTIMATED_PROCEEDS",
+           "MISSING_NAV",
+           "NAV_FX_MISSING",
+           "NAV_FX_STALE",
+           "STALE_NAV"
+          ]
+         }
+        },
+        "market_value": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Null when there is no usable NAV (see valuation.status)"
+        },
+        "unrealized": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "reporting": {
+         "type": [
+          "object",
+          "null"
+         ],
+         "required": [
+          "currency",
+          "cost_remaining",
+          "market_value",
+          "unrealized",
+          "unrealized_fx_effect",
+          "realized_confirmed",
+          "realized_estimated",
+          "realized_fx_effect"
+         ],
+         "properties": {
+          "currency": {
+           "type": "string",
+           "pattern": "^[A-Z]{3}$"
+          },
+          "cost_remaining": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "market_value": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "unrealized": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "unrealized_fx_effect": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "realized_confirmed": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "realized_estimated": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "realized_fx_effect": {
+           "type": [
+            "string",
+            "null"
+           ],
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          }
+         }
+        }
+       }
+      }
      },
      "totals": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object",
+      "required": [
+       "cost_remaining",
+       "realized_confirmed",
+       "realized_estimated",
+       "market_value",
+       "unrealized"
+      ],
+      "properties": {
+       "cost_remaining": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "realized_confirmed": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "realized_estimated": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "market_value": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "unrealized": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       }
+      }
      },
      "reporting": {
       "type": [
        "object",
        "null"
-      ]
+      ],
+      "required": [
+       "currency",
+       "rate_as_of",
+       "rate_quality",
+       "cost_remaining",
+       "market_value",
+       "unrealized",
+       "unrealized_fx_effect",
+       "realized_confirmed",
+       "realized_estimated",
+       "realized_fx_effect"
+      ],
+      "properties": {
+       "currency": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+       },
+       "rate_as_of": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "rate_quality": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "enum": [
+         "IDENTITY",
+         "OVERRIDE",
+         "EVIDENCED_SETTLEMENT",
+         "REFERENCE",
+         "STALE",
+         "MISSING",
+         null
+        ]
+       },
+       "cost_remaining": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "market_value": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "unrealized": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "unrealized_fx_effect": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "realized_confirmed": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "realized_estimated": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "realized_fx_effect": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       }
+      },
+      "description": "Converted totals; null when no reporting_currency was asked"
+     },
+     "warnings": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "FX_STALE",
+        "FX_MISSING",
+        "ESTIMATED_PROCEEDS",
+        "MISSING_NAV",
+        "NAV_FX_MISSING",
+        "NAV_FX_STALE",
+        "STALE_NAV"
+       ]
+      },
+      "description": "Report each warning (stale or missing NAV, estimated proceeds)"
+     },
+     "rounding": {
+      "type": "string"
      },
      "fx_policy": {
       "type": [
        "string",
        "null"
       ]
-     },
-     "rounding": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "warnings": {
-      "type": [
-       "array",
-       "null"
-      ],
-      "description": "Report each warning (stale or missing NAV, estimated proceeds)"
      }
     }
    }
@@ -2467,68 +3130,104 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "job_id",
+     "kind",
+     "title",
+     "scope",
+     "ledger_version",
+     "state",
+     "files_by_state",
+     "histories",
+     "plans",
+     "source_rows_by_match_state"
+    ],
     "properties": {
      "job_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "kind": {
-      "type": [
-       "string",
-       "null"
+      "type": "string",
+      "enum": [
+       "history_onboarding",
+       "periodic_import"
       ]
      },
      "title": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "state": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
-      "description": "Cite this ledger version with every figure"
+      "type": "string"
      },
      "scope": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "state": {
+      "type": "string",
+      "pattern": "^ONB-[A-Z_]+$"
      },
      "files_by_state": {
-      "type": [
-       "object",
-       "null"
-      ]
-     },
-     "source_rows_by_match_state": {
-      "type": [
-       "object",
-       "null"
-      ]
+      "type": "object",
+      "description": "Count of source files per SF- state"
      },
      "histories": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "account_currency_id",
+        "state",
+        "plan_id"
+       ],
+       "properties": {
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "state": {
+         "type": "string",
+         "pattern": "^AH-[A-Z_]+$"
+        },
+        "plan_id": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "uuid"
+        }
+       }
+      }
      },
      "plans": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "plan_id",
+        "kind"
+       ],
+       "properties": {
+        "plan_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "kind": {
+         "type": "string",
+         "enum": [
+          "import",
+          "onboarding_scope",
+          "reclassification",
+          "account_merge_repost"
+         ]
+        }
+       }
+      }
+     },
+     "source_rows_by_match_state": {
+      "type": "object",
+      "description": "Count of source rows per match state"
      }
     }
    }
@@ -2566,46 +3265,50 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "loan_id",
+     "as_of",
+     "ledger_version",
+     "terms_recorded_as_of",
+     "currency",
+     "status",
+     "refusal",
+     "position",
+     "rounding_events",
+     "payments_counted",
+     "partial_view",
+     "household_internal",
+     "engine",
+     "oracle"
+    ],
     "properties": {
      "loan_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "as_of": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "date"
      },
-     "currency": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "status": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
-     "position": {
-      "type": [
-       "object",
-       "null"
-      ],
-      "description": "The loan position; null when refused (see refusal)"
+     "terms_recorded_as_of": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "OK",
+       "REJECTED",
+       "TERMS_UNVERIFIED"
+      ]
      },
      "refusal": {
       "type": [
@@ -2614,48 +3317,118 @@
       ],
       "description": "Why no position is given; report it as is"
      },
-     "partial_view": {
+     "position": {
       "type": [
-       "boolean",
+       "object",
        "null"
       ],
+      "required": [
+       "accrued_interest_total",
+       "accrued_interest",
+       "principal_outstanding",
+       "interest_outstanding",
+       "outstanding_total",
+       "interest_paid",
+       "principal_paid",
+       "overdue",
+       "days_past_due"
+      ],
+      "properties": {
+       "accrued_interest_total": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "accrued_interest": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "principal_outstanding": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "interest_outstanding": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "outstanding_total": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "interest_paid": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "principal_paid": {
+        "type": "string",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+       },
+       "overdue": {
+        "type": [
+         "boolean",
+         "null"
+        ]
+       },
+       "days_past_due": {
+        "type": [
+         "integer",
+         "null"
+        ]
+       }
+      },
+      "description": "The loan position; null when refused (see refusal), never zero"
+     },
+     "rounding_events": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "event_date",
+        "kind",
+        "unrounded_trunc12",
+        "rounded",
+        "mode"
+       ],
+       "properties": {
+        "event_date": {
+         "type": "string",
+         "format": "date"
+        },
+        "kind": {
+         "type": "string",
+         "enum": [
+          "payment",
+          "as_of"
+         ]
+        },
+        "unrounded_trunc12": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "rounded": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "mode": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "payments_counted": {
+      "type": "integer"
+     },
+     "partial_view": {
+      "type": "boolean",
       "description": "True when the connection does not see every account involved: label the answer as partial"
      },
      "household_internal": {
-      "type": [
-       "boolean",
-       "null"
-      ]
-     },
-     "payments_counted": {
-      "type": [
-       "integer",
-       "null"
-      ]
-     },
-     "rounding_events": {
-      "type": [
-       "array",
-       "null"
-      ]
-     },
-     "terms_recorded_as_of": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "boolean"
      },
      "engine": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "string"
      },
      "oracle": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "string"
      }
     }
    }
@@ -2768,19 +3541,20 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "account_currency_id",
+     "ledger_version",
+     "anchor_date",
+     "statements",
+     "gaps"
+    ],
     "properties": {
      "account_currency_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "anchor_date": {
@@ -2788,19 +3562,91 @@
        "string",
        "null"
       ],
-      "format": "date"
+      "format": "date",
+      "description": "Opening anchor; null when the account has no opening"
      },
      "statements": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "statement_id",
+        "partial",
+        "final"
+       ],
+       "properties": {
+        "statement_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "period_start": {
+         "type": "string",
+         "format": "date"
+        },
+        "period_end": {
+         "type": "string",
+         "format": "date"
+        },
+        "partial": {
+         "type": "boolean"
+        },
+        "final": {
+         "type": "boolean"
+        },
+        "version_role": {
+         "type": "string"
+        },
+        "stage1_state": {
+         "type": "string",
+         "enum": [
+          "pass",
+          "fail",
+          "fail_accepted_by_member",
+          "insufficient_data",
+          "not_applicable"
+         ]
+        },
+        "stage2_state": {
+         "type": "string",
+         "enum": [
+          "not_evaluated",
+          "no_opening",
+          "before_opening",
+          "incomplete_history",
+          "matched",
+          "difference_open"
+         ]
+        },
+        "difference": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "evaluated_at_version": {
+         "type": "integer"
+        }
+       }
+      }
      },
      "gaps": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "from",
+        "to"
+       ],
+       "properties": {
+        "from": {
+         "type": "string",
+         "format": "date"
+        },
+        "to": {
+         "type": "string",
+         "format": "date"
+        }
+       }
+      },
+      "description": "Days after the anchor with no final statement; report them as uncovered"
      }
     }
    }
@@ -2831,19 +3677,168 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "ledger_version",
+     "exceptions"
+    ],
     "properties": {
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "exceptions": {
-      "type": [
-       "array",
-       "null"
-      ],
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "exception_id",
+        "run_id",
+        "account_currency_id",
+        "subject",
+        "stage2_state",
+        "classification",
+        "source",
+        "criteria",
+        "evidence",
+        "state",
+        "phase"
+       ],
+       "properties": {
+        "exception_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "run_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "subject": {
+         "type": "object",
+         "properties": {
+          "statement_id": {
+           "type": "string",
+           "format": "uuid"
+          },
+          "observation_event_seq": {
+           "type": "integer"
+          }
+         }
+        },
+        "stage2_state": {
+         "type": "string",
+         "enum": [
+          "not_evaluated",
+          "no_opening",
+          "before_opening",
+          "incomplete_history",
+          "matched",
+          "difference_open"
+         ]
+        },
+        "observed": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "ledger": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "difference": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "amount_effect": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "rule_code": {
+         "type": "string",
+         "pattern": "^RC-(0[1-9]|1[0-4])$"
+        },
+        "classification": {
+         "type": "string",
+         "enum": [
+          "confirmed",
+          "probable",
+          "unresolved",
+          "ruled_out"
+         ],
+         "description": "Report it exactly; an AI hypothesis is at most probable (TR-06)"
+        },
+        "confirmation": {
+         "type": "string",
+         "enum": [
+          "deterministic",
+          "member",
+          "resolved_by_action"
+         ]
+        },
+        "source": {
+         "type": "string",
+         "enum": [
+          "deterministic",
+          "ai_hypothesis",
+          "member"
+         ]
+        },
+        "criteria": {
+         "type": "object"
+        },
+        "evidence": {
+         "type": "object"
+        },
+        "conflicting_observation_event_seqs": {
+         "type": "array",
+         "items": {
+          "type": "integer"
+         }
+        },
+        "state": {
+         "type": "string",
+         "enum": [
+          "OPEN",
+          "EXPLAINED",
+          "RESOLVED"
+         ]
+        },
+        "phase": {
+         "type": "string",
+         "enum": [
+          "open",
+          "investigating",
+          "findings_ready",
+          "unresolved_parked",
+          "resolved_explained",
+          "resolved_matched"
+         ]
+        },
+        "explanation_kind": {
+         "type": "string",
+         "enum": [
+          "timing_in_transit",
+          "issuer_error_disputed",
+          "missing_history_accepted",
+          "bridge_accepted",
+          "other"
+         ]
+        },
+        "resolution_action": {
+         "type": "string",
+         "enum": [
+          "POST_MISSING_ROW",
+          "REVERSE_DUPLICATE",
+          "CONFIRM_POSTING_DATE",
+          "REMAP_ACCOUNT",
+          "REVISE_ANCHOR",
+          "RERUN_MATCHED"
+         ]
+        }
+       }
+      },
       "description": "Findings; report their classification exactly (TR-06)"
      }
     }
@@ -2864,33 +3859,60 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "snapshot_id",
+     "ledger_version",
+     "rows",
+     "projection_digest_verified"
+    ],
     "properties": {
      "snapshot_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "rows": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "account_currency_id",
+        "currency",
+        "status"
+       ],
+       "properties": {
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "status": {
+         "type": "string",
+         "description": "ok, or why there is no figure (for example NO_OPENING)"
+        },
+        "amount": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Decimal string in the currency; null when status is not ok"
+        }
+       }
+      }
      },
      "projection_digest_verified": {
       "type": [
        "boolean",
        "null"
       ],
-      "description": "True when the replayed rows match the snapshot's recorded digest"
+      "description": "True when the replayed rows match the snapshot's recorded digest; if false, say the replay differs"
      }
     }
    }
@@ -2910,43 +3932,41 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "snapshot_id",
+     "artifact_ref",
+     "artifact_sha256",
+     "seq",
+     "renderer_version",
+     "status"
+    ],
     "properties": {
      "snapshot_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
-     "seq": {
-      "type": [
-       "integer",
-       "null"
-      ]
-     },
-     "status": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
      "artifact_ref": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "string",
+      "pattern": "^(drive|gs|r2):[A-Za-z0-9._/:-]+$"
      },
      "artifact_sha256": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "seq": {
+      "type": "integer"
      },
      "renderer_version": {
-      "type": [
-       "string",
-       "null"
-      ]
+      "type": "string"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "CURRENT",
+       "STALE",
+       "ACCESS_REVOKED"
+      ],
+      "description": "STALE: the figures changed since the snapshot; say so"
      }
     }
    }
@@ -3115,26 +4135,103 @@
    "output": {
     "type": "object",
     "additionalProperties": true,
+    "required": [
+     "account_currency_id",
+     "ledger_version",
+     "rows"
+    ],
     "properties": {
      "account_currency_id": {
-      "type": [
-       "string",
-       "null"
-      ],
+      "type": "string",
       "format": "uuid"
      },
      "ledger_version": {
-      "type": [
-       "integer",
-       "null"
-      ],
+      "type": "integer",
       "description": "Cite this ledger version with every figure"
      },
      "rows": {
-      "type": [
-       "array",
-       "null"
-      ]
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "source_txn_id",
+        "posting_date",
+        "amount"
+       ],
+       "properties": {
+        "source_txn_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "posting_date": {
+         "type": "string",
+         "format": "date"
+        },
+        "amount": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "posted_journal_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "decisions": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "required": [
+           "kind",
+           "decision",
+           "rule"
+          ],
+          "properties": {
+           "kind": {
+            "type": "string",
+            "enum": [
+             "overlap",
+             "ledger",
+             "transfer_pair",
+             "clearing_resolution",
+             "duplicate_document",
+             "exclude"
+            ]
+           },
+           "decision": {
+            "type": "string",
+            "enum": [
+             "proposed",
+             "confirmed",
+             "rejected",
+             "superseded"
+            ]
+           },
+           "rule": {
+            "type": "string"
+           },
+           "state": {
+            "type": "string"
+           },
+           "journal_line_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "counterpart_source_txn_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "clearing_item_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "candidates": {
+            "description": "Candidate matches considered (explanatory)"
+           }
+          }
+         },
+         "description": "Latest decision per kind; a proposed decision is not confirmed"
+        }
+       }
+      }
      }
     }
    }
@@ -3198,5 +4295,5 @@
   }
  },
  "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",
- "note_output_schemas": "2.8 parts 3-5 (9032, 9033, 9034): output schemas for every MCP read tool and the draft tools. Draft tools, balances, whoami, FX rate, snapshots, registry search and handoff status are field-level with required keys; the report families require the rpt_envelope keys; the other read tools (9034) list their top-level keys, typed and nullable, with no required keys. The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH). Contract: every bnx_app call in every Python suite is checked (tests/py/jsonschema_lite.py via the harness), plus AT-OUT-01."
+ "note_output_schemas": "2.8 parts 3-6 (9032, 9033, 9034, 9035): output schemas for every MCP read tool and the draft tools, all field-level with required keys: draft tools, balances, whoami, FX rate, snapshots, registry search and handoff status (9032-9033); the report families require the rpt_envelope keys and type their own keys; the read tools of 9034 are field-level since 9035 (required = keys the body always builds; null where the body can make null; keys inside jsonb_strip_nulls objects required only when never null). Report rows stay array/object (D-OUT-1). The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH). Contract: every bnx_app call in every Python suite is checked (tests/py/jsonschema_lite.py via the harness), plus AT-OUT-01 and AT-OUT-03."
 }

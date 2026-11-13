@@ -30,6 +30,12 @@ from jsonschema_lite import validate  # noqa: E402,F401 (shared with the harness
 
 
 # ---------------------------------------------------------------------------------------------- 2.8 part 3 output schemas
+# the read tools of 9034, made field-level by 9035 (2.8 part 6, D-OUT-1); AT-OUT-03 calls them
+OUT_9035 = ["q_account_proposals", "q_balance_observations", "q_card_fee_progress", "q_evidence_access", "q_investment_position",
+            "q_onboarding_job", "q_r28_loan_position", "q_reconciliation_coverage", "q_reconciliation_exceptions", "q_replay_snapshot",
+            "q_snapshot_artifact", "q_transfer_matching"]
+
+
 def catalog_entry(H, fn):
     with C1.migrator(H.server, H.db) as cx:
         return json.loads(cx.execute("select obj_description(%s::regprocedure, 'pg_proc')", (f"bnx.{fn}(jsonb, jsonb)",)).fetchone()[0])
@@ -40,9 +46,9 @@ def catalog_entry(H, fn):
                    "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
-    # field-level schemas (with required keys) are called here; the top-level-only ones (9034) are checked by the harness
-    # output contract in every suite that calls them (AT-OUT-02)
-    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v and v["output"].get("required"))
+    # field-level schemas of 9032/9033 are called here; the 9035 ones (the 9034 tools made field-level) by AT-OUT-03; every
+    # suite checks all of them through the harness output contract (AT-OUT-02)
+    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v and v["output"].get("required") and k not in OUT_9035)
     H = C4.v2_full(server, "bnx_c19out")
     cad = H.cad["account_currency_id"]
     sav = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Savings", currencies=["CAD"])["account_currencies"][0]
@@ -121,6 +127,101 @@ def t_output_schemas(server, ev):
     return (f"{len(calls)} calls by the Owner (PWA), an AI connection (MCP) and a member over {len(curated)} tools with curated output "
             f"schemas ({', '.join(curated)}): every result conforms (incl. replays, ai_draft and member_draft, a withdrawn draft); "
             f"the catalog carries the overrides' schemas; the generator refuses unsupported keywords and dangling required keys")
+
+
+@test("AT-OUT-03", "2.8 part 6; 9035; D-OUT-1, D-OUT-3 (field-level output schemas for the 12 read tools of 9034: each is called by "
+                   "the Owner in the PWA and, where its scope allows, by an AI connection; the branches the other suites do not reach "
+                   "are built here: loan overdue, not overdue, REJECTED, TERMS_UNVERIFIED and a partial view; coverage gaps; a STALE "
+                   "artifact; a card without policy; evidence denied over MCP)")
+def t_output_fields(server, ev):
+    import run_s4_core8 as C8
+    import run_s4_core10 as C10
+    import run_s4_core11 as C11
+    import run_s4_core12 as C12
+    ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
+    H = C12.world(server, "bnx_c19out3")
+    cad, rec = H.cad["account_currency_id"], H.rec["account_currency_id"]
+    entries = {fn: catalog_entry(H, fn) for fn in OUT_9035}
+    import run_s4_core3 as C3                        # an AI connection that sees the receivable side of the loans only
+    C3.client(H)
+    r, v = C3.consent(H, ["finance.read", "reports.read", "documents.read"], acs=[cad, rec], document_classes=["statement"])
+    B = {"kind": "bearer", "secret": C3.token(H, r, v)["access_token"]}
+    calls = []
+
+    def run(who, cred, fn, **q):
+        r = H.app.call(fn, cred, q)
+        calls.append((who, fn, r))
+        return r
+
+    # reconciliation: January and March final, February missing (a gap), April partial; one January run
+    s1 = C10.stmt(H, H.cad, "2026-01-02", "2026-01-31", "1000.00", "2000.00")
+    C10.stmt(H, H.cad, "2026-03-01", "2026-03-31", "2000.00", "2000.00")
+    C10.stmt(H, H.cad, "2026-04-01", "2026-04-30", "2000.00", None)
+    for jid, d, amt in (("J1", "2026-01-10", "3000.00"), ("J2", "2026-01-12", "-200.00"), ("J4", "2026-01-20", "-100.00"),
+                        ("J5", "2026-01-22", "-400.00"), ("J6", "2026-01-25", "-1000.00"), ("J7", "2026-01-28", "-300.00")):
+        C10.row(H, H.cad, d, amt, link=H.j[jid])
+    H.cmd(H.owner, "run_reconciliation", statement_id=s1)
+    C10.row(H, H.cad, "2026-04-10", "-75.00", desc="E-TRANSFER OUT")
+    C11.match(H, H.cad)
+    # loans: one without terms (TERMS_UNVERIFIED), one with terms and a due date (overdue or not; REJECTED before its start)
+    bare = H.cmd(H.owner, "declare_loan", currency="CAD", principal="100.00", start="2026-02-01", lender_party_id=H.lender,
+                 borrower_party_id=H.borrower, receivable_account_currency_id=rec, payable_account_currency_id=H.pay["account_currency_id"],
+                 evidence_ref=C8.EVID)["loan_id"]
+    due = H.cmd(H.owner, "declare_loan", currency="CAD", principal="1000.00", start="2026-02-01", due_date="2026-03-01",
+                lender_party_id=H.lender, borrower_party_id=H.borrower, receivable_account_currency_id=rec,
+                payable_account_currency_id=H.pay["account_currency_id"], evidence_ref=C8.EVID)["loan_id"]
+    H.cmd(H.owner, "declare_loan_terms", loan_id=due, evidence_ref=C8.EVID,
+          events=C8.TERMS + [{"term_kind": "RATE", "value": {"annual_rate": "0.05"}, "effective_from": "2026-02-01"}])
+    # snapshot and artifact (CURRENT, then STALE after a backdated posting in scope)
+    snap = H.cmd(H.owner, "create_report_snapshot", report_code="R-BAL", as_of="2026-01-31", account_currency_ids=[cad])["snapshot_id"]
+    H.worker.call("wrk_snapshot_artifact", snap, {"artifact_ref": "drive:System_Outputs/Report_Archive/2026/synthetic.pdf",
+                                                  "artifact_sha256": "cd" * 32, "renderer_version": "r1.0", "source_revision": 1,
+                                                  "ownership_revision": 1, "warnings": []})
+    job = H.cmd(H.owner, "onboarding_create_job", title="History 2026", scope={"start_policy": "earliest_evidence"})["job_id"]
+
+    for who, cred in (("owner/pwa", H.owner), ("ai/mcp", B)):
+        run(who, cred, "q_reconciliation_coverage", account_currency_id=cad)
+        run(who, cred, "q_reconciliation_exceptions", account_currency_id=cad)
+        run(who, cred, "q_balance_observations", account_currency_id=cad, include_superseded=True)
+        run(who, cred, "q_transfer_matching", account_currency_id=cad)
+        run(who, cred, "q_r28_loan_position", loan_id=bare, as_of="2026-02-15")
+        for d in ("2026-02-15", "2026-04-01", "2026-01-15"):                          # before due, overdue, before start
+            run(who, cred, "q_r28_loan_position", loan_id=due, as_of=d)
+        run(who, cred, "q_evidence_access", evidence_file_id="00000000-0000-4000-8000-000000000000", purpose="contract test")
+    # Owner only: the AI connection's consent does not cover the brokerage, and the snapshot is the Owner's
+    run("owner/pwa", H.owner, "q_investment_position", account_currency_id=H.inv["account_currency_id"], as_of="2026-01-31",
+        reporting_currency="USD")
+    run("owner/pwa", H.owner, "q_snapshot_artifact", snapshot_id=snap)
+    run("owner/pwa", H.owner, "q_replay_snapshot", snapshot_id=snap)
+    run("owner/pwa", H.owner, "q_card_fee_progress", card_account_id=H.card_acc, as_of="2026-01-31")   # no policy
+    run("owner/pwa", H.owner, "q_onboarding_job", job_id=job)
+    run("owner/pwa", H.owner, "q_account_proposals")
+    H.expense(H.owner, "10.00", date="2026-01-20")                                    # backdated, in the snapshot's scope
+    stale = run("owner/pwa", H.owner, "q_snapshot_artifact", snapshot_id=snap)
+    replay = run("owner/pwa", H.owner, "q_replay_snapshot", snapshot_id=snap)
+    H.close()
+    bad = [(who, fn, validate(entries[fn]["output_schema"], r)) for who, fn, r in calls if validate(entries[fn]["output_schema"], r)]
+    covered = sorted({fn for _, fn, _ in calls})
+    loans = [r for _, fn, r in calls if fn == "q_r28_loan_position"]
+    seen = {"status": sorted({r["status"] for r in loans}), "overdue": sorted({str((r["position"] or {}).get("overdue")) for r in loans}),
+            "partial_view": sorted({r["partial_view"] for r in loans}),
+            "gaps": [r["gaps"] for w, fn, r in calls if fn == "q_reconciliation_coverage" and w == "owner/pwa"][0],
+            "artifact": [r["status"] for _, fn, r in calls if fn == "q_snapshot_artifact"],
+            "card": [r["status"] for _, fn, r in calls if fn == "q_card_fee_progress"],
+            "evidence over mcp": [r["decision"] for w, fn, r in calls if fn == "q_evidence_access" and w == "ai/mcp"],
+            "replay verified": replay["projection_digest_verified"]}
+    json.dump({"calls": [{"who": w, "fn": f} for w, f, _ in calls], "seen": seen}, open(os.path.join(ev, "AT-OUT-03.json"), "w"),
+              indent=1, default=str)
+    check(bad == [] and covered == sorted(OUT_9035), f"{bad} {covered}")
+    check(all(entries[fn]["output_schema"] == ovr["schemas"][fn]["output"] and entries[fn]["output_schema"].get("required")
+              for fn in OUT_9035), "catalog output schemas differ from the overrides, or are not field-level")
+    check(seen["status"] == ["OK", "REJECTED", "TERMS_UNVERIFIED"] and seen["overdue"] == ["False", "None", "True"]
+          and seen["partial_view"] == [False, True] and seen["gaps"] == [{"from": "2026-02-01", "to": "2026-02-28"}]
+          and seen["artifact"] == ["CURRENT", "STALE"] and stale["status"] == "STALE" and seen["card"] == ["NO_POLICY"]
+          and seen["evidence over mcp"] == ["denied"] and seen["replay verified"] is True, f"{seen}")
+    return (f"{len(calls)} calls over the 12 tools of 9035 by the Owner (PWA) and an AI connection (MCP): every result conforms to "
+            f"its field-level schema in the catalog; loan statuses {seen['status']}, overdue true/false, a partial view; a February "
+            f"gap; artifact CURRENT then STALE; a card with no policy; evidence denied over MCP; the replay still verifies")
 
 
 @test("AT-OUT-02", "2.8 part 5; D-OUT-2 (the output contract runs in every suite: every bnx_app call of a tool with a curated "

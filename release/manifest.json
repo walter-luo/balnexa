@@ -277,9 +277,15 @@
    "min_worker_release": "0.9.0-p2",
    "sha256": "0404fe13dca18a3a675891df1c60a033b36b384bf35cb704c4d8bef323a07aaf",
    "version": "9034"
+  },
+  {
+   "file": "9035_s4_output_schemas_fields.sql",
+   "min_worker_release": "0.9.1-p2",
+   "sha256": "d87efad450a61006f371f9082897d932781526a7c48f9d89994ba2e2aa7d0ec6",
+   "version": "9035"
   }
  ],
- "pwa_shell": "bnx-shell-0.9.0-p2",
+ "pwa_shell": "bnx-shell-0.9.1-p2",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -470,11 +476,11 @@
     "0109"
    ],
    "extension": [
-    "9033",
-    "9034"
+    "9034",
+    "9035"
    ]
   },
-  "version": "0.9.0-p2",
+  "version": "0.9.1-p2",
   "work_kinds": [
    "plan.execute",
    "staging.promote"
