@@ -3,7 +3,7 @@
 // /api/v1/health responds. work_kinds: the work-item kinds this release processes (deploy rule UA §9.1: a release that
 // understands a kind is deployed before the migration that can enqueue it; others are deferred, never dropped).
 export const RELEASE = {
-  version: '0.9.1-p2',
-  supports_schema: { core: ['0109', '0109'], extension: ['9034', '9035'] },
+  version: '0.9.2-p2',
+  supports_schema: { core: ['0109', '0109'], extension: ['9035', '9036'] },
   work_kinds: ['plan.execute', 'staging.promote'],
 };
