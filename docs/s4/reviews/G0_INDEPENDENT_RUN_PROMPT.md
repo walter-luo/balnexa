@@ -8,7 +8,8 @@
    `https://github.com/walter-luo/balnexa/blob/s4/g0-review/docs/s4/reviews/G0_INDEPENDENT_RUN_PROMPT.md`
 2. **Who counts.** Only a reviewer of **another model family** (for example ChatGPT/Codex) or a human can produce `VERIFIED_INDEPENDENT` evidence, which is what closes gate G0 (doc 03 §6). A fresh Claude chat, in any mode, is the same family: its result is `SAME_FAMILY_VERIFICATION`. That is useful as a second opinion, but it does not close G0.
 3. **Execution.** Runtime evidence needs a reviewer that can run commands, such as a code-execution sandbox or a cloud dev environment. A reviewer that can only read the repository can still do Parts C and D. It must mark Parts A and B `NOT_EXECUTED`.
-4. **Getting results back.** The reviewer pushes a report branch and opens a draft PR (return path R1). If it cannot push, it gives you the report in its answer (return path R2), and you hand that answer to the next Claude session to commit unchanged.
+4. **Getting results back** (OD-GH-2: exchange through GitHub, the Owner as dispatcher, no GitHub Actions automation). The reviewer pushes a report branch and opens a draft PR (return path R1). If it cannot push, it gives you the report in its answer (return path R2), and you hand that answer to the next Claude session to commit unchanged.
+5. **Large data files.** Data files belong in Google Drive (OD-GH-3), but that directory does not exist yet. The report and raw text outputs (under about 20 MB) go in the repository; anything larger is left out and only listed.
 
 ---
 
@@ -19,7 +20,7 @@ You are the **independent G0 runner** for the open-source repository `walter-luo
 ### Target
 
 - **Code under test:** commit `69138694a3c896b58c076a130738a328b1873075`, the head of branch `s4/report-rows-2`, which is draft PR #37 and the top of the stacked PRs #17 → #37.
-- Branch `s4/g0-review` adds only this file on top of that commit. You may check out either one: the code is identical.
+- Branch `s4/g0-review` adds only documentation on top of that commit: this file, the Owner decisions of 2026-11-13 and the author's regression record. You may check out either one; the code is identical.
 - **Base of the stack:** `main` at `9edbed7` (PRs #1–#16 merged).
 - Verify the SHA you test (`git rev-parse HEAD`) and state it in your report.
 
