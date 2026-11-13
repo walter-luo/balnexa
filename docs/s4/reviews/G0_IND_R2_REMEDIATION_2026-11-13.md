@@ -70,6 +70,15 @@ The author ran the new checks against the old code first (9039 removed, the old 
 
 Counts: one new test (AT-NULL-01), so the Python suites have 196 tests per major. The total with `pg_dump` 17 becomes **474**.
 
+## Also found while testing this PR: a connection-limit race in two tests
+
+The author's first C-lane regression of this PR (`db50fd8`) failed `AT-BAK-04` on PG17 once with `too many connections for role "bnx_backup"`. The record is kept: `EVIDENCE/regression/2026-11-13_db50fd8/`.
+
+- **Cause.** `bnx_backup` is limited to 2 connections. The test holds the snapshot connection, then opens a second connection right after closing another one. A closed client connection frees its slot only when the server backend has exited, and under load that can lag the close.
+- **Reproduction.** On a scratch role limited to 2 connections, holding one connection: an immediate reconnect after a close was refused within the first few tries.
+- **Fix (tests only).** `harness.role_slot` polls `pg_stat_activity` until the role is under its limit. It is called before every `bnx_backup` connect or `pg_dump` that follows a closed one (core13 and `run_g0`). With it, the same experiment gave 0 refusals in 500.
+- **Why production is unaffected.** The Executor's BACKUP job holds exactly two connections (the snapshot and one `pg_dump`) and never reconnects in between, so production code is unchanged.
+
 ## What the next re-run should show
 
 In the reviewer's environment, `AT-BKP-DRILL-EXEC` should now pass on PG17 whichever `python3` is first on `PATH`. The other expected figures are in the updated prompt: 196 per major, 35 Node, the simulation, and 23 PWA per major where a browser is available. That is 474 with `pg_dump` 17, under either collation.

@@ -20,3 +20,7 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-13 12:01 | `813c0d8` | `s4/g0-review` | 467 | 0 | 3 | [2026-11-13_813c0d8](2026-11-13_813c0d8/INDEX.md) |
 | 2026-11-13 15:48 | `6660054` | `s4/g0-remediation` | 469 | 0 | 3 | [2026-11-13_6660054](2026-11-13_6660054/INDEX.md) |
 | 2026-11-13 16:18 | `6660054` | `s4/g0-remediation` (icu-en-US) | 469 | 0 | 3 | [2026-11-13_6660054_icu-en-US](2026-11-13_6660054_icu-en-US/INDEX.md) |
+| 2026-11-13 18:46 | `db50fd8` | `s4/g0-remediation-2` | 470 | 1 | 3 | [2026-11-13_db50fd8](2026-11-13_db50fd8/INDEX.md) |
+| 2026-11-13 18:47 | `db50fd8` | `s4/g0-remediation-2` (icu-en-US) | 471 | 0 | 3 | [2026-11-13_db50fd8_icu-en-US](2026-11-13_db50fd8_icu-en-US/INDEX.md) |
+| 2026-11-13 19:17 | `9dd2cb9` | `s4/g0-remediation-2` | 471 | 0 | 3 | [2026-11-13_9dd2cb9](2026-11-13_9dd2cb9/INDEX.md) |
+| 2026-11-13 19:18 | `9dd2cb9` | `s4/g0-remediation-2` (icu-en-US) | 471 | 0 | 3 | [2026-11-13_9dd2cb9_icu-en-US](2026-11-13_9dd2cb9_icu-en-US/INDEX.md) |
