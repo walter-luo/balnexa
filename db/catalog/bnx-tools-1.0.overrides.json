@@ -1469,7 +1469,73 @@
        "object",
        "null"
       ],
-      "description": "Operating, investing and financing flows, keyed by currency"
+      "description": "Operating, investing and financing flows, keyed by currency",
+      "additionalProperties": {
+       "type": "object",
+       "required": [
+        "opening",
+        "closing",
+        "flows",
+        "operating_net",
+        "reconciles"
+       ],
+       "properties": {
+        "opening": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Null when a balance is not available (BALANCE_NOT_AVAILABLE)"
+        },
+        "closing": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Null when a balance is not available (BALANCE_NOT_AVAILABLE)"
+        },
+        "flows": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "object",
+          "required": [
+           "inflow",
+           "outflow",
+           "net"
+          ],
+          "properties": {
+           "inflow": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+           },
+           "outflow": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+            "description": "Negative or zero"
+           },
+           "net": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+           }
+          }
+         },
+         "description": "Keyed by flow class (OPERATING, TRANSFER, INVESTING, ...)"
+        },
+        "operating_net": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "reconciles": {
+         "type": [
+          "boolean",
+          "null"
+         ],
+         "description": "opening + flows = closing; null when a balance is not available"
+        }
+       }
+      }
      }
     }
    }
@@ -1603,21 +1669,161 @@
        "array",
        "null"
       ],
-      "description": "Source (statement) rows with their statements and evidence"
+      "description": "Source (statement) rows with their statements and evidence",
+      "items": {
+       "type": "object",
+       "required": [
+        "source_txn_id",
+        "account_currency_id",
+        "posting_date",
+        "amount"
+       ],
+       "properties": {
+        "source_txn_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "posting_date": {
+         "type": "string",
+         "format": "date"
+        },
+        "amount": {
+         "type": "string",
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "linked_journal_id": {
+         "type": "string",
+         "format": "uuid",
+         "description": "Absent when the row is not linked to a journal"
+        },
+        "statements": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "required": [
+           "statement_id",
+           "final",
+           "document_id",
+           "evidence_object_id",
+           "integrity_state"
+          ],
+          "properties": {
+           "statement_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "period_start": {
+            "type": "string",
+            "format": "date"
+           },
+           "period_end": {
+            "type": "string",
+            "format": "date"
+           },
+           "final": {
+            "type": "boolean"
+           },
+           "document_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "evidence_object_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "integrity_state": {
+            "type": "string",
+            "enum": [
+             "unverified",
+             "verified",
+             "failed"
+            ]
+           }
+          }
+         },
+         "description": "Statements whose period covers the row's posting date"
+        }
+       }
+      }
      },
      "corrections": {
       "type": [
        "array",
        "null"
       ],
-      "description": "Corrections of the journal"
+      "description": "Corrections of the journal",
+      "items": {
+       "type": "object",
+       "required": [
+        "original_journal_id",
+        "reversal_journal_id",
+        "replacement_journal_id",
+        "recorded_version"
+       ],
+       "properties": {
+        "original_journal_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "reversal_journal_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "replacement_journal_id": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "uuid"
+        },
+        "recorded_version": {
+         "type": "integer"
+        }
+       }
+      }
      },
      "snapshots": {
       "type": [
        "array",
        "null"
       ],
-      "description": "Report snapshots that include it"
+      "description": "Report snapshots that include it",
+      "items": {
+       "type": "object",
+       "required": [
+        "snapshot_id",
+        "report_code",
+        "ledger_version",
+        "as_of",
+        "definition_version"
+       ],
+       "properties": {
+        "snapshot_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "report_code": {
+         "type": "string"
+        },
+        "ledger_version": {
+         "type": "integer"
+        },
+        "as_of": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "format": "date"
+        },
+        "definition_version": {
+         "type": "string"
+        }
+       }
+      }
      }
     }
    }
@@ -5086,14 +5292,111 @@
        "array",
        "null"
       ],
-      "description": "Items waiting for review"
+      "description": "Items waiting for review",
+      "items": {
+       "type": "object",
+       "required": [
+        "kind",
+        "ref",
+        "account_currency_id",
+        "detail"
+       ],
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "reconciliation_exception",
+          "open_clearing_item",
+          "match_decision_pending",
+          "unmatched_source_row",
+          "plan_awaiting_approval",
+          "plan_not_activated"
+         ]
+        },
+        "ref": {
+         "type": "string",
+         "format": "uuid",
+         "description": "Id of the exception, clearing item, source row or plan"
+        },
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "detail": {
+         "type": "object",
+         "properties": {
+          "rule_code": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "classification": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "phase": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "clearing_kind": {
+           "type": "string"
+          },
+          "amount": {
+           "type": "string",
+           "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "match_kind": {
+           "type": "string"
+          },
+          "state": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "rule": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "posting_date": {
+           "type": "string",
+           "format": "date"
+          },
+          "plan_kind": {
+           "type": "string"
+          },
+          "hold_reasons": {
+           "type": [
+            "array",
+            "null"
+           ],
+           "items": {
+            "type": "string"
+           }
+          }
+         },
+         "description": "Fields depend on the kind"
+        }
+       }
+      }
      },
      "counts": {
       "type": [
        "object",
        "null"
       ],
-      "description": "Counts per kind"
+      "description": "Counts per kind",
+      "additionalProperties": {
+       "type": "integer",
+       "description": "Count per kind"
+      }
      }
     }
    }
@@ -5875,5 +6178,5 @@
   }
  },
  "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",
- "note_output_schemas": "2.8 parts 3-7 (9032-9036): output schemas for every MCP read tool and the draft tools, all field-level with required keys: draft tools, balances, whoami, FX rate, snapshots, registry search and handoff status (9032-9033); the report families require the rpt_envelope keys and type their own keys; the read tools of 9034 are field-level since 9035 (required = keys the body always builds; null where the body can make null; keys inside jsonb_strip_nulls objects required only when never null). Since 9036 the rows and nested objects of F1-F7 are field-level too, reusing the schema of any tool a family embeds; R09, R30 and R31 rows and explanatory structures (match traces, candidates, criteria, evidence) stay array/object (D-OUT-1). The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH). Contract: every bnx_app call in every Python suite is checked (tests/py/jsonschema_lite.py via the harness), plus AT-OUT-01, AT-OUT-03 and AT-OUT-04."
+ "note_output_schemas": "2.8 parts 3-8 (9032-9037): output schemas for every MCP read tool and the draft tools, all field-level with required keys: draft tools, balances, whoami, FX rate, snapshots, registry search and handoff status (9032-9033); the report families require the rpt_envelope keys and type their own keys; the read tools of 9034 are field-level since 9035 (required = keys the body always builds; null where the body can make null; keys inside jsonb_strip_nulls objects required only when never null). Since 9036 and 9037 the rows and nested objects of F1-F7, R09, R30 and R31 are field-level too, reusing the schema of any tool a family embeds; keyed objects (R09 by_currency and flows, R30 counts) use a schema-valued additionalProperties. Explanatory structures (match traces, candidates, criteria, evidence, scopes) stay object (D-OUT-1). The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH). Contract: every bnx_app call in every Python suite is checked (tests/py/jsonschema_lite.py via the harness), plus AT-OUT-01, AT-OUT-03, AT-OUT-04 and AT-OUT-05."
 }

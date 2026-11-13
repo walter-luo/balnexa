@@ -303,6 +303,84 @@ def t_output_rows(server, ev):
             f"catalog; branches seen: {seen}")
 
 
+@test("AT-OUT-05", "2.8 part 8; 9037; D-OUT-1 (field-level rows of R09 cash flow, R30 review queue and R31 evidence trace: called "
+                   "by the Owner and an AI connection; R09 with and without available balances, R30 with every kind the household "
+                   "produces, R31 from a source row through its statement, evidence, correction and snapshot)")
+def t_output_rows_2(server, ev):
+    import run_s4_core3 as C3
+    import run_s4_core10 as C10
+    import run_s4_core11 as C11
+    import run_s4_core12 as C12
+    fams = ["q_cashflow_statement", "q_r30_review_queue", "q_evidence_trace"]
+    ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
+    H = C12.world(server, "bnx_c19out5")
+    cad, rec = H.cad["account_currency_id"], H.rec["account_currency_id"]
+    entries = {fn: catalog_entry(H, fn) for fn in fams}
+    C3.client(H)
+    r, v = C3.consent(H, ["finance.read", "reports.read"], acs=[cad, rec])
+    B = {"kind": "bearer", "secret": C3.token(H, r, v)["access_token"]}
+    s1 = C10.stmt(H, H.cad, "2026-01-02", "2026-01-31", "1000.00", "2000.00")
+    s2 = C10.stmt(H, H.sav, "2026-01-02", "2026-01-31", "500.00", "1250.00")      # differs from the ledger: an exception
+    for jid, d, amt in (("J1", "2026-01-10", "3000.00"), ("J2", "2026-01-12", "-200.00"), ("J4", "2026-01-20", "-100.00"),
+                        ("J5", "2026-01-22", "-400.00"), ("J6", "2026-01-25", "-1000.00"), ("J7", "2026-01-28", "-300.00")):
+        C10.row(H, H.cad, d, amt, link=H.j[jid])
+    H.cmd(H.owner, "run_reconciliation", statement_id=s1)
+    H.cmd(H.owner, "run_reconciliation", statement_id=s2)
+    C11.post(H, "2026-04-03", "-25.00", H.cad, desc="A")
+    C11.post(H, "2026-04-04", "-25.00", H.cad, desc="B")
+    C10.row(H, H.cad, "2026-04-03", "-25.00", desc="PARKING")                        # ambiguous: a pending match decision
+    C10.row(H, H.cad, "2026-04-10", "-75.00", desc="E-TRANSFER OUT")                 # unmatched
+    C11.match(H, H.cad)
+    with H.definer() as cx:                                                           # an open clearing item (as in AT-MR-02)
+        ver = cx.execute("select version from bnx.ledger_state").fetchone()[0]
+        ci = cx.execute("insert into bnx.clearing_item(id, account_currency_id, currency, kind, amount, counterpart_hint, opened_journal) "
+                        "values (gen_random_uuid(), %s, 'CAD', 'transfer_in_transit', -400.00, %s, %s) returning id",
+                        (cad, json.dumps({"account_currency_id": H.sav["account_currency_id"], "window_days": 7}), H.j["J5"])).fetchone()[0]
+        cx.execute("insert into bnx.clearing_item_event(clearing_item_id, seq, event, recorded_version) values (%s, 1, 'opened', %s)", (ci, ver))
+        cx.commit()
+    H.cmd(H.owner, "create_report_snapshot", report_code="R-BAL", as_of="2026-01-31")
+    H.cmd(H.owner, "correct_transaction", journal_id=H.j["J2"], reason="synthetic amount fix", replacement={
+        "transaction_date": "2026-01-12", "description": "fixed", "lines": [
+            {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "210.00"},
+            {"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-210.00"}]})
+    with H.definer() as cx:
+        src = str(cx.execute("select id from bnx.source_txn where amount = -200.00").fetchone()[0])
+    calls = []
+
+    def run(who, cred, fn, **q):
+        res = H.app.call(fn, cred, q)
+        calls.append((who, fn, res))
+        return res
+
+    for who, cred in (("owner/pwa", H.owner), ("ai/mcp", B)):
+        run(who, cred, "q_cashflow_statement", date_from="2026-01-02", date_to="2026-01-31")
+        run(who, cred, "q_cashflow_statement", date_from="2025-11-01", date_to="2026-01-31")   # opening before any balance
+        run(who, cred, "q_r30_review_queue")
+        run(who, cred, "q_evidence_trace", source_txn_id=src)
+    H.close()
+    bad = [(who, fn, validate(entries[fn]["output_schema"], res)) for who, fn, res in calls if validate(entries[fn]["output_schema"], res)]
+    owner = [res for w, fn, res in calls if w == "owner/pwa"]
+    cf_ok, cf_na, queue, trace = owner
+    seen = {
+        "r09 reconciles": sorted({str(x["reconciles"]) for x in cf_ok["by_currency"].values()}),
+        "r09 not available": sorted({str(x["reconciles"]) for x in cf_na["by_currency"].values()}),
+        "r09 flow classes": sorted({k for x in cf_ok["by_currency"].values() for k in x["flows"]}),
+        "r30 kinds": sorted(queue["counts"]),
+        "r31 statements": sum(len(x.get("statements", [])) for x in trace["source_rows"]),
+        "r31 corrections": [c["replacement_journal_id"] is not None for c in trace["corrections"]],
+        "r31 snapshots": len(trace["snapshots"]),
+    }
+    json.dump({"calls": [{"who": w, "fn": f} for w, f, _ in calls], "seen": seen}, open(os.path.join(ev, "AT-OUT-05.json"), "w"),
+              indent=1, default=str)
+    check(bad == [] and sorted({fn for _, fn, _ in calls}) == sorted(fams), f"{bad}")
+    check(all(entries[fn]["output_schema"] == ovr["schemas"][fn]["output"] for fn in fams), "catalog output schemas differ from the overrides")
+    check("True" in seen["r09 reconciles"] and seen["r09 not available"] == ["None"] and "OPERATING" in seen["r09 flow classes"]
+          and {"reconciliation_exception", "open_clearing_item", "match_decision_pending", "unmatched_source_row"} <= set(seen["r30 kinds"])
+          and seen["r31 statements"] > 0 and seen["r31 corrections"] == [True] and seen["r31 snapshots"] > 0, f"{seen}")
+    return (f"{len(calls)} calls of R09, R30 and R31 by the Owner and an AI connection: every result conforms to its field-level row "
+            f"schema in the catalog; branches seen: {seen}")
+
+
 @test("AT-OUT-02", "2.8 part 5; D-OUT-2 (the output contract runs in every suite: every bnx_app call of a tool with a curated "
                    "output schema is validated by the harness; a mismatch fails the calling test, with the path only)")
 def t_output_contract(server, ev):    # noqa: ARG001 - no database needed
@@ -315,7 +393,12 @@ def t_output_contract(server, ev):    # noqa: ARG001 - no database needed
     for fn, r in (("q_snapshot_status", {"snapshot_id": "00000000-0000-4000-8000-000000000000", "status": "SOMETHING_ELSE"}),
                   ("q_balances", {"ledger_version": 3, "as_of": "2026-01-01"}),
                   ("q_fx_rate", {"base": "CAD", "quote": "USD", "date": "2026-01-01", "rate": 1.5, "quality": "REFERENCE", "inverse": False,
-                                 "ledger_version": 1, "fx_policy": "x"})):
+                                 "ledger_version": 1, "fx_policy": "x"}),
+                  ("q_cashflow_statement", {"report": "R09/1", "ledger_version": 1, "as_of": "2026-01-31", "reporting_currency": None,
+                                            "fx_policy": "x", "fx_snapshot_ref": "fx@1", "grants_digest": "0" * 64,
+                                            "scope_warnings": [], "rounding": "x",
+                                            "by_currency": {"CAD": {"opening": 1, "closing": None, "flows": {}, "operating_net": "0",
+                                                                    "reconciles": None}}})):   # a schema-valued additionalProperties
         try:
             J.check_output(fn, r)
         except J.OutputContractError as e:
@@ -324,10 +407,12 @@ def t_output_contract(server, ev):    # noqa: ARG001 - no database needed
     check(good is None and missing == [] and hooked and errs == [
         "OUTPUT_SCHEMA_MISMATCH q_snapshot_status at $.status: enum",
         "OUTPUT_SCHEMA_MISMATCH q_balances at $.balances: required",
-        "OUTPUT_SCHEMA_MISMATCH q_fx_rate at $.rate: type number"], f"{good} {missing} {hooked} {errs}")
+        "OUTPUT_SCHEMA_MISMATCH q_fx_rate at $.rate: type number",
+        "OUTPUT_SCHEMA_MISMATCH q_cashflow_statement at $.by_currency.CAD.opening: type integer"], f"{good} {missing} {hooked} {errs}")
     return (f"every curated tool ({len(ovr['schemas'])}, of which {len(mcp_reads)} read tools) has an output schema; the harness "
-            f"validates every bnx_app call against it in every suite; a wrong enum, a missing required key and a number for a decimal "
-            f"string are each reported with their path and no value")
+            f"validates every bnx_app call against it in every suite; a wrong enum, a missing required key, a number for a decimal "
+            f"string and a wrong value under a keyed object (schema-valued additionalProperties, as in the Gateway) are each reported "
+            f"with their path and no value")
 
 
 # ---------------------------------------------------------------------------------------------- INS-1 signed releases

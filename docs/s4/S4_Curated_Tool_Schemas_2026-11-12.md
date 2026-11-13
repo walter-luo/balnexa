@@ -140,7 +140,32 @@ AT-OUT-01 keeps the 23 tools of 9032/9033; the 12 tools of 9035 are AT-OUT-03's.
    - an F7 exception, an open clearing item and coverage.
 3. **Negative check (one-off):** requiring `amount` on every F2 line makes AT-OUT-04 fail at `$.rows[3].lines[1].amount`, a masked line.
 
+## Eighth part (migration 9037): rows of R09, R30 and R31
+
+`DRAFT — AI-generated`, 2026-11-13. Release 0.9.3-p2 (extension range 9036–9037).
+
+**What changed.** The rows of the remaining report families are now field-level. Each was derived from its 9013 function body. The 9032 top level is unchanged.
+
+| Family | Typed now |
+|---|---|
+| R09 cash flow | `by_currency` is keyed by currency, so each value is typed through a schema-valued `additionalProperties`. Each value has opening and closing (null when a balance is not available), `flows` keyed by flow class (inflow, outflow, net), `operating_net` and `reconciles` (null when a balance is not available) |
+| R30 review queue | items: `kind` (reconciliation exception, open clearing item, pending match decision, unmatched source row, plan awaiting approval, plan not activated), `ref`, account, and `detail`, whose fields depend on the kind; `counts` per kind |
+| R31 evidence trace | source rows (statement links with document, evidence object and integrity state; the linked journal when there is one), corrections (`replacement_journal_id` null for a reversal only), snapshots |
+
+**Validator parity fix.** `tests/py/jsonschema_lite.py`, the harness port of the Gateway validator, ignored a schema-valued `additionalProperties`. The Gateway (`apps/worker/src/schema.js`) applies it. The port now applies it the same way, in the same key order.
+- Before 9037 one shape already used it: `validation_result` of the five draft tools (each check a string). The suites therefore checked those values less strictly than the Gateway.
+- Rechecked under the fixed port, the 58 captured draft-tool results conform.
+- AT-OUT-02 gained a fourth negative case: a number under `by_currency.CAD.opening`. That case fails without the fix.
+
+**How it was checked.**
+1. **Offline:** the 20 R09, R30 and R31 results captured in the full run conform. The 481 captured results of every tool were rechecked against the current overrides. The only mismatches are AT-OUT-02's 6 deliberate negative cases: the capture is written before validation, so it records them too.
+2. **AT-OUT-05** calls the three families as the Owner and as an AI connection. It asserts:
+   - R09: `reconciles` true for a covered range, null for a range opening before any balance, and several flow classes;
+   - R30: the kinds reconciliation exception, open clearing item, pending match decision and unmatched source row;
+   - R31: a source row traced to its statement, a correction with a replacement, and a snapshot.
+
 ## Remaining
 
 - The MCP-reachable commands other than the draft tools keep derived input schemas: they are RC-ADMIN or PWA-first.
-- Rows of R09 (cash flow), R30 (review queue) and R31 (evidence trace), and the explanatory structures (match traces, candidates, criteria, evidence), one at a time (D-OUT-1).
+- Explanatory structures (match traces, candidates, criteria, evidence, scopes) stay `object` (D-OUT-1).
+- R30 kinds `plan_awaiting_approval` and `plan_not_activated`: the first appears in other suites' captures; AT-OUT-05 does not build plans.
