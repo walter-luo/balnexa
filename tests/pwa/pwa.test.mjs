@@ -565,7 +565,12 @@ test('AT-CONF-01/02 via the AIH-4 card: a host renders the draft from the server
     f.srcdoc = html;
   }, { html, result: g });
   const frame = p.frameLocator('#c');
-  await frame.locator('#bnx-confirm').waitFor();
+  // on a timeout, report how far the MCP Apps handshake got (CI incident on #34: one timeout here, not reproduced locally)
+  await frame.locator('#bnx-confirm').waitFor().catch(async (e) => {
+    const seen = await p.evaluate(() => window.seen).catch(() => 'unreadable');
+    const shown = await frame.locator('main').textContent({ timeout: 1000 }).catch(() => 'unreadable');
+    throw new Error(`card not rendered: host saw ${JSON.stringify(seen)}; card shows ${JSON.stringify(String(shown).slice(0, 200))}; ${e.message}`);
+  });
   assert.equal(await frame.locator('h1').textContent(), 'Draft — not posted');
   const text = await frame.locator('main').textContent();
   assert.ok(text.includes('<b>Lunch</b> <img src=x onerror="parent.pwned=1">') && text.includes('-7.25 CAD'), text);
