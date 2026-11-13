@@ -16,6 +16,21 @@ def dsn(server, user, db):
     return f"{SERVERS[server]} user={user} dbname={db}"
 
 
+def role_slot(server, role, timeout=10.0):
+    """wait until `role` has a free connection slot. A closed client connection frees its slot only when the server backend
+    has exited, which can lag the close; a role with a small connection limit (bnx_backup: 2) can then refuse an immediate
+    reconnect ("too many connections for role"). Tests that hold one connection and open another call this first."""
+    import time
+    end = time.monotonic() + timeout
+    with psycopg.connect(dsn(server, "postgres", "postgres"), autocommit=True) as cx:
+        while True:
+            lim, used = cx.execute("select r.rolconnlimit, (select count(*) from pg_stat_activity a where a.usename = r.rolname) "
+                                   "from pg_roles r where r.rolname = %s", (role,)).fetchone()
+            if lim < 0 or used < lim or time.monotonic() > end:
+                return
+            time.sleep(0.02)
+
+
 def drop_all(server):
     with psycopg.connect(dsn(server, "postgres", "postgres"), autocommit=True) as cx:
         dbs = [r[0] for r in cx.execute("select datname from pg_database where datname like 'bnx\\_%'")]

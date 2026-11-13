@@ -1095,6 +1095,7 @@ def t_backup(server, ev):
         return f"SKIP:pg_dump/pg_restore for {server} not available in this environment (embedded-postgres ships initdb/pg_ctl/postgres only)"
     H = household(server)
     def dump(tag):
+        h.role_slot(server, "bnx_backup")   # the limit is 2: wait for the previous dump's backend to exit
         bk = psycopg.connect(h.dsn(server, "bnx_backup", H.db))
         bk.execute("begin isolation level repeatable read read only")
         snap = bk.execute("select pg_export_snapshot()").fetchone()[0]
@@ -1104,7 +1105,9 @@ def t_backup(server, ev):
         # chain lives in schema bnx_audit, which is part of the scope from then on
         cmd = [pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--format=custom", "--data-only",
                "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", cust]
+        h.role_slot(server, "bnx_backup")
         r = subprocess.run(cmd, capture_output=True, text=True)
+        h.role_slot(server, "bnx_backup")
         sch = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", H.db), f"--snapshot={snap}", "--schema-only",
                               "--schema=bnx", "--schema=bnx_audit", "--schema=auth", "-f", os.path.join(ev, f"AT-BAK-01_{tag}_schema.sql")], capture_output=True, text=True)
         bk.rollback(); bk.close()

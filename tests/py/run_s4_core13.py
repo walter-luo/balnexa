@@ -43,6 +43,7 @@ def definer_one(H, q, p=None):
 
 def facts(server, db, snapshot=None):
     """header facts as bnx_backup inside a REPEATABLE READ READ ONLY transaction (UA §9.3 step 3)"""
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         cx.execute("begin isolation level repeatable read read only")
         if snapshot:
@@ -53,6 +54,7 @@ def facts(server, db, snapshot=None):
 
 
 def compare(server, db, a, b):
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         return cx.execute("select bnx.bkp_header_compare(%s::jsonb, %s::jsonb)", (json.dumps(a), json.dumps(b))).fetchone()[0]
 
@@ -155,6 +157,7 @@ def fk_order(cx, tabs):
 def copy_dump(server, db, snap):
     """data of every in-scope table read with COPY inside the exported snapshot (the same snapshot pg_dump --snapshot uses);
     bnx_audit.audit_event in seq order (R-10); sequence positions"""
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         cx.execute("begin isolation level repeatable read read only")
         cx.execute(f"set transaction snapshot '{snap}'")
@@ -212,6 +215,7 @@ def pgdump_restore(server, db, rdb, snap, ev):
         cx.execute("set role bnx_definer")
         pre = cx.execute("select bnx.restore_preamble()").fetchone()[0]
     cust, out = os.path.join(ev, "AT-BAK-04_data.dump"), os.path.join(ev, "AT-BAK-04_data.sql")
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     r = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", db), f"--snapshot={snap}", *pre["pg_dump_args"], "-f", cust],
                        capture_output=True, text=True)
     check(r.returncode == 0, "pg_dump: " + r.stderr[:600])
@@ -269,6 +273,7 @@ def t_consistent(server, ev):
     H.cmd(H.owner, "register_evidence", size=2048, sha256_declared=hx("stmt"), name="stmt.pdf")
     bal_before = H.app.call("q_balances", H.owner, {"as_of": "2026-12-31"})
     # steps 1-3: bnx_backup, REPEATABLE READ READ ONLY, exported snapshot, header facts in that transaction
+    h.role_slot(server, "bnx_backup")
     bk = psycopg.connect(h.dsn(server, "bnx_backup", H.db))
     bk.execute("begin isolation level repeatable read read only")
     snap = bk.execute("select pg_export_snapshot()").fetchone()[0]
