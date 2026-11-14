@@ -17,3 +17,16 @@ Recorded from the Owner's message of 2026-11-14 06:20: "CR-1以后再说，CR-2�
 | OD-LIC-2 | **CR-1 deferred:** the notice keeps naming the author | — |
 | OD-LIC-3 | **CR-2: inbound = outbound** (Apache-2.0 §5); no CLA | `Copyright_and_Contributions.md` §3 |
 | OD-LIC-4 | **CR-3: license headers in source files** | `tools/s4/license_headers.py`, the CI step `license headers`, and headers in 105 files; committed migrations, bootstrap files and the frozen reference oracles excluded |
+
+Recorded from the Owner's message of 2026-11-14 09:38: "确认" (confirmed), in reply to the plan for the first processing run of his own data folder instance. The instance and its files are private and are not described here. The plan proposed two rules that apply to any instance:
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-1 | A statement that covers several months is named with the period `YYYY-MM~YYYY-MM`; the date prefix and the year folder use the statement's own date | `Data_Folder_Convention.md` §3 |
+| OD-DATA-2 | When the toolchain cannot compute sha256 without passing each file through the AI conversation, sha256 may be **deferred** for a run: server-side copy, file ID and size checks, `sha256` blank with a note, computed later | `Data_Folder_Convention.md` §5 |
+
+Recorded from the Owner's message of 2026-11-14 09:57: "要，继续" (yes, continue), in reply to the question whether the public convention should record OD-DATA-2.
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-3 | The public convention records OD-DATA-1 and OD-DATA-2 | This change. Two points in it are the AI's additions and await the Owner's review: a note in §1 that some connectors can edit only files the AI created, and the rule that a row with deferred sha256 is not imported into Balnexa until its sha256 check has passed |
