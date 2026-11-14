@@ -26,7 +26,7 @@ Never commit real financial statements, account credentials, personal financial 
 
 ## License
 
-Copyright 2026 Tambition Technologies Group Inc.
+Copyright 2026 Walter Luo
 
 Balnexa is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license terms and [NOTICE](NOTICE) for the copyright notice. How copyright and contributions are handled: [docs/s4/Copyright_and_Contributions.md](docs/s4/Copyright_and_Contributions.md).
 

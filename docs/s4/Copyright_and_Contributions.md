@@ -6,8 +6,8 @@
 
 | Item | Value |
 |---|---|
-| Copyright holder | **Tambition Technologies Group Inc.** (Ontario), as stated by the project Owner on 2026-11-14 |
-| Notice | `NOTICE` at the repository root: `Copyright 2026 Tambition Technologies Group Inc.` |
+| Copyright holder | **Walter Luo, the author** (OD-LIC-1, revised 2026-11-14 05:35): the first owner of a work is its author (*Copyright Act* s. 13(1)). The Owner intends the copyright to belong to **Tambition Technologies Group Inc.**; the notice changes to the company only once a signed written assignment exists (§2, CR-1) |
+| Notice | `NOTICE` at the repository root: `Copyright 2026 Walter Luo` |
 | License | Apache License, Version 2.0 (`LICENSE`, unchanged from the official text). Apache-2.0 asks a project to attach the notice `Copyright [yyyy] [name of copyright owner]` with its own details; that is what `NOTICE` and `README.md` do. `LICENSE` itself is kept word for word |
 | Effect of `NOTICE` | Under Apache-2.0 §4(d), anyone who redistributes the work must carry the `NOTICE` attributions along. The `NOTICE` file is informational and does not change the license |
 
@@ -34,9 +34,9 @@ The notice states a claim; it does not create ownership. Three points need the O
 
 | ID | Question |
 |---|---|
-| CR-1 | Is a signed assignment from Walter Luo to Tambition Technologies Group Inc. needed, that is, were the contributions **not** made as an employee in the course of employment? |
+| CR-1 | **When** to sign the written assignment from Walter Luo to Tambition Technologies Group Inc. (and whether it includes a waiver of moral rights). Until then the notice names the author. On signing, `NOTICE` and `README.md` change to the company in one commit, and this note records the date (never the document itself) |
 | CR-2 | Should outside contributors sign a CLA or assignment, or is inbound = outbound under Apache-2.0 enough? |
-| CR-3 | Should source files carry a short header (`Copyright 2026 Tambition Technologies Group Inc. SPDX-License-Identifier: Apache-2.0`)? Apache-2.0 recommends it but does not require it. Adding headers would touch every file; committed migrations would need the header only in new migrations, because they are never edited |
+| CR-3 | Should source files carry a short header (`Copyright 2026 <holder>. SPDX-License-Identifier: Apache-2.0`)? Apache-2.0 recommends it but does not require it. Adding headers would touch every file; committed migrations would need the header only in new migrations, because they are never edited |
 
 ## Sources
 

@@ -6,6 +6,6 @@ Recorded from the Owner's message of 2026-11-14 05:10 (America/Toronto): "README
 
 | ID | Decision | Effect |
 |---|---|---|
-| OD-LIC-1 | **The copyright holder of Balnexa is Tambition Technologies Group Inc.** The license stays Apache-2.0 | `NOTICE` at the root; the license section of `README.md`; `docs/s4/Copyright_and_Contributions.md`, whose open points CR-1 to CR-3 are for the Owner, ideally with a lawyer |
+| OD-LIC-1 | The Owner intends the copyright to belong to **Tambition Technologies Group Inc.** Revised at 05:35, "先按这条：作品的第一版权人是作者本人" (for now, follow the rule that the author is the first owner): **the notice names the author, Walter Luo, until a signed written assignment to the company exists**. The license stays Apache-2.0 | `NOTICE` and `README.md`: `Copyright 2026 Walter Luo`. `docs/s4/Copyright_and_Contributions.md` holds the open points CR-1 (when to sign the assignment) to CR-3 |
 
 The Owner's question about the data-owner name was answered in the conversation. The name appears only in the Owner's **private** instance README, which is outside this repository. The public convention (`docs/s4/Data_Folder_Convention.md`) names roles only, so it is consistent with the public-project rule.
