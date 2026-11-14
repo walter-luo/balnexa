@@ -6,7 +6,7 @@ Runs one job kind over the given items (no item = one item with item_id null: BA
 import argparse
 import sys
 
-from . import gateway, restore, runner, store
+from . import docjobs, gateway, restore, runner, store
 
 
 def build(cfg):
@@ -36,7 +36,15 @@ def main(argv=None):
         return runner.EXIT_CONFIG
     ctx, gw, completer = build(cfg)
     runner.install_signals(ctx)
-    code, _ = runner.run_items(ctx, gw, completer, a.kind, a.item or [None])
+    items = a.item
+    if not items and a.kind == "DOC_DISCOVER":
+        items = docjobs.plan_discover(ctx)
+    elif not items and a.kind in ("DOC_PROCESS", "INDEX_CONSUME", "MAIL_MOVE"):
+        items = gw.due(a.kind)
+    if not items and a.kind in ("DOC_DISCOVER", "DOC_PROCESS", "INDEX_CONSUME", "MAIL_MOVE"):
+        ctx.log("nothing_due", kind=a.kind)
+        return runner.EXIT_OK
+    code, _ = runner.run_items(ctx, gw, completer, a.kind, items or [None])
     return code
 
 

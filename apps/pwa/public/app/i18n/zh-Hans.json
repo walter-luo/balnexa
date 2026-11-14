@@ -350,5 +350,20 @@
  "task.raw": "高级：以 JSON 提交请求",
  "task.raw_hint": "非空时将覆盖上面的字段。",
  "task.result": "结果",
- "task.run": "执行"
+ "task.run": "执行",
+ "field.file": "文件",
+ "documents.title": "待审文件",
+ "documents.explain": "收件箱里需要你处理的文件。没有类别或被标记为含 SIN 的文件，必须由你声明“这份副本已遮盖”后才会收录。被隔离的副本永远不会放行：请把重新遮盖后的文件放回收件箱。",
+ "documents.none": "没有待审文件。",
+ "documents.name_withheld": "（文件名已隐藏）",
+ "documents.fingerprint": "指纹",
+ "documents.fidelity": "来源",
+ "documents.PENDING_DECLARATION": "等待你的声明",
+ "documents.QUARANTINED": "已隔离",
+ "documents.SCAN_INCOMPLETE": "扫描未完成",
+ "documents.ADMISSIBLE": "可归档",
+ "documents.declare": "声明已遮盖",
+ "documents.tag": "标记为含 SIN",
+ "documents.declared_ok": "已声明，下次运行时归档。",
+ "documents.tagged_ok": "已标记，现在需要你的声明。"
 }

@@ -165,6 +165,7 @@ class Config:
         self.drill_prefix = e.get("BNX_DRILL_PREFIX", "bnx_drill_")
         self.db_dir = e.get("BNX_DB_DIR", os.path.join(os.path.dirname(__file__), "..", "..", "..", "db"))
         self.scratch = e.get("BNX_SCRATCH") or None
+        self.mock_root = e.get("BNX_MOCK_ROOT") or None                # TST-5: local mock providers (synthetic data only)
 
     NEEDS = {"REPORT_RENDER": ("artifact_root",), "BACKUP": ("backup_dsn", "vault_root", "owner_recipient", "drill_recipient", "drill_identity"),
              "RESTORE_DRILL": ("vault_root", "drill_identity", "drill_key_id", "drill_conninfo"), "EVIDENCE_VERIFY": ("evidence_root",)}

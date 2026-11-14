@@ -29,7 +29,7 @@ function screen(titleKey, ...kids) {
 
 // tasks with a dedicated screen; every other task uses the generic renderers
 const DEDICATED = { 'bnx.q_handoff_status': 'handoff', 'bnx.cmd_handoff_prepare': 'handoff/prepare', 'bnx.cmd_handoff_import': 'handoff/import',
-  'bnx.q_ai_connections': 'connections' };
+  'bnx.q_ai_connections': 'connections', 'bnx.q_doc_redaction_queue': 'documents' };
 const visible = (e) => !!e && e.channels.includes('pwa') && (e.tier === null || e.tier <= S.tier);
 const entry = (fn) => { const e = S.cat.get(fn); return visible(e) ? e : null; };
 
@@ -489,6 +489,32 @@ async function consentScreen(params) {
   screen('consent.title', f);
 }
 
+// ------------------------------------------------------------------------------------------- documents (DOC-2; A1 Rev 1 §5)
+// The Owner's redaction queue: documents waiting for a declaration, quarantined, incompletely scanned or admissible. The
+// declaration binds to the exact bytes (sha256) the scan saw; the screen shows a short fingerprint so the Owner can compare
+// it with the file in the Inbox. No content, value or locator is ever shown (the query returns none).
+async function documents() {
+  let r;
+  try { r = await api.query('doc_redaction_queue'); } catch (e) { return fail(e); }
+  const act = (label, cmd, body, ok) => h('button', { type: 'button', onclick: async () => {
+    try { await api.command(cmd, body); status(t(ok), 'ok'); documents(); } catch (e) { fail(e); } } }, t(label));
+  const rows = r.items.map((d) => h('tr', {},
+    h('td', { 'data-label': t('field.file') }, d.file || t('documents.name_withheld')),
+    h('td', { 'data-label': t('field.state') }, h('span', { class: `st st-${d.state}` }, t(`documents.${d.state}`))),
+    h('td', { 'data-label': t('documents.fingerprint') }, d.sha256 ? h('code', {}, d.sha256.slice(0, 12)) : ''),
+    h('td', { 'data-label': t('documents.fidelity') }, d.label || ''),
+    h('td', {}, d.state === 'PENDING_DECLARATION' && d.sha256 && entry('bnx.cmd_doc_declare_redacted')
+      ? act('documents.declare', 'doc_declare_redacted', { discovery_id: d.discovery_id, sha256: d.sha256 }, 'documents.declared_ok')
+      : d.state === 'ADMISSIBLE' && d.declaration_status !== 'DECLARED' && entry('bnx.cmd_doc_tag_sin_bearing')
+        ? act('documents.tag', 'doc_tag_sin_bearing', { discovery_id: d.discovery_id }, 'documents.tagged_ok') : '')));
+  screen('documents.title', h('p', { class: 'hint' }, t('documents.explain')),
+    rows.length ? h('div', { class: 'table' }, h('div', { class: 'scroll', tabindex: '0', role: 'region', 'aria-label': t('documents.title') },
+      h('table', { class: 'cards' }, h('caption', {}, t('documents.title')), h('thead', {}, h('tr', {},
+        ['field.file', 'field.state', 'documents.fingerprint', 'documents.fidelity', 'connections.action']
+          .map((k) => h('th', { scope: 'col' }, t(k))))), h('tbody', {}, rows))))
+      : h('p', { class: 'empty' }, t('documents.none')));
+}
+
 // ------------------------------------------------------------------------------------------------- AI connections (OR-M-05)
 async function connections() {
   let r, L;
@@ -557,6 +583,7 @@ async function render() {
     if (r === 'menu') return menu();
     if (r === 'task') return await task(decodeURIComponent(arg), params);
     if (r === 'settings') return await settings();
+    if (r === 'documents') return await documents();
     if (r === 'handoff' && arg === 'prepare') return await handoffPrepare(params);
     if (r === 'handoff' && arg === 'import') return await handoffImport();
     if (r === 'handoff') return await handoff();

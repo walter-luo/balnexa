@@ -607,6 +607,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.authn_oauth_client", "bnx.q_ai_connections",
     # 9024 F-M0A-01 digit-free generated ids, not in the V1.2 register (D-M0A-1)
     "bnx.digitless_id",
+    # 9025 DOC-2 Executor due list, not in the V1.2 register (D-DOC2-1)
+    "bnx.wrk_exec_due", "bnx.mail_route_folder",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

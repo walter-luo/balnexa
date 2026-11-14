@@ -247,3 +247,8 @@ def evidence_verify(ctx, lease):
 
 
 JOBS = {"REPORT_RENDER": report_render, "BACKUP": backup, "RESTORE_DRILL": restore_drill, "EVIDENCE_VERIFY": evidence_verify}
+
+from . import docjobs, intjobs  # noqa: E402  (DOC-2 document pipeline; INT-2/3 index and mail)
+JOBS.update(docjobs.JOBS)
+JOBS.update(intjobs.JOBS)
+

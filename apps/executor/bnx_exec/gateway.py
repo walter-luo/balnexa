@@ -124,6 +124,10 @@ class GatewayClient:
         r = self._call("/exec/v1/lease", {"job_kind": kind, "item_id": item_id})
         return Lease(r["lease_id"], r["nonce"], r["expires_at"], r["job_kind"], item_id, r.get("input"))
 
+    def due(self, kind, limit=50):
+        """items this job kind can lease now (9025 bnx.wrk_exec_due; DOC_PROCESS)"""
+        return self._call("/exec/v1/due", {"job_kind": kind, "limit": limit}).get("items", [])
+
     def complete(self, lease, stg_kind, payload):
         body = {"job_kind": lease.job_kind, "nonce": lease.nonce, "stg_kind": stg_kind, "payload": payload}
         check_size(payload)
