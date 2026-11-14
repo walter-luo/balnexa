@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Offline draft queue (CORE-9 phase 2.5; Owner decision 2026-11-12: "同意你的建议" — only drafts are queued offline).
 // When the network is gone at the moment a Quick Entry draft (draft_create_transaction / draft_create_transfer) is sent, the
 // request is kept in IndexedDB with its idempotency key and sent again when the browser is back online. Nothing is posted

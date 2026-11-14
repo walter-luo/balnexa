@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Small HTTP helpers shared by the Gateway modules (index.js, oauth.js, mcp.js).
 export const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });

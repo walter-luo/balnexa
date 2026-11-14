@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """AT-SIN-31 probe: one transient Z1 validation in a fresh process, traced by the test (strace) for file creation.
 
 Usage: doc_z1_probe.py <root> <mode>   mode: success | quarantine | timeout | crash

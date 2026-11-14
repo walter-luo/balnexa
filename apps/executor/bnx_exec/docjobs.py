@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Document pipeline jobs (DOC-2; Addendum A1 Rev 1 §4-§5; UA V1.2 §10). Contracts: migrations 9011 (promoters
 wrk_doc_discovered / wrk_doc_validated / wrk_doc_archived) and 9025 (DOC_PROCESS work order, due list).
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 7 tests: G0 remediation G0R (G0 report 2026-11-11, SAME_FAMILY_VERIFICATION).
 F-01 (owner path could empty or shorten the audit chain undetected): bootstrap B003, migration 9011 block G0R, runner gate,
 external verifier tools/s4/audit_chain_verify.py. F-04 (invisible Unicode in envelope values). F-06 (anchor = seq and head

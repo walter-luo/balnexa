@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """TST-1 synthetic fixture generator (WP matrix V1.2 phase 2.7): fills a mock provider root (BNX_MOCK_ROOT) with a household's
 worth of synthetic inputs for the Executor jobs, so DOC_DISCOVER/DOC_PROCESS, INDEX_CONSUME and MAIL_EXACT_FETCH can be run
 end to end without any cloud account.

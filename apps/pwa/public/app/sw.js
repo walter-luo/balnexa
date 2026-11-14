@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Service worker (CORE-9): caches the application shell only, so the app opens offline and says it is offline. API
 // responses, the catalog and the session are never cached (every figure shown comes from the server, live).
 const VERSION = 'bnx-shell-0.9.5-p2';

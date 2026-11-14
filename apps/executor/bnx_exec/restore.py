@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Restore of a ``pg_dump --format=custom --data-only`` archive into a prepared target (UA V1.2 §9.3 step 9).
 
 The target is bootstrapped (B001, B002, B003) and migrated by the runner to exactly the recorded migration versions before

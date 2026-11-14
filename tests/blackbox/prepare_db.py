@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Fresh database for the black-box suite: B001 + migrations (bnx_migrator) + installer steps only.
 Prints {"db":..., "host":..., "port":...}. Usage: prepare_db.py pg16|pg17"""
 import json, os, sys, uuid

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """G0 offline suite (R6.2-R1). Every security/accounting claim is exercised through the intended identity:
 bnx_app (cmd_*/q_* with real session or bearer credentials), bnx_authn, bnx_worker, bnx_migrator, bnx_backup.
 The migrator under SET ROLE bnx_definer is used ONLY for (a) installer steps and (b) "defence-in-depth" probes that

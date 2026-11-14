@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Unit tests for the Gateway modules that need no database (CORE-7, AIH): SigV4 presigning (AWS published vector), the JSON
 // Schema subset, binding evaluation B1/B2/B3/B8, JWKS rotation, the dispatcher's unknown-kind path (AT-Q-02), the MCP tool set and OAuth metadata.
 import { test } from 'node:test';

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 9011R tests: remediation of the 9011/G0R same-family review of 2026-11-11 (45 findings R-01...R-45;
 docs/s4/S4_9011R_Remediation_2026-11-11.md). Each test names the findings it closes. The detector findings R-01...R-05 and
 R-41...R-43 are also covered by the corpus (tests/fixtures/s4/sin_corpus_v1.json 1.1.0, AT-SIN-11/12 in run_s4_core5.py);

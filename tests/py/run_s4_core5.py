@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 5 tests: 9011a SIN/ITN detector and database guards (Addendum A1 Rev 1 §3, §7 DOC-SIN-10, guards C1, C2,
 C6). Conventions as run_g0.py. Generated corpus values are synthetic and are never written to evidence: evidence holds case ids,
 rule codes and counts only.

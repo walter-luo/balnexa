@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Balnexa migration runner (R6.2-R1, AUD-049).
 
 Connects as the restricted migrator identity (bnx_migrator: LOGIN, NOINHERIT, member of bnx_definer WITH INHERIT FALSE,

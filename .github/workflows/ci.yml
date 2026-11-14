@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 # Balnexa CI (S4 INS-1, partial): secret scan + the full database and API test suites on PostgreSQL 16 and 17 (PGDG builds,
 # with pg_dump/pg_restore of the same major). Synthetic data only; no secrets, no cloud resources, no deployment.
 name: ci
@@ -26,6 +28,8 @@ jobs:
           fi
       - name: SIN/ITN candidates in tracked files and history (guard C6, Addendum A1 Rev 1)
         run: python3 tools/s4/sin_repo_scan.py --all-history
+      - name: license headers (CR-3; holder from NOTICE)
+        run: python3 tools/s4/license_headers.py --check
       - name: release manifest (INS-1; deploy rule, N-1 range, immutable migrations)
         run: python3 tools/s4/release_manifest.py --check
       - name: release files and signature (INS-1; the signature gate is at install, --require-signed; here it is reported)

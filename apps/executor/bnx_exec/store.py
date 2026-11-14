@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Object stores of the Executor.
 
 ``LocalStore`` keeps objects in a directory tree (local runs and tests; the Worker's node adapter serves the same tree as its

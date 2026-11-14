@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 14 tests: CORE-7 Gateway support in migration 9017 — the bnx-tools/1.0 catalog generated into
 COMMENT ON FUNCTION (AIH V1.2 §2, DD-21), binding facts for B1/B2/B3/B8 (Amendment 03 §5.2, AE V1.2 §6), B7 audience in
 bnx.resolve_actor, deferral of unknown work-item kinds (UA V1.2 §9.1, AT-Q-02) and the presigned-upload target (UA §8.1,

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Install one Balnexa instance database and render the Worker configuration (M0-A / M0-C-06; IL V1.2 §3; UA V1.2 §6.2).
 
 Runs as the installer identity: a NON-superuser role with CREATEROLE and CREATEDB that owns the database (the Neon project

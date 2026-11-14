@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """External verifier of the Balnexa audit chain (G0 findings F-01 and F-06, G0R 2026-11-11).
 
 bnx.audit_verify() and bnx.audit_privileges() are functions owned by bnx_definer, so the owner path (bnx_migrator ->

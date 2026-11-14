@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 phase 2 tests: TST-5 mock providers and DOC-2 Executor document pipeline (migration 9025: DOC_PROCESS work order and
 the due list). The Executor handlers run for real (apps/executor/bnx_exec/docjobs.py) against the mock Drive
 (providers.MockDrive) in a temporary directory; the lease, due list and completion go through a shim that makes the Gateway's

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q8 XLSX hiding places."""
 from common import *
 import openpyxl

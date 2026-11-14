@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Synthetic SIN/ITN detector corpus (guard C1/C6; Addendum A1 Rev 1 §11).
 
 tests/fixtures/s4/sin_corpus_v1.json holds templates only. The nine-digit values are generated here, deterministically, at

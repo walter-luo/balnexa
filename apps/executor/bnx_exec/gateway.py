@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Executor side of the lease protocol (UA V1.2 §9.2; S4B-F12).
 
 The Executor never holds a posting-capable credential. For every job it asks the Gateway for a lease

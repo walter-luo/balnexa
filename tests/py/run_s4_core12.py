@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 12 tests: 9013 report families F1-F7, R09 cash flow, R30 review queue, R31 traceability, snapshot status and
 artifacts (UA V1.2 §5.8; OR-R-02...06; crosswalk V1.1). Golden oracles: every expected figure below is derived by hand from the
 postings of `world()` (comments show the arithmetic), never read back from the database. Synthetic data only.

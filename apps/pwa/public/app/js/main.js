@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Balnexa PWA (S4 CORE-9; UA V1.2 §12; Owner Requirements OR-U-01…08, OR-X-05). Plain ES modules, no build step and no
 // third-party code. Every screen works with every AI host and every LLM service unreachable: the page talks only to this
 // origin (and to Google Identity Services on the sign-in screen); there is no AI route anywhere in it (AT-NOAI-00).

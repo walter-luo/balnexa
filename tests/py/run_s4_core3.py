@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 3 tests: 9008 economic-type rules and chunked plan posting, 9009 OAuth (fixes, refresh, DCR, legacy
 scope boundary). Conventions as run_g0.py. Usage: run_s4_core3.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""
 import argparse, base64, hashlib, json, os, sys, threading, time, traceback, uuid

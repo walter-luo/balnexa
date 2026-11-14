@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Balnexa Worker (Gateway). Thin transport: every financial and authorization decision is made inside PostgreSQL by
 // bnx.cmd_* / bnx.q_* / bnx.authn_* / bnx.wrk_* (SECURITY DEFINER) under the matching login role.
 // Routes: POST /auth/google/callback, POST /auth/logout, POST /api/v1/commands/:name, POST /api/v1/queries/:name,

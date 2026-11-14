@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Node adapter for local G0 black-box tests: runs the Workers module (fetch/scheduled) behind node:http with one pg Pool
 // per database login role and an in-memory KV. In Cloudflare the same module receives a Neon serverless driver and a
 // KV namespace binding (M0-A/M0-C pending; not executed here).

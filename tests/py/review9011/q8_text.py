@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q8 text formats, encodings, format sniffing (name/extension overrides), OFX."""
 from common import *
 from PIL import Image

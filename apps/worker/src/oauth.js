@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // OAuth 2.1 Authorization Server and Resource Server metadata of the Gateway for AI hosts (AIH V1.2 §4; UA V1.2 §7.2, §8;
 // AIH-1). Every decision about clients, codes, tokens and consent is made in PostgreSQL (bnx.authn_* as bnx_authn,
 // bnx.cmd_approve_ai_connection under the PWA session); this module only speaks the protocol:

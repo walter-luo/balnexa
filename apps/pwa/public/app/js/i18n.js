@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Bilingual catalogs (OR-U-06, OR-U-08): internal keys are English; the language changes display text only, never an
 // identity, a balance or a calculation. The choice is a per-viewer convenience kept in localStorage when it is available.
 const LANGS = { en: 'en', zh: 'zh-Hans' };

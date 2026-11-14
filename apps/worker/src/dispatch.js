@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Cron dispatcher (AUD-046). Neon is the queue authority; KV carries hints only and is never "cleared".
 //   KV bnx:hint     = latest queue generation reported by a producer after its COMMIT (last-writer-wins, may be stale)
 //   KV bnx:drained  = drained_generation last reported by Neon to a dispatcher

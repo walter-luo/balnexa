@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Google ID-token verification with WebCrypto (available in Cloudflare Workers and Node >= 20).
 // Production: the key set comes from jwksResolver() (Google's JWKS endpoint, cached in isolate memory, refetched on an
 // unknown kid); tests inject a synthetic JWKS or a resolver with a fake fetch. Only RS256 is accepted; alg "none" and HS*

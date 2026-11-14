@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Guards C4 (MCP and, since RV-AIH-02, the Business API for AI bearers) and C3 against the real Worker module with a mocked database (no network, no real data).
 // stdin: {"values": [...], "clean": "..."}; the mock q_balances returns a label containing values[i]. Prints a JSON summary
 // without any value. Used by tests/py/run_s4_core5.py (AT-SIN-C4).

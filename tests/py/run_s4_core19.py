@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 phase 2 tests: 2.8 part 3 curated MCP output schemas (migration 9032) and INS-1 signed releases
 (tools/s4/release_sign.py; deploy/install_instance.py --require-signed). Synthetic data only.
 Usage: run_s4_core19.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Synthetic household fixture built ONLY through production entry points:
 installer step (migrator) -> authn_begin_session (bnx_authn) -> cmd_* (bnx_app). No t.* helpers, no superuser."""
 import json, secrets, uuid

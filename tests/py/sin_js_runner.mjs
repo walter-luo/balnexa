@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Runs the Worker detector over cases read from stdin (JSON array of {id, kind, origin, input}); prints {id: hits}.
 // Used by tests/py/run_s4_core5.py (AT-SIN-11 parity). Values come from the generated corpus and are never printed.
 import { scan, scanJson } from '../../apps/worker/src/sin_detector.js';

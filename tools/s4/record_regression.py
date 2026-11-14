@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Keep the record of one full local regression run in the repository (Owner instruction 2026-11-12 16:08: "自我测试不要减少，
 测试记录要保留，保留在GitHub" — do not reduce self-testing; keep the test records, in GitHub, so that tests are not repeated
 after go-live).

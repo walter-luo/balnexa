@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Intake jobs: shared-index consumer (INT-2) and exact mail retrieval (INT-3). Contracts: migration 9010
 (wrk_consume_shared_index, wrk_mail_evidence_registered, wrk_mail_move_result), 9011 (index payloads are masked at staging)
 and 9026 (work orders and due lists).

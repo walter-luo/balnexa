@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Headless PWA acceptance suite (S4 CORE-9; TST-3 subset; Owner Requirements OR-U-01…08, OR-T-01): the real PWA in Chromium
 // against the real Worker and a real PostgreSQL database, with every AI route and every other host blocked and recorded.
 // AT-NOAI-00 (no hidden LLM call, no external request), AT-NOAI-01…08 (one per menu item), AT-MENU-01…03, AT-CAL-01,

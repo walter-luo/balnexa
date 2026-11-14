@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 16 tests: CORE-9 database support in migration 9019 (q_ledger_accounts for PWA Quick Entry) and the
 catalog delta blocks (D-CORE9-2). The PWA itself is tested headless by tests/pwa/pwa.test.mjs. Synthetic data only.
 Usage: run_s4_core16.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Executor document validator: the transient SIN/ITN scan of zone Z1 (Addendum A1 Rev 1 §3, §5, §7 DOC-SIN-01/02/03/07).
 
 Everything happens in memory: no temporary file is written by this module, and the OCR engine reads the image from stdin and

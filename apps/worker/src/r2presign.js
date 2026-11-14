@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // AWS Signature Version 4 query-string presigning (UA V1.2 §8.1, OBJ-271; AT-EV-01): a presigned R2 PUT so evidence bytes
 // never pass through the Worker (1 MB body limit; DIF-080). Cloudflare R2 speaks the S3 API with region "auto".
 // Gated by O-7: the Gateway serves /api/v1/uploads only when R2_* settings are configured.

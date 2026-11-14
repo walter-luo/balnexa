@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q8 image hiding places (PNG and JPEG are the only accepted image formats)."""
 from common import *
 from PIL import Image, ImageDraw, ImageFont, PngImagePlugin

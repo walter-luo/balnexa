@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 11 tests: 9012d matching MR-08...MR-13, onboarding job / file / history states, import mappings, payment
 attributes and cross-source matches (UA V1.2 §5.6; BNX-S2-02; Draft-04 §C4/§C5, SHA-256 4ad49225...). Source rows, evidence
 objects and clearing items are inserted as the definer, as document extraction and plans would leave them. Synthetic data

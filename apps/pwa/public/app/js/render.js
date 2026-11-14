@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // The three generic renderers of the PWA (CORE-9): a form from a catalog entry's input_schema, a table for any list of
 // records (filter, sort, CSV export), and a detail view for any record. Every task in the closed menu that has no daily
 // screen of its own is served by these three, so no menu entry is a dead end (OR-U-01, "smallest reusable UI").

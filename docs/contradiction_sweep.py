@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """G0-09 machine-checked contradiction sweep (R6.2-R1 + AI-first reconciliation).
 Usage: contradiction_sweep.py --r1 <R1 package root> --recon <reconciliation root> --d04 <dir with Draft-04 documents>
 Each check prints PASS/FAIL with the offending values; exit 1 on any FAIL."""

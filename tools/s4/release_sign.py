@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """INS-1 signed releases (WP matrix V1.2 phase 2.6; IL V1.2 §4): a detached Ed25519 signature over release/manifest.json.
 
 The manifest already pins every migration by SHA-256, the Worker release and its schema range, and the SBOM, so one signature

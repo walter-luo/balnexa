@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 2 tests: 9005 audit chain v2, 9006 registry/policy/accounts, 9007 module-flag enforcement.
 Conventions as run_g0.py / run_s4_core1.py. Usage: run_s4_core2.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""
 import argparse, json, os, sys, time, traceback, uuid

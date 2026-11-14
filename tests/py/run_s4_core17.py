@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 17 tests: AIH-1/AIH-2 database support in migration 9021 (client and redirect check, host-profile inference
 for DCR/CIMD, the PWA connection list, host provenance from the connection). The HTTP surface (OAuth endpoints, MCP server,
 consent) is tested by tests/blackbox/api.test.mjs and tests/pwa/pwa.test.mjs. Synthetic data only.

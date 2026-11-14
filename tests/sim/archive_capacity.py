@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """AUD-047 capacity model: second-copy (Drive) backlog under the Cloud Run egress admission meter.
 Inputs from the Draft-04 Cost Model (P-02 Cloud Run outbound: 1 GiB/month free NA, pause at 0.8 GiB; other egress
 ~50 MB/month, ~0.6 GB in a drill month) and Architecture C2.8. egress_factor = Cloud Run outbound bytes per evidence

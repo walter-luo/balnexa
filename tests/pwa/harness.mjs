@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Shared set-up of the headless PWA suite: a fresh database (tests/blackbox/prepare_db.py), the real Worker module on a
 // local HTTP server (node adapter) serving apps/pwa/public as its ASSETS binding, synthetic Google-style ID tokens, and
 // sessions for the Owner, a member without can_post and a viewer. No helper touches the database directly.
