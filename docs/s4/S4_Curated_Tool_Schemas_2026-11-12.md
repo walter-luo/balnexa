@@ -76,7 +76,42 @@ Output schemas for 5 more read tools: `fin.fx.rate`, `reports.snapshot.list`, `r
 
 **Output contract (AT-OUT-02).** `tests/py/jsonschema_lite.py` holds the validator port and `check_output`. The harness calls it on every `bnx_app` call of a tool with an output schema, in **every** Python suite, so the whole regression is the contract test: every fixture of every suite exercises the schemas, including the loan, card, investment, onboarding and snapshot scenarios. A mismatch fails the calling test with the path and no value. AT-OUT-01 keeps calling the field-level tools explicitly.
 
+## Sixth part (migration 9035): field-level schemas for the 9034 tools
+
+`DRAFT — AI-generated`, 2026-11-12. Release 0.9.1-p2 (extension range 9034–9035).
+
+**What changed.** The 12 read tools of 9034 now have field-level output schemas with required keys, like those of 9032/9033. Each schema was derived from the tool's function body and the column definitions behind it (D-OUT-3):
+- **Required keys** are the keys the body always builds with `jsonb_build_object`. Inside `jsonb_strip_nulls` objects, a key is required only when its column or expression is never null.
+- **Null** is allowed where the body can produce it: for example `position` and `refusal` of the loan position, `reporting` of the investment position, `anchor_date` of the coverage, and `projection_digest_verified` of a replay.
+- **Enums** come from the table CHECK constraints and the body's own literals: proposal and exception states, classifications, phases, loan status (`OK`, `REJECTED`, `TERMS_UNVERIFIED`), card calculation and fee status, valuation status, and the warning codes.
+- **Nested items** are typed: proposals, observations and conflicts, statements and gaps, exceptions, instruments (realized, valuation, reporting), rounding events, transfer-matching rows and decisions, and onboarding histories and plans. A replay's `rows` reuse the `q_balances` row schema, because both come from `bnx.balance_rows`.
+- `match_trace` (proposals), `candidates` (transfer matching), `criteria` and `evidence` (exceptions) and `scope` (onboarding) stay untyped or `object`: they are explanatory structures, so D-OUT-1 still applies.
+
+**How it was checked.**
+1. **Offline.** A full PG16 + PG17 run of every Python suite captured 166 results of these tools (the harness writes each checked result when `BNX_CAPTURE_OUT` is set; the capture is synthetic and never committed). All 166 conform; 0 violations.
+2. **AT-OUT-03** (`run_s4_core19.py`) calls all 12 tools as the Owner in the PWA and, where the consent allows, as an AI connection. It builds the branches the other suites do not reach:
+   - a loan without terms (`TERMS_UNVERIFIED`);
+   - a loan with a due date: not overdue before it, overdue after it, and `REJECTED` before its start;
+   - a partial view: the AI connection sees only the receivable side;
+   - a coverage gap in February;
+   - a snapshot artifact that is `CURRENT`, then `STALE` after a backdated posting in scope, with the replay still verified;
+   - a card without a fee policy (`NO_POLICY`);
+   - evidence access denied over MCP.
+
+   Every result must conform to the schema stored in the catalog, and the catalog must equal the overrides.
+3. **Negative check (one-off):** with `position.overdue` made non-nullable, AT-OUT-03 fails.
+4. **AT-OUT-02** still validates every `bnx_app` call in every suite, now against the field-level schemas.
+
+AT-OUT-01 keeps the 23 tools of 9032/9033; the 12 tools of 9035 are AT-OUT-03's.
+
+### Limits
+
+| ID | Limit | Follow-up |
+|---|---|---|
+| L-OUT-6-1 | No public command sets `posting_plan.job_id` yet, so an onboarding job's `plans` is always empty in the suites. Its item schema (`plan_id`, `kind`) follows the table definition but no fixture exercises it | Exercise it when the onboarding pipeline creates plans for a job |
+| L-OUT-6-2 | A replay whose digest does not verify (`projection_digest_verified: false`) is not reachable through the commands; the schema allows it | none needed |
+
 ## Remaining
 
 - The MCP-reachable commands other than the draft tools keep derived input schemas: they are RC-ADMIN or PWA-first.
-- Field-level schemas for report rows and for the 9034 tools, one at a time; the harness contract already covers them (D-OUT-1).
+- Field-level schemas for report rows and the explanatory structures above, one at a time (D-OUT-1).

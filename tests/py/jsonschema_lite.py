@@ -86,6 +86,10 @@ def check_output(fn, result):
     s = output_schemas().get(fn)
     if s is None:
         return
+    cap = os.environ.get("BNX_CAPTURE_OUT")   # optional: keep every checked result (one JSON line each) for offline schema
+    if cap:                                   # work such as D-OUT-1; synthetic test data only, never committed
+        with open(cap, "a") as f:
+            f.write(json.dumps({"fn": fn, "result": result}, default=str) + "\n")
     e = validate(s, result if isinstance(result, dict) else {"result": result})
     if e:
         raise OutputContractError(f"OUTPUT_SCHEMA_MISMATCH {fn} at {e[0]}: {e[1]}")
