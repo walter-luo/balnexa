@@ -13,7 +13,7 @@ This document describes how such a folder is laid out and how an AI assistant ma
 | **Data owner** | The household member who receives and uploads the documents | `20-Inbox` only | everything |
 | **AI assistant** | An AI working on the data owner's behalf | every folder except `20-Inbox` | everything |
 
-The roles are a convention. If the AI works through the data owner's own account, the storage cannot tell them apart and cannot enforce the rule. §5 describes how integrity is still checked. A household that wants the rule enforced gives the AI a separate account: read-only on `20-Inbox`, and edit rights on the other folders. Some AI connectors can edit only the files the AI itself created, which enforces the rule in practice; check what the connector in use reports rather than assume it.
+The roles are a convention. If the AI works through the data owner's own account, the storage cannot tell them apart and cannot enforce the rule. §5 describes how integrity is still checked. A household that wants the rule enforced gives the AI a separate account: read-only on `20-Inbox`, and edit rights on the other folders. Some AI connectors can edit only the files the AI itself created, which enforces the rule in practice; check what the connector in use reports rather than assume it (OD-DATA-6).
 
 ## 2. Folders
 

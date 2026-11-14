@@ -29,10 +29,16 @@ Recorded from the Owner's message of 2026-11-14 09:57: "要，继续" (yes, cont
 
 | ID | Decision | Effect |
 |---|---|---|
-| OD-DATA-3 | The public convention records OD-DATA-1 and OD-DATA-2 | This change. It also carries two additions proposed by the AI: a note in §1 that some connectors can edit only files the AI created (awaiting the Owner's review), and the import rule accepted as OD-DATA-5 |
+| OD-DATA-3 | The public convention records OD-DATA-1 and OD-DATA-2 | This change. It also carries two additions proposed by the AI: a note in §1 that some connectors can edit only files the AI created (accepted as OD-DATA-6), and the import rule accepted as OD-DATA-5 |
 
 Recorded from the Owner's message of 2026-11-14 11:18: "同意" (agreed), in reply to the consequence of the import rule: a row whose sha256 is deferred cannot be imported until a tool has computed and checked it.
 
 | ID | Decision | Effect |
 |---|---|---|
 | OD-DATA-5 | **No import with deferred sha256.** A row whose sha256 was deferred under OD-DATA-2 is not imported into Balnexa (`IMPORTED`) until sha256 has been computed for the original and the copy and the two match | `Data_Folder_Convention.md` §5 |
+
+Recorded from the Owner's message of 2026-11-14 12:03, which quoted "同意" (agreed) in reply to the question about the §1 connector note.
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-6 | The §1 note stays: some AI connectors can edit only files the AI itself created, which enforces the `20-Inbox` rule in practice; what the connector reports is checked, not assumed | `Data_Folder_Convention.md` §1 |
