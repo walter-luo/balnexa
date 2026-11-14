@@ -34,6 +34,9 @@ Work adversarially.
 
 ### Environment
 
+**Supported platform: Linux x86-64** (natively, in WSL2, or in a Docker/VM Linux guest). The Executor's pinned wheels are manylinux only, and the test harness is not supported on native Windows or macOS. If you only have native Windows, stop and report `NOT_EXECUTED` with that reason, rather than adapting the set-up.
+
+
 - **PostgreSQL 16 and 17** with clusters on these sockets and ports (or set `BNX_PG16` / `BNX_PG17` to libpq DSNs):
 
   ```bash
