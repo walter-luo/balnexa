@@ -644,6 +644,21 @@ test('AT-OFF-01 offline drafts only (Owner decision 2026-11-12): a member draft 
   await o.context().setOffline(false);
 });
 
+test('AT-ONB-UI-01 onboarding screen: start a job, see it listed with its state, pause and resume it, open its detail', async () => {
+  const p = await page(owner);
+  await open(p, 'onboarding');
+  assert.equal(await p.textContent('main h1'), 'Onboarding');
+  await p.fill('#onb-title', 'Synthetic history 2025');
+  await p.click('#onb-new button[type=submit]');
+  await p.waitForFunction(() => /Job detail/.test(document.querySelector('main').textContent));
+  assert.match(await p.textContent('main table'), /Synthetic history 2025[\s\S]*ONB-DRAFT/);
+  await p.click('button:has-text("Pause")');
+  await p.waitForFunction(() => /ONB-PAUSED/.test(document.querySelector('main table').textContent));
+  await p.click('button:has-text("Resume")');
+  await p.waitForFunction(() => /ONB-DRAFT/.test(document.querySelector('main table').textContent));
+  assert.deepEqual(p.errors, []);
+});
+
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {
   const external = contexts.flatMap((c) => c.log.external);
   const ai = contexts.flatMap((c) => c.log.ai);

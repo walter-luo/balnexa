@@ -27,7 +27,8 @@
   "q_backup_status": "Backup runs, drills, keys, evidence verification and the O-8 anchor precondition",
   "q_cost_status": "Usage, ceilings, capacity state and admissions of a billing month",
   "cmd_post_transaction": "Post a balanced journal (PWA only)",
-  "cmd_create_account": "Create an account with its account-currencies"
+  "cmd_create_account": "Create an account with its account-currencies",
+  "q_onboarding_jobs": "Onboarding jobs the caller may see, newest first: kind, title, start policy and state (PWA only)"
  },
  "names": {
   "q_ai_connections": "sys.ai_connections",

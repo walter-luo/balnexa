@@ -609,6 +609,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.digitless_id",
     # 9025 DOC-2 Executor due list, not in the V1.2 register (D-DOC2-1)
     "bnx.wrk_exec_due", "bnx.mail_route_folder",
+    # 9027 CORE-9 onboarding job list (D-ONB-1)
+    "bnx.q_onboarding_jobs",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
