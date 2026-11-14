@@ -1,0 +1,149 @@
+TAP version 13
+# browser: playwright bundled version 153.0.8010.12
+# Subtest: AT-UI-00 shell: served from the Gateway with a same-origin CSP, no camera/microphone, and the catalog-driven menu
+ok 1 - AT-UI-00 shell: served from the Gateway with a same-origin CSP, no camera/microphone, and the catalog-driven menu
+  ---
+  duration_ms: 1168.899377
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-01 item 1: identity and sign-in state without any AI host; signed-out visitor sees only the sign-in screen
+ok 2 - AT-NOAI-01 item 1: identity and sign-in state without any AI host; signed-out visitor sees only the sign-in screen
+  ---
+  duration_ms: 2014.929219
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-02 item 2: accounts and balances; account creation through the generic form renderer
+ok 3 - AT-NOAI-02 item 2: accounts and balances; account creation through the generic form renderer
+  ---
+  duration_ms: 1610.963874
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-03 item 3: Quick Entry posts an expense and an income; reversal from the transaction view
+ok 4 - AT-NOAI-03 item 3: Quick Entry posts an expense and an income; reversal from the transaction view
+  ---
+  duration_ms: 1993.066431
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-04 item 4 + AT-CONF-01…03: member draft, sealed confirmation link, exact-version Owner approval
+ok 5 - AT-NOAI-04 item 4 + AT-CONF-01…03: member draft, sealed confirmation link, exact-version Owner approval
+  ---
+  duration_ms: 3330.582494
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-05 item 5: reconciliation coverage and transfer matching through the generic renderers
+ok 6 - AT-NOAI-05 item 5: reconciliation coverage and transfer matching through the generic renderers
+  ---
+  duration_ms: 1544.062862
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-06 item 6: F1 table with filter and CSV export (formula-safe); R-BAL snapshot created and listed
+ok 7 - AT-NOAI-06 item 6: F1 table with filter and CSV export (formula-safe); R-BAL snapshot created and listed
+  ---
+  duration_ms: 1707.305898
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-07 item 7: backup and restore status for the Owner; Owner-only tasks hidden for a viewer (AT-MENU-03)
+ok 8 - AT-NOAI-07 item 7: backup and restore status for the Owner; Owner-only tasks hidden for a viewer (AT-MENU-03)
+  ---
+  duration_ms: 2255.864773
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-08 + AT-HX-01…08 item 8 handoff screens: prepare, privacy, mark sent, ACK match, import as draft, dedupe, tamper, one-sided, no AI
+ok 9 - AT-NOAI-08 + AT-HX-01…08 item 8 handoff screens: prepare, privacy, mark sent, ACK match, import as draft, dedupe, tamper, one-sided, no AI
+  ---
+  duration_ms: 8185.296284
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-07b item 7 audit trail: the Owner sees the household chain, a member only their own events
+ok 10 - AT-NOAI-07b item 7 audit trail: the Owner sees the household chain, a member only their own events
+  ---
+  duration_ms: 1786.610845
+  type: 'test'
+  ...
+# Subtest: AT-IDEM-01 Gateway idempotency keys: a key with a Luhn-valid 9-digit run is accepted, replays, and conflicts on another body
+ok 11 - AT-IDEM-01 Gateway idempotency keys: a key with a Luhn-valid 9-digit run is accepted, replays, and conflicts on another body
+  ---
+  duration_ms: 29.757482
+  type: 'test'
+  ...
+# Subtest: AT-MENU-01/02 closed menu: items 1-8 + Settings; every PWA catalog entry reachable; an entry missing from the catalog is not shown
+ok 12 - AT-MENU-01/02 closed menu: items 1-8 + Settings; every PWA catalog entry reachable; an entry missing from the catalog is not shown
+  ---
+  duration_ms: 734.427202
+  type: 'test'
+  ...
+# Subtest: AT-CAL-01 calendar: daily counts and totals, drill-down, and the same day in Toronto and Shanghai
+ok 13 - AT-CAL-01 calendar: daily counts and totals, drill-down, and the same day in Toronto and Shanghai
+  ---
+  duration_ms: 2995.842311
+  type: 'test'
+  ...
+# Subtest: AT-UI-01 bilingual: 中文 switches every screen label and the document language; identities and amounts unchanged
+ok 14 - AT-UI-01 bilingual: 中文 switches every screen label and the document language; identities and amounts unchanged
+  ---
+  duration_ms: 2300.989258
+  type: 'test'
+  ...
+# Subtest: AT-A11Y-01/02 accessibility: axe-core finds no serious or critical violation on any screen; keyboard skip link and focus
+ok 15 - AT-A11Y-01/02 accessibility: axe-core finds no serious or critical violation on any screen; keyboard skip link and focus
+  ---
+  duration_ms: 10117.844814
+  type: 'test'
+  ...
+# Subtest: AT-UI-02 offline: the service worker serves the shell and the app says it is offline; no figure is shown from a cache
+ok 16 - AT-UI-02 offline: the service worker serves the shell and the app says it is offline; no figure is shown from a cache
+  ---
+  duration_ms: 1073.6154
+  type: 'test'
+  ...
+# Subtest: AT-AIH-10 consent screen (AIH-1): an AI host is allowed only the scopes and accounts the Owner ticks; deny; revoke in Settings (OR-AIH-06, OR-M-05)
+ok 17 - AT-AIH-10 consent screen (AIH-1): an AI host is allowed only the scopes and accounts the Owner ticks; deny; revoke in Settings (OR-AIH-06, OR-M-05)
+  ---
+  duration_ms: 1453.36784
+  type: 'test'
+  ...
+# Subtest: AT-CONF-01/02 via the AIH-4 card: a host renders the draft from the server result as text only; Confirm opens the sealed PWA link; the Owner approves that version
+ok 18 - AT-CONF-01/02 via the AIH-4 card: a host renders the draft from the server result as text only; Confirm opens the sealed PWA link; the Owner approves that version
+  ---
+  duration_ms: 1000.583645
+  type: 'test'
+  ...
+# Subtest: AT-UP-01 / AT-DOC-UI-01 upload widget and Documents screen: uploads not set up here; empty redaction queue for the Owner; a member is refused
+ok 19 - AT-UP-01 / AT-DOC-UI-01 upload widget and Documents screen: uploads not set up here; empty redaction queue for the Owner; a member is refused
+  ---
+  duration_ms: 2168.111499
+  type: 'test'
+  ...
+# Subtest: AT-OFF-01 offline drafts only (Owner decision 2026-11-12): a member draft is queued on the device and sent once back online; an Owner posting is never queued
+ok 20 - AT-OFF-01 offline drafts only (Owner decision 2026-11-12): a member draft is queued on the device and sent once back online; an Owner posting is never queued
+  ---
+  duration_ms: 1913.353431
+  type: 'test'
+  ...
+# Subtest: AT-ONB-UI-01 onboarding screen: start a job, see it listed with its state, pause and resume it, open its detail
+ok 21 - AT-ONB-UI-01 onboarding screen: start a job, see it listed with its state, pause and resume it, open its detail
+  ---
+  duration_ms: 1008.955658
+  type: 'test'
+  ...
+# Subtest: AT-SETUP-01 account setup screen (W-M01): registry search, Owner propose-and-verify, account with opening balance, category; Quick Entry and F1 see them
+ok 22 - AT-SETUP-01 account setup screen (W-M01): registry search, Owner propose-and-verify, account with opening balance, category; Quick Entry and F1 see them
+  ---
+  duration_ms: 2969.034268
+  type: 'test'
+  ...
+# Subtest: AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite
+ok 23 - AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite
+  ---
+  duration_ms: 0.427769
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 57610.246548
