@@ -75,6 +75,30 @@
    - `/.well-known/oauth-protected-resource/mcp` answers.
 9. **AI hosts** (POC-AUTH, granted 2026-11-12). Add a Claude custom connector with the URL `<url>/mcp`; it registers by DCR. Consent happens in the PWA. Then run PV-AIH-01…08 and PV-UI-01…03 with synthetic data.
 
+## Upgrade to a newer release (re-run)
+
+Re-running the step 4 command with the same arguments is the upgrade:
+- it applies the new migrations;
+- it skips the install and the activation that are already done;
+- it re-renders `wrangler.toml` with the activated digest.
+
+Then deploy the Worker (step 5). No secret upload is needed when the passwords are unchanged.
+
+| Order | Step | Why |
+|---|---|---|
+| 0 | Check the target: `release_sign.py check-files`, and `--plan`, which shows the release state | The migration files must match the manifest |
+| 1 | **Neon backup branch** of the current state (connector `create_branch`; non-destructive) | Rollback point. Recoverable without touching the main branch |
+| 2 | Re-run the installer: migrations to the new head | The old Worker fails closed (B3: the database head is outside its range) from here until step 3. API and MCP answer 503 `BNX_BINDING_MISMATCH`, so nothing can be written in between |
+| 3 | Deploy the new Worker (`wrangler deploy`) | Its range (N-1..N) includes the new head; `GET /api/v1/health` shows `bindings.ok` |
+| 4 | Checks as in step 8 | — |
+
+A one-migration step could keep serving through the N-1 range: deploy the Worker first, then migrate (UA §9.1). A jump of several migrations cannot, so it takes a short maintenance gap, made safe by B3 failing closed.
+
+**Rollback:**
+- Point the runtime secrets at the backup branch, or restore the main branch from it.
+- Redeploy the old Worker from its commit.
+- On a synthetic instance, a fresh install is also acceptable.
+
 ## Rollback and teardown
 
 | What | How |

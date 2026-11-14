@@ -10,7 +10,7 @@ Nothing here was run on Cloud Run, GCS, R2 or Neon.
 
 | Item | Owning milestone | Objective acceptance tests (must run before any claim) |
 |---|---|---|
-| Container images `bnx-exec` / `bnx-backup` (age, pg_dump/pg_restore 16+17, tesseract), Cloud Run Job definitions, job launch from the Worker tick | M0-A (cloud, after authorization) | M0-A-03/04 on Cloud Run: metadata-server ID token accepted by the Gateway; SIGTERM grace behaviour |
+| Container image: **`apps/executor/Dockerfile` written and built in CI** (`executor-image` job: tools present, package importable, a missing configuration exits 2). Still M0-A: digest pin, registry push, Cloud Run Job definitions, job launch from the Worker tick | M0-A (cloud, after authorization) | M0-A-03/04 on Cloud Run: metadata-server ID token accepted by the Gateway; SIGTERM grace behaviour |
 | GCS vault store and R2 store (replacing `LocalStore`) | M0-E / M0-B | M0-E-01…07, M0-B-01…07: real upload, generation, retention lock (O-8 only), re-download |
 | Neon drill branch provisioner | M0-E | AT-BKP-12/13 on Neon; SECURITY_REVIEW of the Neon API key (D-9016-7) |
 | Document handlers DOC_DISCOVER / DOC_PROCESS: **done against the mock Drive** (`docjobs.py`, `providers.py`; AT-DOC2-01). Real Drive client | M0-B (OD-50) | PV-DRV-01, M0-B-01…08 on the dedicated Drive identity |

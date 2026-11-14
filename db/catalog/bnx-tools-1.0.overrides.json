@@ -184,6 +184,67 @@
       "description": "An earlier draft this one replaces"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
+     }
+    }
    }
   },
   "cmd_draft_create_transfer": {
@@ -232,6 +293,67 @@
      "source_fingerprint": {
       "type": "string",
       "maxLength": 128
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
      }
     }
    }
@@ -338,6 +460,67 @@
       }
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "member_draft"
+      ],
+      "description": "ai_draft when an AI host created it"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
+     }
+    }
    }
   },
   "cmd_draft_validate": {
@@ -351,6 +534,43 @@
      "plan_id": {
       "type": "string",
       "format": "uuid"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "validation_result",
+     "hold_reasons",
+     "scope_digest"
+    ],
+    "properties": {
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validated_at_version": {
+      "type": [
+       "integer",
+       "null"
+      ],
+      "description": "Ledger version of this validation"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope"
      }
     }
    }
@@ -368,6 +588,22 @@
       "format": "uuid"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "status"
+    ],
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "withdrawn"
+      ],
+      "description": "The draft was withdrawn; nothing was posted"
+     }
+    }
    }
   },
   "q_draft_get_for_confirmation": {
@@ -381,6 +617,117 @@
      "plan_id": {
       "type": "string",
       "format": "uuid"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "kind",
+     "state",
+     "plan_hash",
+     "scope_digest",
+     "hold_reasons",
+     "validation_result",
+     "items",
+     "approvable_by_me"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "state": {
+      "type": "string",
+      "description": "Draft state, e.g. frozen; only the Balnexa app approves and posts"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of the exact version shown"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$"
+     },
+     "hold_reasons": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Validation checks V-01…V-10: 'ok', 'n/a' or 'HOLD:<reason>'"
+     },
+     "items": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "The proposed entries, in order",
+      "items": {
+       "type": "object",
+       "properties": {
+        "seq": {
+         "type": "integer"
+        },
+        "economic_type": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "payload": {
+         "type": [
+          "object",
+          "null"
+         ]
+        },
+        "lines": {
+         "type": [
+          "array",
+          "null"
+         ]
+        }
+       }
+      }
+     },
+     "approvable_by_me": {
+      "type": [
+       "boolean",
+       "null"
+      ],
+      "description": "Whether the caller could approve it in the app"
+     },
+     "created_by": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "origin_channel": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "pwa or mcp"
      }
     }
    }
@@ -411,6 +758,68 @@
       ],
       "pattern": "^-?[0-9]{1,18}$",
       "description": "Read at this ledger version (replay)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "ledger_version",
+     "as_of",
+     "balances"
+    ],
+    "properties": {
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this with every figure"
+     },
+     "as_of": {
+      "type": "string",
+      "format": "date"
+     },
+     "balances": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "account_currency_id",
+        "currency",
+        "status"
+       ],
+       "properties": {
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "status": {
+         "type": "string",
+         "description": "ok, or why there is no figure (for example NO_OPENING)"
+        },
+        "amount": {
+         "type": [
+          "string",
+          "null"
+         ],
+         "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+         "description": "Decimal string in the currency; null when status is not ok"
+        }
+       }
+      }
+     },
+     "scope_warnings": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      },
+      "description": "Scopes left out of this view; label the answer as partial"
      }
     }
    }
@@ -507,6 +916,93 @@
       "description": "Last day, inclusive"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^R09/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "date_from": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "First day"
+     },
+     "date_to": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "Last day"
+     },
+     "by_currency": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Operating, investing and financing flows, keyed by currency"
+     }
+    }
    }
   },
   "q_evidence_access": {
@@ -541,6 +1037,98 @@
       "description": "A source (statement) transaction"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^R31/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "journal_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "source_rows": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Source (statement) rows with their statements and evidence"
+     },
+     "corrections": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Corrections of the journal"
+     },
+     "snapshots": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Report snapshots that include it"
+     }
+    }
    }
   },
   "q_f1_balances": {
@@ -559,6 +1147,98 @@
      },
      "reporting_currency": {
       "description": "ISO 4217 code for converted totals (default: the household's)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F1/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "rows": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "One row per account-currency: balance, status, latest statement, converted value"
+     },
+     "totals_by_currency": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Totals per currency (decimal strings)"
+     },
+     "total_reporting": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Total in the reporting currency; null when a rate is missing or no reporting currency"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
      }
     }
    }
@@ -592,6 +1272,107 @@
       "description": "Maximum rows"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F2/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "date_from": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "First day"
+     },
+     "date_to": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "Last day"
+     },
+     "rows": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Transactions with masked lines"
+     },
+     "calendar": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Inflow and outflow per day and currency"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
+     }
+    }
    }
   },
   "q_f3_income_expense": {
@@ -608,6 +1389,107 @@
       "format": "date",
       "type": "string",
       "description": "Last day, inclusive"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F3/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "date_from": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "First day"
+     },
+     "date_to": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date",
+      "description": "Last day"
+     },
+     "categories": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Income and expense per category"
+     },
+     "totals_by_currency": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Totals per currency"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
      }
     }
    }
@@ -631,6 +1513,91 @@
       "description": "ISO 4217 code for converted totals (default: the household's)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F4/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "accounts": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Investment accounts with positions and movements"
+     },
+     "maturities": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Not modelled yet (see scope_warnings)"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
+     }
+    }
    }
   },
   "q_f5_networth": {
@@ -647,6 +1614,112 @@
       "description": "ISO 4217 code for converted totals (default: the household's)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F5/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "basis": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Valuation basis"
+     },
+     "lines": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Assets and liabilities"
+     },
+     "totals_by_currency": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Totals per currency"
+     },
+     "reporting": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Converted total"
+     },
+     "by_owner": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Net worth per owner"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
+     }
+    }
    }
   },
   "q_f6_cards": {
@@ -660,6 +1733,84 @@
       "description": "Date of the figures (default: today)"
      }
     }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F6/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "cards": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Cards: owed balance, statements, annual-fee progress"
+     },
+     "evidence_refs": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Evidence to cite with the figures"
+     }
+    }
    }
   },
   "q_f7_reconciliation": {
@@ -671,6 +1822,105 @@
       "format": "uuid",
       "type": "string",
       "description": "An account-currency the connection may see (from fin.balances.as_of)"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^F7/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "account_currency_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "uuid"
+     },
+     "coverage": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Statement coverage periods"
+     },
+     "exceptions": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Reconciliation findings; report their classification exactly"
+     },
+     "transfer_matching": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Transfer matching state"
+     },
+     "open_clearing_items": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Open clearing items"
      }
     }
    }
@@ -822,6 +2072,84 @@
    "input": {
     "type": "object",
     "properties": {}
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "report",
+     "ledger_version",
+     "as_of",
+     "reporting_currency",
+     "fx_policy",
+     "fx_snapshot_ref",
+     "grants_digest",
+     "scope_warnings",
+     "rounding"
+    ],
+    "properties": {
+     "report": {
+      "type": "string",
+      "pattern": "^R30/1$",
+      "description": "Report family and definition version"
+     },
+     "ledger_version": {
+      "type": "integer",
+      "description": "Cite this ledger version with every figure"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date"
+     },
+     "reporting_currency": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Currency of converted figures; null means native currencies only"
+     },
+     "fx_policy": {
+      "type": "string",
+      "description": "How amounts were converted"
+     },
+     "fx_snapshot_ref": {
+      "type": "string",
+      "pattern": "^fx@[0-9]+$",
+      "description": "The FX data version used"
+     },
+     "grants_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the account-currencies this view covers"
+     },
+     "scope_warnings": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Not empty: label the answer as partial or incomplete"
+     },
+     "rounding": {
+      "type": "string"
+     },
+     "items": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "description": "Items waiting for review"
+     },
+     "counts": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Counts per kind"
+     }
+    }
    }
   },
   "q_reconciliation_coverage": {
@@ -955,8 +2283,59 @@
    "input": {
     "type": "object",
     "properties": {}
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "member_id",
+     "role",
+     "channel",
+     "scopes"
+    ],
+    "properties": {
+     "member_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "display_name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "role": {
+      "type": "string"
+     },
+     "channel": {
+      "type": "string"
+     },
+     "connection_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "The AI connection, for an AI host"
+     },
+     "scopes": {
+      "type": [
+       "array",
+       "null"
+      ],
+      "items": {
+       "type": "string"
+      }
+     },
+     "preference": {
+      "type": [
+       "object",
+       "null"
+      ]
+     }
+    }
    }
   }
  },
- "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'."
+ "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",
+ "note_output_schemas": "2.8 part 3 (9032): output schemas for the draft tools, fin.balances.as_of, sys.whoami and the report families F1-F7, R09, R30 and R31 (the common envelope of bnx.rpt_envelope is required; report-specific keys are typed and nullable). The Gateway refuses an MCP result that does not match (OUTPUT_SCHEMA_MISMATCH); AT-OUT-01 calls every tool with a curated output schema and validates the results (D-OUT-1)."
 }

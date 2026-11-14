@@ -40,6 +40,7 @@ function loadCatalog(c) {
   for (const e of c.entries || []) {
     if (!/^[a-z_]+\.(cmd|q)_[a-z_0-9]+$/.test(e.core_function || '')) continue;    // never trust a malformed comment
     checkSchema(e.input_schema);
+    if (e.output_schema !== undefined) checkSchema(e.output_schema);                  // 2.8 part 3: enforced on every MCP result
     byRest.set(e.rest, e);
   }
   return { sha256: c.catalog_sha256, format: c.format, entries: c.entries || [], byRest, uncatalogued: c.uncatalogued || [] };

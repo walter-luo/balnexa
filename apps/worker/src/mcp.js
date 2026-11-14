@@ -151,6 +151,13 @@ export async function handle(req, env, ctx) {
   const text = JSON.stringify(r);
   if (text.length > RESULT_LIMIT) return toolError(id, 'RESULT_TOO_LARGE', { limit: RESULT_LIMIT });
   const structured = r && typeof r === 'object' && !Array.isArray(r) ? r : { result: r };
+  // 2.8 part 3 (MCP tools: "servers MUST provide structured results that conform to this schema"): a result that does not
+  // match the advertised output schema is never returned as a success; the path is logged, never the value (D-OUT-2)
+  const off = e.output_schema ? validate(e.output_schema, structured) : null;
+  if (off) {
+    console.error(JSON.stringify({ event: 'OUTPUT_SCHEMA_MISMATCH', tool: e.name, path: off.path, reason: off.reason }));
+    return toolError(id, 'OUTPUT_SCHEMA_MISMATCH', { path: off.path });
+  }
   const content = [{ type: 'text', text }];
   // a draft's text fallback (hosts that draw no card): the sealed link; structuredContent stays the REST body (AT-AIH-01)
   if (e.ui_profile === 'draft_confirm' && structured.plan_id && structured.plan_hash && structured.scope_digest) {

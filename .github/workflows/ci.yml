@@ -28,6 +28,10 @@ jobs:
         run: python3 tools/s4/sin_repo_scan.py --all-history
       - name: release manifest (INS-1; deploy rule, N-1 range, immutable migrations)
         run: python3 tools/s4/release_manifest.py --check
+      - name: release files and signature (INS-1; the signature gate is at install, --require-signed; here it is reported)
+        run: |
+          python3 tools/s4/release_sign.py check-files
+          python3 tools/s4/release_sign.py verify || true
       - name: gitleaks (full history)
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose --exit-code 1
 
@@ -60,6 +64,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install "psycopg[binary]==3.2.3"
+      - name: release signing dependency (INS-1 AT-SIG-01; tools/s4/release_sign.py)
+        run: |
+          pip install --only-binary=:all: "cryptography==50.0.1"
       - name: Executor validator dependencies (9011c; PyPI with hashes, OCR engine and strace from Ubuntu)
         run: |
           pip install --require-hashes --only-binary=:all: -r apps/executor/requirements.txt
@@ -103,3 +110,21 @@ jobs:
             ci-evidence
             !ci-evidence/**/*.dump
           retention-days: 30
+
+  executor-image:
+    # M0-A preparation: the Executor image builds, and its tools and package are present (nothing is pushed or deployed)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: docker build -f apps/executor/Dockerfile -t bnx-exec:ci .
+      - name: smoke (tools and package; no credentials, no network calls)
+        run: |
+          docker run --rm --entrypoint sh bnx-exec:ci -c '
+            set -e
+            /usr/lib/postgresql/16/bin/pg_dump --version; /usr/lib/postgresql/17/bin/pg_restore --version
+            age --version; tesseract --version | head -1
+            python -c "import bnx_exec.jobs as j, bnx_exec.sin_detector as s; print(sorted(j.JOBS)); print(s.VERSION)"
+            id -u'
+          rc=0; docker run --rm bnx-exec:ci run --kind DOC_PROCESS || rc=$?
+          test "$rc" -eq 2                                                     # configuration error: no gateway configured

@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeDb, makeKv, makeR2, serve, worker } from '../../apps/worker/node/adapter.mjs';
+import { validate } from '../../apps/worker/src/schema.js';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -187,6 +188,27 @@ test('BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope', as
   }
   const bal = await rpc('tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } });
   assert.equal(bal.json.result.structuredContent.balances.length, 1);
+  // 2.8 part 3 (9032): curated output schemas are advertised and the real results conform to them over HTTP
+  const bt = list.json.result.tools.find((t) => t.name === 'fin_balances_as_of');
+  const wt = list.json.result.tools.find((t) => t.name === 'sys_whoami');
+  if (bt.outputSchema && bt.outputSchema.required) {
+    assert.deepEqual(bt.outputSchema.required, ['ledger_version', 'as_of', 'balances']);
+    assert.ok(ct.outputSchema.required.includes('plan_hash') && wt.outputSchema.required.includes('scopes'));
+    assert.equal(validate(bt.outputSchema, bal.json.result.structuredContent), null);
+    const who = await rpc('tools/call', { name: 'sys_whoami', arguments: {} });
+    assert.equal(validate(wt.outputSchema, who.json.result.structuredContent), null);
+    assert.equal(who.json.result.structuredContent.channel, 'mcp');
+    const dr = await rpc('tools/call', { name: 'fin_draft_create_transaction', arguments: { idempotency_key: 'bb-output-00001', account_currency_id: S.ac.account_currency_id,
+      transaction_date: '2026-03-01', economic_type: 'consumption_expense', amount: '-2.00', description: 'bb output schema',
+      lines: [{ ledger_account_id: S.ac.ledger_account_id, currency: 'CAD', amount: '-2.00' }, { ledger_account_id: S.groc, currency: 'CAD', amount: '2.00' }] } });
+    assert.equal(dr.json.result.isError, undefined, JSON.stringify(dr.json));
+    assert.equal(validate(ct.outputSchema, dr.json.result.structuredContent), null);
+    assert.equal(dr.json.result.structuredContent.kind, 'ai_draft');
+    const wdt = list.json.result.tools.find((t) => t.name === 'fin_draft_withdraw');
+    const wd = await rpc('tools/call', { name: 'fin_draft_withdraw', arguments: { idempotency_key: 'bb-output-00002', plan_id: dr.json.result.structuredContent.plan_id } });
+    assert.deepEqual(wd.json.result.structuredContent, { status: 'withdrawn' });
+    assert.equal(validate(wdt.outputSchema, wd.json.result.structuredContent), null);
+  }
   const w = await rpc('tools/call', { name: 'pwa_post_transaction', arguments: {} });
   assert.equal(w.json.error.code, -32602);
   // the database, not the Worker, refuses AI-channel writes even when the AI host calls REST directly (with an /api token)

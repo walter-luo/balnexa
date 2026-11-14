@@ -424,7 +424,7 @@ test('AT-A11Y-01/02 accessibility: axe-core finds no serious or critical violati
   const axe = fs.readFileSync(path.join(ROOT, 'tests/pwa/node_modules/axe-core/axe.min.js'), 'utf8');
   const found = {};
   for (const [who, routes] of [[owner, ['home', 'add', `activity?m=${MONTH}`, `activity?m=${MONTH}&mode=calendar`, 'review', 'reports', 'menu',
-    'task/bnx.cmd_create_account', 'settings']], [null, ['home']]]) {
+    'task/bnx.cmd_create_account', 'settings', 'setup']], [null, ['home']]]) {
     const p = await page(who, { bypassCSP: true });           // bypass only to inject the axe-core script; the page itself is unchanged
     for (const r of routes) {
       if (who) await open(p, r); else { await p.goto(`${S.base}/app/#/${r}`); await p.waitForSelector('main h1'); }
@@ -656,6 +656,57 @@ test('AT-ONB-UI-01 onboarding screen: start a job, see it listed with its state,
   await p.waitForFunction(() => /ONB-PAUSED/.test(document.querySelector('main table').textContent));
   await p.click('button:has-text("Resume")');
   await p.waitForFunction(() => /ONB-DRAFT/.test(document.querySelector('main table').textContent));
+  assert.deepEqual(p.errors, []);
+});
+
+test('AT-SETUP-01 account setup screen (W-M01): registry search, Owner propose-and-verify, account with opening balance, category; Quick Entry and F1 see them', async () => {
+  const p = await page(owner);
+  await open(p, 'menu');
+  await p.click('a[data-route=setup]');
+  await p.waitForSelector('main h1:has-text("Set up accounts")');
+  // 1. a seeded institution from the registry
+  await p.fill('#su-text', 'CIBC');
+  await p.click('#su-search button[type=submit]');
+  await p.waitForSelector('#su-found input[type=radio]');
+  assert.match(await p.textContent('#su-found'), /CIBC/);
+  // 2. a credit card in CAD and USD with an opening balance owed
+  await p.selectOption('#su-kind', 'credit_card');
+  await p.fill('#su-label', 'Synthetic Visa');
+  await p.fill('#su-cur-other', 'usd');
+  await p.fill('#su-open-date', '2026-01-01');
+  await p.fill('#su-open-amt', '-250.00');
+  await p.click('#su-account button[type=submit]');
+  await p.waitForFunction(() => /Synthetic Visa/.test(document.querySelector('main table')?.textContent || ''));
+  assert.match(await statusText(p), /Synthetic Visa/);
+  // an institution not in the registry: proposed and verified by the Owner with an evidence reference, then used
+  await p.click('details summary');
+  await p.fill('#su-name', 'Synthetic Credit Union Setup');
+  await p.fill('#su-ev', 'https://example.invalid/synthetic-cu');
+  await p.click('#su-propose button[type=submit]');
+  await p.waitForFunction(() => /Synthetic Credit Union Setup/.test(document.querySelector('#su-found').textContent));
+  await p.selectOption('#su-kind', 'e_wallet');
+  await p.fill('#su-label', 'Synthetic wallet');
+  await p.click('#su-account button[type=submit]');
+  await p.waitForFunction(() => /Synthetic wallet/.test(document.querySelector('main table')?.textContent || ''));
+  // 3. a category with both names
+  await p.fill('#su-cen', 'Dining');
+  await p.fill('#su-czh', '餐饮');
+  await p.click('#su-cat button[type=submit]');
+  await p.waitForFunction(() => /Dining/.test(document.querySelectorAll('main table')[1]?.textContent || ''));
+  // the account needs an institution: none chosen on a fresh screen
+  await open(p, 'setup');
+  await p.fill('#su-label', 'No institution');
+  await p.click('#su-account button[type=submit]');
+  assert.match(await statusText(p), /Choose an institution/);
+  // Quick Entry offers the new account-currencies; F1 shows the opening balance owed
+  await open(p, 'add');
+  const opts = await p.textContent('#q-acc');
+  assert.match(opts, /Synthetic Visa · CAD/); assert.match(opts, /Synthetic Visa · USD/); assert.match(opts, /Synthetic wallet · CAD/);
+  const f1 = await S.call('/api/v1/queries/f1_balances', { body: { as_of: '2026-12-31' }, cookie: owner });
+  const visa = f1.json.rows.filter((r) => r.account_label === 'Synthetic Visa').map((r) => [r.currency, r.balance]).sort();
+  assert.deepEqual(visa.map(([c, b]) => [c, Number(b)]), [['CAD', -250], ['USD', -250]]);
+  const reg = await S.call('/api/v1/queries/institutions_search', { body: { text: 'Synthetic Credit Union Setup' }, cookie: owner });
+  assert.equal(reg.json.institutions[0].status, 'VERIFIED_ACTIVE');
   assert.deepEqual(p.errors, []);
 });
 

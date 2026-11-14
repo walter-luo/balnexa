@@ -6,9 +6,9 @@ import psycopg
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PSQL = os.environ.get("BNX_PSQL", "/usr/lib/postgresql/16/bin/psql")
 SERVERS = {
-    "pg16": "host=/var/lib/postgresql/bnx16 port=55416",
-    "pg17": "host=/var/lib/postgresql/bnx17 port=55417",
-}
+    "pg16": os.environ.get("BNX_PG16", "host=/var/lib/postgresql/bnx16 port=55416"),
+    "pg17": os.environ.get("BNX_PG17", "host=/var/lib/postgresql/bnx17 port=55417"),
+}   # BNX_PG16 / BNX_PG17 point a run at a second cluster pair, so a regression and development tests can run side by side
 
 
 def dsn(server, user, db):
