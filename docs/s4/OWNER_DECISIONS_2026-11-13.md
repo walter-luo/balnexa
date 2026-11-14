@@ -26,6 +26,8 @@ Grade: `OWNER_DECISION`. Recorded by the author (Claude) as `DRAFT` until the Ow
 
   Reading (b) publishes it, and the Requirements Book contains Owner sources. Until the Owner chooses, the author applies (a).
 
+**Resolved 2026-11-14: reading (a), OD-PRIV-1** (`OWNER_DECISIONS_2026-11-14.md`).
+
 ## Later the same day
 
 Recorded from the Owner's message of 2026-11-13 20:59 (America/Toronto): "1，https://drive.google.com/…（link withheld here）, 20-Inbox/还要分人名，年份，银行，种类，怎么放更合适？AI对20-Inbox只读，其他目录对Owner是只读。" ("1" answers G0-PWA-1, option 1.)

@@ -17,3 +17,34 @@ Recorded from the Owner's message of 2026-11-14 06:20: "CR-1以后再说，CR-2�
 | OD-LIC-2 | **CR-1 deferred:** the notice keeps naming the author | — |
 | OD-LIC-3 | **CR-2: inbound = outbound** (Apache-2.0 §5); no CLA | `Copyright_and_Contributions.md` §3 |
 | OD-LIC-4 | **CR-3: license headers in source files** | `tools/s4/license_headers.py`, the CI step `license headers`, and headers in 105 files; committed migrations, bootstrap files and the frozen reference oracles excluded |
+
+Recorded from the Owner's message of 2026-11-14 09:38: "确认" (confirmed), in reply to the plan for the first processing run of his own data folder instance. The instance and its files are private and are not described here. The plan proposed two rules that apply to any instance:
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-1 | A statement that covers several months is named with the period `YYYY-MM~YYYY-MM`; the date prefix and the year folder use the statement's own date | `Data_Folder_Convention.md` §3 |
+| OD-DATA-2 | When the toolchain cannot compute sha256 without passing each file through the AI conversation, sha256 may be **deferred** for a run: server-side copy, file ID and size checks, `sha256` blank with a note, computed later | `Data_Folder_Convention.md` §5 |
+
+Recorded from the Owner's message of 2026-11-14 09:57: "要，继续" (yes, continue), in reply to the question whether the public convention should record OD-DATA-2.
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-3 | The public convention records OD-DATA-1 and OD-DATA-2 | This change. It also carries two additions proposed by the AI: a note in §1 that some connectors can edit only files the AI created (accepted as OD-DATA-6), and the import rule accepted as OD-DATA-5 |
+
+Recorded from the Owner's message of 2026-11-14 11:18: "同意" (agreed), in reply to the consequence of the import rule: a row whose sha256 is deferred cannot be imported until a tool has computed and checked it.
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-5 | **No import with deferred sha256.** A row whose sha256 was deferred under OD-DATA-2 is not imported into Balnexa (`IMPORTED`) until sha256 has been computed for the original and the copy and the two match | `Data_Folder_Convention.md` §5 |
+
+Recorded from the Owner's message of 2026-11-14 12:03, which quoted "同意" (agreed) in reply to the question about the §1 connector note.
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-DATA-6 | The §1 note stays: some AI connectors can edit only files the AI itself created, which enforces the `20-Inbox` rule in practice; what the connector reports is checked, not assumed | `Data_Folder_Convention.md` §1 |
+
+Recorded from the Owner's message of 2026-11-14 13:09: "私有的设计包不要放进公开仓库" (the private design package does not go into the public repository).
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-PRIV-1 | **P-1 closed with reading (a).** The Owner-private design package (the V1.2 design package, the S3 package and Design Inputs B) stays out of this public repository. Repository documents may name it and cite its identifiers, but never reproduce its content | `OWNER_DECISIONS_2026-11-13.md` P-1 marked resolved; the CI rejection of `owner_sources` paths stays |

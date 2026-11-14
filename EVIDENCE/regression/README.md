@@ -33,3 +33,7 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-14 11:00 | `6b84d9a` | `s4/copyright-notice` | 471 | 0 | 3 | [2026-11-14_6b84d9a](2026-11-14_6b84d9a/INDEX.md) |
 | 2026-11-14 11:47 | `9613f07` | `s4/license-headers` | 467 | 4 | 3 | [2026-11-14_9613f07](2026-11-14_9613f07/INDEX.md) |
 | 2026-11-14 12:12 | `5b4bc7a` | `s4/license-headers` | 471 | 0 | 3 | [2026-11-14_5b4bc7a](2026-11-14_5b4bc7a/INDEX.md) |
+| 2026-11-14 15:24 | `72da379` | `s4/data-convention-integrity` | 471 | 0 | 3 | [2026-11-14_72da379](2026-11-14_72da379/INDEX.md) |
+| 2026-11-14 16:43 | `c034a7e` | `s4/data-convention-integrity` | 471 | 0 | 3 | [2026-11-14_c034a7e](2026-11-14_c034a7e/INDEX.md) |
+| 2026-11-14 17:28 | `95fabc2` | `s4/data-convention-integrity` | 471 | 0 | 3 | [2026-11-14_95fabc2](2026-11-14_95fabc2/INDEX.md) |
+| 2026-11-14 18:36 | `f8ccb75` | `s4/data-convention-integrity` | 471 | 0 | 3 | [2026-11-14_f8ccb75](2026-11-14_f8ccb75/INDEX.md) |
