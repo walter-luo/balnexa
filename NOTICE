@@ -1,0 +1,8 @@
+Balnexa (Family Finance Nexus, 账知家)
+Copyright 2026 Walter Luo
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product depends on third-party components (npm and Python packages, PostgreSQL and others). Each of them is
+distributed under its own license, which is not changed by this NOTICE. The pinned set is listed in
+release/manifest.json and in the lock and requirements files of each application.

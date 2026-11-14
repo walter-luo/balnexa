@@ -1,0 +1,30 @@
+{
+ "server": "pg17",
+ "seconds": 8.2,
+ "pass": 3,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-PWA-LA-01",
+   "ref": "UA V1.2 \u00a712.1; Draft-04 C1 W-M01\u2026W-M03 (Quick Entry ledger accounts: visibility, can_post, categories; PWA only)",
+   "status": "PASS",
+   "detail": "owner: 2 account-currencies, all postable; member without can_post: only the granted account, can_post false; viewer: can_post false even with a can_post grant (role rule); 3 active categories for everyone; an AI bearer is refused (SCOPE_NOT_CONSENTED) - the query is not an MCP tool",
+   "seconds": 2.9
+  },
+  {
+   "id": "AT-AUD-TRAIL-01",
+   "ref": "OR-U-02 (7); 9020 (audit trail: household for Owner/admin, own events otherwise; filters; paging; PWA only)",
+   "status": "PASS",
+   "detail": "Owner: 21 household events newest first; member: 2 own events only; paging by before_seq continues exactly; command-prefix filter; malformed filter -> VALIDATION_FAILED; no payload is ever returned; AI bearer -> SCOPE_NOT_CONSENTED",
+   "seconds": 2.52
+  },
+  {
+   "id": "AT-CAT-02",
+   "ref": "D-CORE9-2 (catalog delta blocks: committed migrations are never edited; merged blocks = derivation)",
+   "status": "PASS",
+   "detail": "catalog_build: OK, 119 entries match (blocks in 9017, 9019, 9020, 9021, 9022, 9026, 9027, 9028, 9031, 9032, 9033, 9034, 9035, 9036, 9037); blocks per migration {'9017': 113, '9019': 1, '9020': 1, '9021': 1, '9022': 6, '9026': 7, '9027': 1, '9028': 2, '9031': 28, '9032': 18, '9033': 5, '9034': 12, '9035': 12, '9036': 7, '9037': 3}; 119 catalogued functions in the database",
+   "seconds": 2.79
+  }
+ ]
+}

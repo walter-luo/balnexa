@@ -1,0 +1,89 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 115.9,
+ "pass": 11,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "FP-SIN-01",
+   "ref": "Addendum A1 Rev 1 \u00a76, \u00a711 FP-SIN-01; review R-16 (measurement on the synthetic benign corpus)",
+   "status": "PASS",
+   "detail": "detector 1.1.0 on 7000 synthetic benign items: overall 0.83%; random nine-digit references 10.80% (the accepted A1-OD-1 cost: Mod 10 about 1 in 10, 08/09 about 1 in 50); all other categories together 0.06% (hashes and UUIDs in prose are the only contributors); per category in FP-SIN-01.json",
+   "seconds": 0.13
+  },
+  {
+   "id": "AT-9011R-DET",
+   "ref": "review R-01...R-05, R-41...R-43 (the reviewer's 108 adversarial and 400 fuzz cases, Python/JS/SQL)",
+   "status": "PASS",
+   "detail": "498 reviewer cases (98 adversarial without OCR, 400 fuzz) and 10 OCR cases: Python, JS and SQL identical; every reviewer evasion form is detected (hex/UUID padding, unlisted invisible characters, dot/slash/underscore/minus/bullet separators, 2-4-3 and 4-5 groupings, label windows, acronym keys); not detected: only the 13 by-design cases (correct negatives, CRA program accounts, clean OCR runs)",
+   "seconds": 2.54
+  },
+  {
+   "id": "AT-9011R-E2E",
+   "ref": "review R-01, R-02, R-03, R-41 end to end (production command and shared index; reviewer's e2e forms)",
+   "status": "PASS",
+   "detail": "11 forms (hex padding before and after, U+200E and U+2061 inside, dot and slash separators, 2-4-3 with and without a label, UUID tail, keycap digits, plain control) refused by cmd_post_transaction (SIN_CANDIDATE) and BLOCKED by the shared-index consumer; the clean record CONSUMED; the value is nowhere in the database",
+   "seconds": 2.45
+  },
+  {
+   "id": "AT-9011R-VAL",
+   "ref": "review R-18...R-40, R-45 (the reviewer's validator cases, light set, against this validator)",
+   "status": "PASS",
+   "detail": "424 reviewer validator cases: CLEAN_OK 6, DETECTED 318, FAIL_CLOSED 67, MISSED 5, NOT_FAIL_CLOSED 1, SCAN_INCOMPLETE 27; the remaining 6 are the documented by-design or limit cases (EML-pgp-armored-body-unreadable, PDF-IMG-unsupported-or-garbage-filter-CCITTFaxDecode, PDF-META-catalog-integer-value, PDF-META-name-object-with-digits, TXT-ebcdic-cp037, XLSX-split-across-three-cells)",
+   "seconds": 91.47
+  },
+  {
+   "id": "AT-9011R-07",
+   "ref": "review R-07; A1-OD-2, Addendum \u00a75.3 ('terminal for that SHA-256'), AT-SIN-18 extended to a second discovery",
+   "status": "PASS",
+   "detail": "bytes quarantined under one discovery are quarantined under a second discovery that reports PASSED (QUARANTINED_HASH, one notification for the SHA-256, archive NOT_ADMISSIBLE); an admitted copy whose bytes are quarantined elsewhere before archiving returns to DISCOVERED and is then quarantined; bytes SCAN_INCOMPLETE under the current detector stay SCAN_INCOMPLETE under a second discovery (INCOMPLETE_HASH); no Z3 row in any of these",
+   "seconds": 3.15
+  },
+  {
+   "id": "AT-9011R-08",
+   "ref": "review R-08; A1-OD-3, \u00a75.2 (tag after a declaration; declaration idempotent)",
+   "status": "PASS",
+   "detail": "tagging an already declared document as SIN-bearing changes nothing (ADMISSIBLE, DECLARED; no PENDING_DECLARATION and no stranded document); it is then archived; a repeated declaration of the same bytes is a no-op (ON CONFLICT)",
+   "seconds": 2.65
+  },
+  {
+   "id": "AT-9011R-09",
+   "ref": "review R-09 (evidence usable only while its document is archived, current and never quarantined)",
+   "status": "PASS",
+   "detail": "an archived, current evidence object is USABLE; once the same bytes are quarantined under any discovery it is QUARANTINED and not usable; unknown ids NOT_FOUND; R1 evidence never scanned is UNSCANNED (definition); the functions are internal (no runtime role holds EXECUTE) and future readers (9016, PWA) must call evidence_usable",
+   "seconds": 3.01
+  },
+  {
+   "id": "AT-SIN-17",
+   "ref": "Addendum A1 Rev 1 \u00a711 AT-SIN-17; review R-16 (no path moves QUARANTINED or SCAN_INCOMPLETE to ADMISSIBLE)",
+   "status": "PASS",
+   "detail": "8 direct transitions out of QUARANTINED and SCAN_INCOMPLETE refused even to the installer path (DOC_STATE_TRANSITION); the transition trigger is enabled and every writer (doc_event, doc_needs_declaration, doc_state) inserts through it",
+   "seconds": 2.88
+  },
+  {
+   "id": "AT-SIN-19",
+   "ref": "Addendum A1 Rev 1 \u00a711 AT-SIN-19; review R-16 (a new redacted revision at the same Inbox path)",
+   "status": "PASS",
+   "detail": "a new revision at the same Inbox path invalidates the earlier one (no declaration carries over); the new revision is scanned, declared by the Owner and archived",
+   "seconds": 2.46
+  },
+  {
+   "id": "AT-SIN-20",
+   "ref": "Addendum A1 Rev 1 \u00a711 AT-SIN-20; review R-16 (no value and no file name with digits in records)",
+   "status": "PASS",
+   "detail": "a discovery whose file name holds a value is refused at staging (SIN_CANDIDATE, nothing staged); after two quarantines (name withheld, and a name with only a year): notifications, the audit chain, scan records and state reasons hold no generated value; neither quarantine notification carries a file name with digits (masked_subject omitted). Worker, Gateway, Executor and CI logs: AT-SIN-31 and AT-9011R-18 (Z1), guard C6 (CI)",
+   "seconds": 2.72
+  },
+  {
+   "id": "AT-SIN-21",
+   "ref": "Addendum A1 Rev 1 \u00a711 AT-SIN-21; review R-16 (schema has no redaction status, no override, no SIN column)",
+   "status": "PASS",
+   "detail": "no column named redaction_status or holding a SIN/ITN by name in any bnx schema; no function or CHECK knows an OWNER_CONFIRMED_NOT_SIN state (A1-OD-2: no release path)",
+   "seconds": 2.49
+  }
+ ]
+}
