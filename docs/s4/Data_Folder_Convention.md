@@ -73,7 +73,7 @@ One spreadsheet in `10-Index`, one row per original:
 - the status is still `PROCESSED`;
 - sha256 is computed for every deferred row, original and copy, once a tool that can hash locally is available (for example the Balnexa Executor, or a script on the data owner's machine). Until then, step 1 detects changed originals by file ID, size and modified time, which is weaker: an edit that keeps the same size and time would go unnoticed.
 
-A size match shows that the copy is complete; it does not prove the bytes are identical. A server-side copy makes a difference unlikely, and the later sha256 check closes the gap. Import into Balnexa (`IMPORTED`) waits until that check has passed.
+A size match shows that the copy is complete; it does not prove the bytes are identical. A server-side copy makes a difference unlikely, and the later sha256 check closes the gap. Import into Balnexa (`IMPORTED`) waits until that check has passed (OD-DATA-5).
 
 ## 6. Privacy
 
