@@ -365,6 +365,26 @@ def t_deploy_rule(server, ev):
     return f"schema head {head}: a Worker supporting 9017-9023 is refused (B3); one supporting N-1..{head} activates the configuration"
 
 
+@test("AT-AUD-01", "F-AUD-01; 9030 (correct_transaction: journal UUIDs in the audit subject sit under *_id keys, so guard C2 exempts them)")
+def t_audit_ids(server, ev):
+    import run_s4_core2 as C2c
+    H = C4.v2_full(server, "bnx_c18aud")
+    j = H.expense(H.owner, "12.00", date="2026-02-03")["journal_id"]
+    r = H.cmd(H.owner, "correct_transaction", journal_id=j, reason="synthetic fix", replacement={"transaction_date": "2026-02-03",
+        "description": "fixed", "lines": [{"ledger_account_id": H.groceries, "currency": "CAD", "amount": "13.00"},
+                                          {"ledger_account_id": H.cad["ledger_account_id"], "currency": "CAD", "amount": "-13.00"}]})
+    subj = C2c.sql(H, "select subject from bnx_audit.audit_event where command = 'correct_transaction' order by seq desc limit 1")[0][0]
+    # the old subject shape with a UUID group holding a Mod-10 run is refused by the guard; the new shape is not
+    from run_s4_core17 import luhn_run
+    u = "aaaaaaaa-bbbb-cccc-dddd-e" + luhn_run("04645428") + "ff"           # built at run time: no literal run in the repository
+    old_shape = C2c.sql(H, "select bnx.sin_json_has(jsonb_build_object('original', %s::text))", (u,))[0][0]
+    new_shape = C2c.sql(H, "select bnx.sin_json_has(jsonb_build_object('original_journal_id', %s::text))", (u,))[0][0]
+    H.close()
+    check(set(subj) == {"original_journal_id", "reversal_journal_id", "replacement_journal_id"} and old_shape is True and new_shape is False
+          and r["replacement_journal_id"], f"{subj} {old_shape} {new_shape}")
+    return f"subject keys {sorted(subj)}; a UUID with a Mod-10 run in a group: refused under 'original' (old), exempt under 'original_journal_id' (9030)"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)
