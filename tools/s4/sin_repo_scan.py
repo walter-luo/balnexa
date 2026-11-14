@@ -86,4 +86,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # exit codes: 0 clean, 1 hits, 2 the scan itself could not run (G0 run 2026-11-13: a git failure was indistinguishable from hits)
+    try:
+        sys.exit(main())
+    except (subprocess.CalledProcessError, OSError) as e:
+        err = e.stderr.decode(errors="replace") if isinstance(getattr(e, "stderr", None), bytes) else (getattr(e, "stderr", None) or "")
+        print(f"sin_repo_scan: ERROR, the scan did not run: {e}; {err.strip()[-500:]}", file=sys.stderr)
+        sys.exit(2)

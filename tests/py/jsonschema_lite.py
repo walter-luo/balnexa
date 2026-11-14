@@ -39,14 +39,19 @@ def validate(s, v, path="$"):
         a = jtype(v)
         if not any(a == t or (t == "number" and a == "integer") for t in ts): return (path, f"type {a}")
     if "enum" in s and not any(e == v and type(e) is type(v) for e in s["enum"]): return (path, "enum")
-    if isinstance(v, str):
+    if isinstance(v, str):                       # same order as apps/worker/src/schema.js (first violation wins)
         if "pattern" in s and not re.search(s["pattern"], v): return (path, "pattern")
+        if "minLength" in s and len(v) < s["minLength"]: return (path, "minLength")
+        if "maxLength" in s and len(v) > s["maxLength"]: return (path, "maxLength")
         if s.get("format") == "uuid" and not UUID.match(v): return (path, "format uuid")
         if s.get("format") == "date" and not valid_date(v): return (path, "format date")
         if s.get("format") == "date-time" and not (DATETIME.match(v) and valid_date(v[:10])): return (path, "format date-time")
-        if "minLength" in s and len(v) < s["minLength"]: return (path, "minLength")
-        if "maxLength" in s and len(v) > s["maxLength"]: return (path, "maxLength")
+    if isinstance(v, (int, float)) and not isinstance(v, bool):    # G0-IND-03: minimum/maximum as in the Gateway
+        if "minimum" in s and v < s["minimum"]: return (path, "minimum")
+        if "maximum" in s and v > s["maximum"]: return (path, "maximum")
     if isinstance(v, list):
+        if "minItems" in s and len(v) < s["minItems"]: return (path, "minItems")   # G0-IND-03
+        if "maxItems" in s and len(v) > s["maxItems"]: return (path, "maxItems")   # G0-IND-03
         if "items" in s:
             for i, x in enumerate(v):
                 e = validate(s["items"], x, f"{path}[{i}]")

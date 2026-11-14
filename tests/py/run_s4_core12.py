@@ -319,7 +319,7 @@ def t_cat(server, ev):
     db = "bnx_c12cat"
     h.bootstrap(server, db); h.migrate(server, db)
     with C1.migrator(server, db) as cx:
-        defs = [r[0] for r in cx.execute("select report_id || '/' || version from bnx.report_definition order by 1").fetchall()]
+        defs = [r[0] for r in cx.execute('select report_id || \'/\' || version from bnx.report_definition order by (report_id || \'/\' || version) collate "C"').fetchall()]  # byte order, any collation
         fs = cx.execute("select count(*) from bnx.function_scope where function_name in ('q_f1_balances','q_f2_transactions','q_f3_income_expense',"
                         "'q_f4_investments','q_f5_networth','q_f6_cards','q_f7_reconciliation','q_cashflow_statement','q_r30_review_queue',"
                         "'q_evidence_trace','q_snapshot_status','q_snapshot_list','q_snapshot_artifact')").fetchone()[0]

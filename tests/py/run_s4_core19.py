@@ -381,6 +381,46 @@ def t_output_rows_2(server, ev):
             f"schema in the catalog; branches seen: {seen}")
 
 
+@test("AT-OUT-06", "G0 remediation G0-IND-03 (validator parity: the harness port tests/py/jsonschema_lite.py and the Gateway "
+                   "validator apps/worker/src/schema.js give the same result, path and reason, for one valid and at least one "
+                   "invalid value of every keyword the Gateway knows)")
+def t_validator_parity(server, ev):
+    U = "123e4567-e89b-12d3-a456-426614174000"
+    cases = [  # (schema, value): every keyword of schema.js KNOWN, valid and invalid; several cases hold more than one violation
+        ({"type": "string"}, "x"), ({"type": "string"}, 1), ({"type": ["string", "null"]}, None), ({"type": "integer"}, 1.5),
+        ({"type": "number"}, 2), ({"type": "boolean"}, 0), ({"type": "array"}, {}), ({"type": "object"}, []),
+        ({"enum": ["a", "b"]}, "a"), ({"enum": ["a", None]}, None), ({"enum": [1]}, True), ({"enum": ["a"]}, "c"),
+        ({"pattern": "^[A-Z]{3}$"}, "CAD"), ({"pattern": "^[A-Z]{3}$"}, "cad"),
+        ({"minLength": 2}, "a"), ({"maxLength": 2}, "abc"), ({"minLength": 2, "maxLength": 3}, "ab"),
+        ({"format": "uuid"}, U), ({"format": "uuid"}, "not-a-uuid"), ({"format": "date"}, "2026-02-30"), ({"format": "date"}, "2026-02-28"),
+        ({"format": "date-time"}, "2026-11-13T09:43:00-05:00"), ({"format": "date-time"}, "2026-13-01T00:00:00Z"),
+        ({"pattern": "^a", "minLength": 5, "format": "uuid"}, "b"),           # three violations: the first one wins on both sides
+        ({"minLength": 40, "format": "uuid"}, "x"),                            # length before format, as in the Gateway
+        ({"minimum": 0}, -1), ({"maximum": 10}, 11), ({"minimum": 0, "maximum": 10}, 5), ({"minimum": 1}, 0.5), ({"minimum": 5}, "3"),
+        ({"minItems": 1}, []), ({"maxItems": 1}, [1, 2]), ({"minItems": 1, "maxItems": 2}, [1]),
+        ({"items": {"type": "integer"}}, [1, "2"]), ({"type": "array", "items": {"minimum": 0}}, [3, -2]),
+        ({"required": ["a", "b"]}, {"a": 1}), ({"properties": {"a": {"type": "string"}}}, {"a": 1}),
+        ({"properties": {"a": {}}, "additionalProperties": False}, {"a": 1, "z": 2}),
+        ({"additionalProperties": {"type": "integer"}}, {"CAD": 1, "USD": "x"}),
+        ({"properties": {"b": {"type": "string"}, "a": {"type": "string"}}}, {"b": 1, "a": 2}),   # key order: a before b
+        ({"description": "annotation only", "type": "string"}, "x"), (True, 1), (False, 1),
+    ]
+    py = [list(validate(s, v)) if validate(s, v) else None for s, v in cases]
+    script = ("import { validate } from %s; import { readFileSync } from 'node:fs';"
+              "const cs = JSON.parse(readFileSync(0, 'utf8'));"
+              "process.stdout.write(JSON.stringify(cs.map(([s, v]) => { const e = validate(s, v); return e ? [e.path, e.reason] : null; })));"
+              % json.dumps("file://" + os.path.join(h.ROOT, "apps", "worker", "src", "schema.js")))
+    r = subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(cases), capture_output=True, text=True)
+    check(r.returncode == 0, f"node: {r.stderr[-800:]}")
+    js = json.loads(r.stdout)
+    diff = [(i, cases[i], py[i], js[i]) for i in range(len(cases)) if py[i] != js[i]]
+    known = set(re.findall(r"'([a-zA-Z]+)'", open(os.path.join(h.ROOT, "apps", "worker", "src", "schema.js")).read().split("const KNOWN")[1].split(";")[0]))
+    used = {k for s, _ in cases if isinstance(s, dict) for k in s}
+    json.dump({"cases": len(cases), "python": py, "gateway": js, "diff": diff}, open(os.path.join(ev, "AT-OUT-06.json"), "w"), indent=1, default=str)
+    check(diff == [] and known <= used, f"diff {diff}; keywords not covered {sorted(known - used)}")
+    return f"{len(cases)} cases over {len(known)} keywords: the harness port and the Gateway validator agree on every result, path and reason"
+
+
 @test("AT-OUT-02", "2.8 part 5; D-OUT-2 (the output contract runs in every suite: every bnx_app call of a tool with a curated "
                    "output schema is validated by the harness; a mismatch fails the calling test, with the path only)")
 def t_output_contract(server, ev):    # noqa: ARG001 - no database needed

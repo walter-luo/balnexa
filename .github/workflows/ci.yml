@@ -42,6 +42,10 @@ jobs:
       fail-fast: false
       matrix:
         pg: ['16', '17']
+        collation: ['c']
+        include:        # G0 run 2026-11-13 (G0-IND-01): also run every suite on a linguistic default collation (ICU en-US)
+          - pg: '17'
+            collation: 'icu-en-US'
     env:
       BNX_SERVER: pg${{ matrix.pg }}
     steps:
@@ -57,9 +61,11 @@ jobs:
         run: |
           V=${{ matrix.pg }}; D=/var/lib/postgresql/ci$V; S=/var/lib/postgresql/bnx$V
           sudo install -d -o postgres -g postgres -m 0755 "$D" "$S"
-          sudo -u postgres /usr/lib/postgresql/$V/bin/initdb -D "$D/data" -U postgres --auth=trust -E UTF8 --locale=C.UTF-8 > /dev/null
+          LP=""; if [ "${{ matrix.collation }}" = "icu-en-US" ]; then LP="--locale-provider=icu --icu-locale=en-US"; fi
+          sudo -u postgres /usr/lib/postgresql/$V/bin/initdb -D "$D/data" -U postgres --auth=trust -E UTF8 --locale=C.UTF-8 $LP > /dev/null
           sudo -u postgres /usr/lib/postgresql/$V/bin/pg_ctl -D "$D/data" -o "-p 554$V -k $S -c listen_addresses=" -l "$D/server.log" -w start
           psql "host=$S port=554$V user=postgres dbname=postgres" -Atc 'select version()'
+          psql "host=$S port=554$V user=postgres dbname=postgres" -Atc "select 'default collation: ' || datlocprovider::text || ' ' || datcollate from pg_database where datname = 'template1'"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -105,7 +111,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: evidence-pg${{ matrix.pg }}
+          name: evidence-pg${{ matrix.pg }}-${{ matrix.collation }}
           path: |
             ci-evidence
             !ci-evidence/**/*.dump

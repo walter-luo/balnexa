@@ -4,8 +4,8 @@
 
 ## For the Owner: how to use this file
 
-1. Give the reviewer this file's URL on branch `s4/g0-review`, or paste the section "Prompt" below:
-   `https://github.com/walter-luo/balnexa/blob/s4/g0-review/docs/s4/reviews/G0_INDEPENDENT_RUN_PROMPT.md`
+1. Give the reviewer this file's URL on branch `s4/g0-remediation`, or paste the section "Prompt" below:
+   `https://github.com/walter-luo/balnexa/blob/s4/g0-remediation/docs/s4/reviews/G0_INDEPENDENT_RUN_PROMPT.md`
 2. **Who counts.** Only a reviewer of **another model family** (for example ChatGPT/Codex) or a human can produce `VERIFIED_INDEPENDENT` evidence, which is what closes gate G0 (doc 03 §6). A fresh Claude chat, in any mode, is the same family: its result is `SAME_FAMILY_VERIFICATION`. That is useful as a second opinion, but it does not close G0.
 3. **Execution.** Runtime evidence needs a reviewer that can run commands, such as a code-execution sandbox or a cloud dev environment. A reviewer that can only read the repository can still do Parts C and D. It must mark Parts A and B `NOT_EXECUTED`.
 4. **Getting results back** (OD-GH-2: exchange through GitHub, the Owner as dispatcher, no GitHub Actions automation). The reviewer pushes a report branch and opens a draft PR (return path R1). If it cannot push, it gives you the report in its answer (return path R2), and you hand that answer to the next Claude session to commit unchanged.
@@ -19,8 +19,8 @@ You are the **independent G0 runner** for the open-source repository `walter-luo
 
 ### Target
 
-- **Code under test:** commit `69138694a3c896b58c076a130738a328b1873075`, the head of branch `s4/report-rows-2`, which is draft PR #37 and the top of the stacked PRs #17 → #37.
-- Branch `s4/g0-review` adds only documentation on top of that commit: this file, the Owner decisions of 2026-11-13 and the author's regression record. You may check out either one; the code is identical.
+- **Code under test:** the head of branch `s4/g0-remediation` (draft PR #39, the top of the stacked PRs #17 → #39). It contains the remediation of the first independent run (2026-11-13, `docs/s4/reviews/G0_IND_REMEDIATION_2026-11-13.md`, migration 9038).
+- The first run tested `69138694a3c896b58c076a130738a328b1873075` (#37); its report is `docs/s4/reviews/g0/20261113_chatgpt-codex/REPORT.md`. A re-run checks the remediation and repeats every part.
 - **Base of the stack:** `main` at `9edbed7` (PRs #1–#16 merged).
 - Verify the SHA you test (`git rev-parse HEAD`) and state it in your report.
 
@@ -87,12 +87,14 @@ for srv in pg16 pg17; do (cd tests/pwa && BNX_SERVER=$srv BNX_PY="$(which python
 
 | Run | Claimed result |
 |---|---|
-| PG16 Python suites (`run_g0` + 20 `run_s4_core*`) | 194 tests, 0 fail, 0 skip |
-| PG17 Python suites | 194 tests, 0 fail. The author skipped 3 (`pg_dump` 17 was missing). **With `pg_dump` 17 you should see 0 skips** |
+| PG16 Python suites (`run_g0` + 20 `run_s4_core*`) | 195 tests, 0 fail, 0 skip |
+| PG17 Python suites | 195 tests, 0 fail. The author skipped 3 (`pg_dump` 17 was missing). **With `pg_dump` 17 you should see 0 skips** |
 | Black-box and unit (Node) | 35 pass, 0 fail |
 | PWA (Playwright), each major | 23 pass, 0 fail |
 | Dispatcher simulation | `"result": "PASS"` |
-| **Total with `pg_dump` 17** | **470 pass, 0 fail, 0 skip** |
+| **Total with `pg_dump` 17** | **472 pass, 0 fail, 0 skip** |
+
+The claim holds for **any default collation** of your clusters: byte order (`C.UTF-8`, as in the recipe) and linguistic (for example ICU en-US). If you can, run Part A on both and report both.
 
 Each suite ends with a line `== pgNN: X PASS, Y FAIL, Z SKIP`. Report the actual numbers per suite, and every FAIL or SKIP with its test id and the first error line.
 
@@ -103,7 +105,12 @@ Optionally, run `python3 tools/s4/record_regression.py --from $S --sha $(git rev
 On a fresh database per major (the harness does this; `run_g0.py` covers R1), check independently with your own SQL. Do not rely only on the suites:
 
 1. **Clean install:** every migration in `db/migrations` applies in order on PG16 and PG17 from an empty cluster. Report any warning or notice that indicates a problem.
-2. **Committed migrations are never edited** (rule: a change is a MODIFY in a new migration). For each `db/migrations/9*.sql`, list the commits that touched it (`git log --format='%h %s' -- <file>`). Flag every file touched after the PR that introduced it, unless the later change only fills that same file's own `@@CATALOG-BEGIN … @@CATALOG-END` block within its introducing PR.
+2. **Committed migrations are never edited.** A migration counts as committed once it has landed on `main` (its introducing PR is merged) or been applied to a persistent database; from then on a change is a MODIFY in a new migration. Commits inside the introducing PR before its merge are ordinary development and are allowed. For each `db/migrations/9*.sql`:
+   - list the commits that touched it (`git log --format='%h %s' -- <file>`);
+   - find the merge into `main` that landed it (`git log --first-parent origin/main`);
+   - flag every touch after that merge.
+
+   For files not yet on `main` (the open draft stack), flag every touch by a PR other than the introducing one.
 3. **Privileges.** After a full install, list:
    - every `SECURITY DEFINER` function without a fixed `search_path`;
    - every function `EXECUTE`-able by `PUBLIC`;
@@ -166,6 +173,6 @@ Put raw outputs (the `*.txt` files of Part A, your SQL and its output) in a `raw
 - **R1 (you can push):**
   1. Create branch `review/g0-<runner>-<YYYYMMDD>` from the tested commit.
   2. Commit only your report folder.
-  3. Push, and open a **draft** PR into `s4/g0-review`, titled `G0 independent run — <runner> — <date>`.
+  3. Push, and open a **draft** PR into `s4/g0-remediation`, titled `G0 independent run — <runner> — <date>`.
   4. Put the verdict table in the PR body.
 - **R2 (you cannot push):** reply with the full `REPORT.md` in one fenced block, and list the raw files you produced, with their most important lines. The Owner will hand this to the author's next session, which commits it unchanged under your runner id.

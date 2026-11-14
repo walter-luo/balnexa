@@ -351,8 +351,9 @@ def t_worker_guard(server, ev):
 @test("AT-SIN-C6", "Addendum A1 Rev 1 guard C6 (repository scan with the reference detector)")
 def t_repo_scan(server, ev):
     r = subprocess.run([sys.executable, os.path.join(h.ROOT, "tools", "s4", "sin_repo_scan.py")], capture_output=True, text=True)
-    open(os.path.join(ev, "AT-SIN-C6_scan.txt"), "w").write(r.stdout[-4000:])
-    check(r.returncode == 0, "repository scan found candidates:\n" + r.stdout[-2000:])
+    open(os.path.join(ev, "AT-SIN-C6_scan.txt"), "w").write(r.stdout[-4000:] + "\n--- stderr ---\n" + r.stderr[-4000:])
+    check(r.returncode != 2, "the repository scan did not run (exit 2): " + r.stderr[-1000:])
+    check(r.returncode == 0, f"repository scan found candidates (exit {r.returncode}):\n" + r.stdout[-2000:] + r.stderr[-1000:])
     return r.stdout.strip().splitlines()[-1]
 
 
