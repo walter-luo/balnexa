@@ -1,7 +1,7 @@
 // Service worker (CORE-9): caches the application shell only, so the app opens offline and says it is offline. API
 // responses, the catalog and the session are never cached (every figure shown comes from the server, live).
-const VERSION = 'bnx-shell-0.8.0-p2';
-const SHELL = ['/app/', '/app/index.html', '/app/app.css', '/app/js/main.js', '/app/js/api.js', '/app/js/i18n.js', '/app/js/render.js',
+const VERSION = 'bnx-shell-0.8.1-p2';
+const SHELL = ['/app/', '/app/index.html', '/app/app.css', '/app/js/main.js', '/app/js/api.js', '/app/js/i18n.js', '/app/js/render.js', '/app/js/queue.js',
   '/app/i18n/en.json', '/app/i18n/zh-Hans.json', '/app/menu.json', '/app/manifest.webmanifest', '/app/icon.svg'];
 
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });

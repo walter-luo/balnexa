@@ -612,6 +612,38 @@ test('AT-UP-01 / AT-DOC-UI-01 upload widget and Documents screen: uploads not se
   assert.equal(await m.$('main table'), null);
 });
 
+test('AT-OFF-01 offline drafts only (Owner decision 2026-11-12): a member draft is queued on the device and sent once back online; an Owner posting is never queued', async () => {
+  const qcount = (p) => p.evaluate(() => new Promise((res) => { const r = indexedDB.open('bnx-queue', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('drafts', { keyPath: 'key' });
+    r.onsuccess = () => { const t = r.result.transaction('drafts').objectStore('drafts').count(); t.onsuccess = () => { res(t.result); r.result.close(); }; }; }));
+  const before = (await S.q(owner, 'review_queue', {})).plans.length;
+  const m = await page(member);
+  await open(m, 'add');
+  await m.context().setOffline(true);
+  await m.fill('#q-amt', '7.00');
+  await m.fill('#q-date', `${MONTH}-21`);
+  await m.fill('#q-desc', 'Offline member entry');
+  await m.click('form button[type=submit]');
+  await m.waitForFunction(() => /kept on this device/.test(document.querySelector('#status').textContent));
+  assert.equal(await qcount(m), 1);
+  assert.equal((await S.q(owner, 'review_queue', {})).plans.length, before);          // nothing reached the server offline
+  await m.context().setOffline(false);
+  await m.waitForFunction(() => /draft\(s\) sent for approval/.test(document.querySelector('#status').textContent));
+  assert.match(await statusText(m), /1 draft\(s\) sent for approval; 0 refused/);
+  assert.equal(await qcount(m), 0);
+  assert.equal((await S.q(owner, 'review_queue', {})).plans.length, before + 1);
+  // the Owner posts directly: offline, nothing is queued and the screen says the request failed
+  const o = await page(owner);
+  await open(o, 'add');
+  await o.context().setOffline(true);
+  await o.fill('#q-amt', '3.00');
+  await o.click('form button[type=submit]');
+  await o.waitForFunction(() => document.querySelector('#status').textContent.trim().length > 0);
+  assert.doesNotMatch(await statusText(o), /kept on this device/);
+  assert.equal(await qcount(o), 0);
+  await o.context().setOffline(false);
+});
+
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {
   const external = contexts.flatMap((c) => c.log.external);
   const ai = contexts.flatMap((c) => c.log.ai);

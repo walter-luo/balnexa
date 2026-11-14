@@ -374,5 +374,7 @@
  "upload.too_large": "文件大小须在 1 字节到 25 MB 之间。",
  "upload.ok": "已上传。",
  "upload.done": "凭证 {id}… 已上传；指纹 {sha}…（下次核对时验证）。",
- "upload.not_configured": "此实例尚未开通上传。"
+ "upload.not_configured": "此实例尚未开通上传。",
+ "queue.queued": "离线：草稿已暂存在本设备，恢复联网后自动发送（{n} 条等待中）。",
+ "queue.sent": "已恢复联网：{n} 条草稿已提交审批；{refused} 条被拒绝。"
 }
