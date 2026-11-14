@@ -43,6 +43,7 @@ def definer_one(H, q, p=None):
 
 def facts(server, db, snapshot=None):
     """header facts as bnx_backup inside a REPEATABLE READ READ ONLY transaction (UA §9.3 step 3)"""
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         cx.execute("begin isolation level repeatable read read only")
         if snapshot:
@@ -53,6 +54,7 @@ def facts(server, db, snapshot=None):
 
 
 def compare(server, db, a, b):
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         return cx.execute("select bnx.bkp_header_compare(%s::jsonb, %s::jsonb)", (json.dumps(a), json.dumps(b))).fetchone()[0]
 
@@ -155,6 +157,7 @@ def fk_order(cx, tabs):
 def copy_dump(server, db, snap):
     """data of every in-scope table read with COPY inside the exported snapshot (the same snapshot pg_dump --snapshot uses);
     bnx_audit.audit_event in seq order (R-10); sequence positions"""
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     with psycopg.connect(h.dsn(server, "bnx_backup", db)) as cx:
         cx.execute("begin isolation level repeatable read read only")
         cx.execute(f"set transaction snapshot '{snap}'")
@@ -212,6 +215,7 @@ def pgdump_restore(server, db, rdb, snap, ev):
         cx.execute("set role bnx_definer")
         pre = cx.execute("select bnx.restore_preamble()").fetchone()[0]
     cust, out = os.path.join(ev, "AT-BAK-04_data.dump"), os.path.join(ev, "AT-BAK-04_data.sql")
+    h.role_slot(server, "bnx_backup")   # the limit is 2: wait for a closed backend to exit
     r = subprocess.run([pg_dump, "--dbname", h.dsn(server, "bnx_backup", db), f"--snapshot={snap}", *pre["pg_dump_args"], "-f", cust],
                        capture_output=True, text=True)
     check(r.returncode == 0, "pg_dump: " + r.stderr[:600])
@@ -269,6 +273,7 @@ def t_consistent(server, ev):
     H.cmd(H.owner, "register_evidence", size=2048, sha256_declared=hx("stmt"), name="stmt.pdf")
     bal_before = H.app.call("q_balances", H.owner, {"as_of": "2026-12-31"})
     # steps 1-3: bnx_backup, REPEATABLE READ READ ONLY, exported snapshot, header facts in that transaction
+    h.role_slot(server, "bnx_backup")
     bk = psycopg.connect(h.dsn(server, "bnx_backup", H.db))
     bk.execute("begin isolation level repeatable read read only")
     snap = bk.execute("select pg_export_snapshot()").fetchone()[0]
@@ -359,8 +364,11 @@ def t_backup_recorded(server, ev):
     due = H.worker.call("wrk_backup_due", {})
     now = dt.datetime.now(UTC)
     neg = {}
+    hdr_full = facts(server, H.db)
     for name, over, code in (
             ("unknown field", {"secret": "x"}, "UNKNOWN_FIELD"),
+            ("header without format", {"header": {k: v for k, v in hdr_full.items() if k != "format"}}, "HEADER"),            # 9039
+            ("header without audit_head", {"header": {k: v for k, v in hdr_full.items() if k != "audit_head"}}, "HEADER"),    # 9039
             ("private key in payload", {"object": {"generation": "AGE-SECRET-KEY-1SYNTHETIC"}}, "KEY_MATERIAL_REFUSED"),
             ("object path sent", {"object": {"name": "bnx-vault-backups/x.age", "generation": "1"}}, "UNKNOWN_FIELD"),
             ("size in bytes", {"sizes": {"compressed_bytes": 5_000_000}}, "UNKNOWN_FIELD"),
@@ -438,6 +446,8 @@ def t_drills(server, ev):
     out["key that is not a recipient"] = drill(H, run, key="drill-2026b")[1]
     out["cleanup not verified"] = drill(H, run, cleanup_verified=False)[1]
     out["header facts differ"] = drill(H, run, header=bad)[1]
+    # 9039: a result without restored_header is NO_RESTORED_HEADER (it was recorded as HEADER_FACTS_DIFFER)
+    out["no restored header"] = drill(H, run, outcome="FAIL", failure_reason="migration runner exit 1: ModuleNotFoundError", restored_header=None)[1]
     out["restorable after a later failed drill"] = definer_one(H, "select bnx.backup_restorable(%s)", (run,))[0]
     out["pass again"] = drill(H, run)[1]
     out["production without authorization"] = drill(H, run, kind="RESTORE_SAME_IDENTITY", target="PRODUCTION")
@@ -456,11 +466,14 @@ def t_drills(server, ev):
     for k, reason in (("owner key used by the drill job", "DRILL_WITH_OWNER_KEY"), ("key that is not a recipient", "KEY_NOT_RECIPIENT"),
                       ("cleanup not verified", "CLEANUP_NOT_VERIFIED"), ("header facts differ", "HEADER_FACTS_DIFFER")):
         check(out[k]["outcome"] == "FAIL" and reason in out[k]["reasons"], f"{k}: {out[k]}")
+    check(out["no restored header"]["outcome"] == "FAIL" and "NO_RESTORED_HEADER" in out["no restored header"]["reasons"]
+          and "HEADER_FACTS_DIFFER" not in out["no restored header"]["reasons"], f"{out['no restored header']}")
     check(out["restorable after a later failed drill"] is False and out["pass again"]["restorable"] is True, f"{out}")
     check(out["production without authorization"][0] == "rejected" and out["production without authorization"][1]["reason"] == "RESTORE_NOT_AUTHORIZED"
           and out["production with authorization"]["outcome"] == "PASS" and out["authorization reused"][1]["reason"] == "RESTORE_NOT_AUTHORIZED" and rie == 1, f"{out}")
     return (f"a verified run is not restorable until a drill passes; the drill outcome is the database's: owner key in a drill job, a key that is not "
-            f"a recipient, unverified cleanup and differing header facts each FAIL (job reported PASS); a later failure blocks restorability until the "
+            f"a recipient, unverified cleanup and differing header facts each FAIL (job reported PASS); a result without restored header facts "
+            f"is FAIL NO_RESTORED_HEADER, not HEADER_FACTS_DIFFER (9039); a later failure blocks restorability until the "
             f"next pass; a production restore needs a one-time Owner authorization (without -> REJECTED + alert; reuse REJECTED; with -> PASS and "
             f"release_install_event RESTORE); lease kind binding holds")
 
@@ -667,17 +680,18 @@ def t_evidence(server, ev):
         rows = cx.execute("select copy, result, evidence_status from bnx.evidence_verification where staging_id = %s order by id", (sid,)).fetchall()
     rej = {"unknown object": promote(H, "EVIDENCE_VERIFY", "backup_recorded", {"items": [{"evidence_object_id": str(uuid.uuid4()), "copy": "R2", "observed_sha256": good.hex()}]})[1],
            "bad copy": promote(H, "EVIDENCE_VERIFY", "backup_recorded", {"items": [items[0] | {"copy": "NAS"}]})[1],
-           "items on a BACKUP lease": promote(H, "BACKUP", "backup_recorded", {"items": items})[1]}
+           "items on a BACKUP lease": promote(H, "BACKUP", "backup_recorded", {"items": items})[1],
+           "no items": promote(H, "EVIDENCE_VERIFY", "backup_recorded", {"started_at": "2026-11-13T00:00:00Z"})[1]}      # 9039
     summary = H.app.call("q_backup_status", H.owner, {})["evidence_verification"]
     alerts = notes(H, "EVIDENCE_HASH_MISMATCH")
     H.close()
     json.dump({"result": res, "rows": rows, "rejected": rej, "summary": summary, "alerts": alerts}, open(os.path.join(ev, "AT-BKP-10.json"), "w"), indent=1, default=str)
     check(st == "promoted" and res["verified"] == 4 and res["mismatches"] == 1 and [r[1] for r in rows] == ["MATCH", "MATCH", "MISMATCH", "NO_REFERENCE"], f"{res} {rows}")
     check(all(r[2] == "UNSCANNED" for r in rows) and rej["unknown object"]["reason"] == "UNKNOWN_EVIDENCE" and rej["bad copy"]["reason"] == "ITEM"
-          and rej["items on a BACKUP lease"]["reason"] == "UNKNOWN_FIELD" and summary["mismatches"] == 1 and alerts == [str(ids[1])], f"{rows} {rej} {summary} {alerts}")
+          and rej["items on a BACKUP lease"]["reason"] == "UNKNOWN_FIELD" and rej["no items"]["reason"] == "ITEMS" and summary["mismatches"] == 1 and alerts == [str(ids[1])], f"{rows} {rej} {summary} {alerts}")
     return (f"EVIDENCE_VERIFY result promoted: R2 and Drive copies MATCH, a tampered copy MISMATCH (Owner alert), an object never hashed by the executor "
-            f"NO_REFERENCE (not a mismatch); each row stores evidence_status ({rows[0][2]}, R-09); unknown object, unknown copy kind and items on a "
-            f"BACKUP lease are REJECTED")
+            f"NO_REFERENCE (not a mismatch); each row stores evidence_status ({rows[0][2]}, R-09); unknown object, unknown copy kind, items on a "
+            f"BACKUP lease and a result without items (9039) are REJECTED")
 
 
 # ------------------------------------------------------------------------------------------- usage, capacity, admission

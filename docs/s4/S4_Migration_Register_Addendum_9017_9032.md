@@ -44,6 +44,8 @@
 | 9035 | `9035_s4_output_schemas_fields.sql` | catalog delta (12; MODIFY of the 9034 entries) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 6: field-level output schemas for the 12 read tools of 9034; PR from `s4/output-fields` |
 | 9036 | `9036_s4_output_schemas_report_rows.sql` | catalog delta (7; MODIFY of the 9032 report-family entries) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 7: field-level rows and nested objects of F1–F7; PR from `s4/report-rows` |
 | 9037 | `9037_s4_output_schemas_report_rows_2.sql` | catalog delta (3; MODIFY of the 9032 entries for R09, R30, R31) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 8: field-level rows of R09, R30 and R31; PR from `s4/report-rows-2` |
+| 9038 | `9038_s4_collation_independence.sql` | MODIFY `config_modules_valid` (9003), `cmd_propose_institution_candidate` (9006); no catalog delta | — | — | G0 remediation | collation independence (first independent G0 run, G0-IND-01); PR from `s4/g0-remediation` |
+| 9039 | `9039_s4_null_safe_guards.sql` | MODIFY `wrk_restore_drill_recorded`, `wrk_backup_recorded`, `wrk_evidence_state` (9016), `install_activate_config` (9029), `plan_create` (9010), `cmd_create_account` (9006); no catalog delta | — | — | G0 remediation | NULL-safe guards (G0 re-run R2-01 and the author's audit); PR from `s4/g0-remediation-2` |
 
 ## 3. Proposed disposition rows
 
@@ -55,6 +57,7 @@
 | 9026, 9031–9037 | **Accept** as catalog-only | none |
 | 9027 | **Accept** | none |
 | 9029 | **Accept** | none |
+| 9038, 9039 | **Accept** as G0 remediation | none beyond confirming the rows |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row

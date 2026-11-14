@@ -1,0 +1,40 @@
+{
+ "server": "pg17",
+ "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 18.5,
+ "pass": 4,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-FX-01",
+   "ref": "OR-R-09 AT-FX-01 (quotes labelled; override audited; evidenced settlement authoritative); UA \u00a75.7",
+   "status": "PASS",
+   "detail": "no quote -> MISSING with a null rate (never 1 or 0); a reference quote is REFERENCE for 7 days, then STALE; the inverse pair is 1/rate at 10 decimals HALF_EVEN; an evidenced settlement rate wins over the reference on its own date only; the Owner override wins over both, is audited with its reason and is versioned (the earlier ledger version still answers EVIDENCED_SETTLEMENT); a recorded MISSING names its source; same currency -> IDENTITY; member override FORBIDDEN_ROLE, viewer can read but not record; 6 malformed quotes refused; an override reason holding a SIN candidate is refused with nothing stored; fx_quote is append-only",
+   "seconds": 4.02
+  },
+  {
+   "id": "AT-INVL-01",
+   "ref": "OR-R-08 AT-INV-01 (realized vs unrealized vs FX; missing NAV flagged; estimated vs confirmed proceeds)",
+   "status": "PASS",
+   "detail": "two lots, 40 units of the first sold: without a NAV the market value and unrealized gain are null and MISSING_NAV is flagged (realized estimated 120.00); with NAV 12.50: cost 1200.00, market value 1375.00, unrealized 175.00; in USD: unrealized 96.00 of which FX -30.00, realized FX -4.00 (all equal to an independent Decimal computation, HALF_EVEN); estimated proceeds 520.00 superseded by confirmed 515.00 from the posted redemption (realized confirmed 115.00); the earlier ledger version still shows the estimate; NAV older than 31 days -> STALE_NAV; a USD NAV with no USD->CAD rate -> NAV_FX_MISSING and null totals, at a stale rate -> computed and NAV_FX_STALE; 6 invalid commands refused; a member without a grant gets NOT_FOUND / NOT_POSTABLE",
+   "seconds": 3.83
+  },
+  {
+   "id": "AT-P0-R19",
+   "ref": "OR-R-07 AT-P0-R19 (refund regresses progress; calculated != confirmed != posted, + and -); R20; UA \u00a75.7",
+   "status": "PASS",
+   "detail": "card year from 15 Feb: purchases 300 + 250 (one before the year, a repayment and the fee excluded) -> spend 550.00 QUALIFIED; a refund of 100 regresses it to 450.00 NOT_YET_QUALIFIED (50.00 remaining) while the earlier ledger version still answers 550.00; a corrected purchase counts by its replacement (460.00); the recorded calculation, the issuer's waiver and the posted fee are three separate fields and events (POSTED despite QUALIFIED is warned; the fee refund journal does not count as a purchase refund); a new policy version governs the next year only (count criterion, ANY); 29 Feb anniversaries fall on 28 Feb; 9 invalid or unauthorised commands refused; a view grant reads but cannot record",
+   "seconds": 3.97
+  },
+  {
+   "id": "AT-9012b-CAT",
+   "ref": "F-C2-07 (module flags on the account-scoped 9012b tables); function catalog; append-only; table classes",
+   "status": "PASS",
+   "detail": "append-only and t_scope_flag_* triggers on the 9012b tables; enforcement points ['account_history_state', 'balance_observation_event', 'card_fee_event', 'card_fee_policy', 'investment_lot', 'investment_lot_disposal', 'loan', 'loan_payment_link', 'loan_term_event', 'reconciliation_exception', 'reconciliation_run']; the three queries are finance.read in the function catalog (positions need an account-currency subset); 10 commands and queries granted to bnx_app, the internal helpers are not; journal_counts_at equals the R1 visibility rule on all 40 (journal, version) pairs including a plan posting and a correction; with the account's region disabled the lot and the disposal are refused (SCOPE_DISABLED) and the position is NOT_FOUND (9007 visibility needs an enabled scope)",
+   "seconds": 6.66
+  }
+ ]
+}
