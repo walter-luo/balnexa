@@ -42,3 +42,9 @@ Recorded from the Owner's message of 2026-11-14 12:03, which quoted "同意" (ag
 | ID | Decision | Effect |
 |---|---|---|
 | OD-DATA-6 | The §1 note stays: some AI connectors can edit only files the AI itself created, which enforces the `20-Inbox` rule in practice; what the connector reports is checked, not assumed | `Data_Folder_Convention.md` §1 |
+
+Recorded from the Owner's message of 2026-11-14 13:09: "私有的设计包不要放进公开仓库" (the private design package does not go into the public repository).
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-PRIV-1 | **P-1 closed with reading (a).** The Owner-private design package (the V1.2 design package, the S3 package and Design Inputs B) stays out of this public repository. Repository documents may name it and cite its identifiers, but never reproduce its content | `OWNER_DECISIONS_2026-11-13.md` P-1 marked resolved; the CI rejection of `owner_sources` paths stays |
