@@ -14,9 +14,9 @@
 Still open. No independent run has executed the PWA suite yet. The options are the same as in `G0_IND_R3_DISPOSITION_2026-11-13.md`, plus one:
 
 1. Accept `AUTHOR_RUNTIME_EVIDENCE` plus CI.
-2. An independent run on Linux. The new option is **WSL2 (Ubuntu) on the Owner's Windows machine**, with the same ChatGPT Work Mode following the Linux recipe inside WSL2. This needs administrator rights and a restart, so it is the Owner's decision.
+2. An independent run on Linux. The new option is **WSL2 (Ubuntu) on a Windows machine**, with the same ChatGPT Work Mode following the Linux recipe inside WSL2. This needs administrator rights and a restart, so it is the Owner's decision.
 3. A clean Claude session (for example Claude Code with Sonnet), graded `SAME_FAMILY_VERIFICATION`.
 
-## Note for the Owner's machine
+## Note for reviewers who run on their own machine
 
-The run installed or used PostgreSQL 16 and 17 (EDB binaries), Python 3.12, Node 22 and Playwright on the Owner's Windows machine, and started local clusters on ports 55416 and 55417. If those clusters are still running, stop them, or remove the software if it is not wanted.
+A Work Mode run installs software and starts local PostgreSQL clusters on the machine it runs on (here: ports 55416 and 55417). Stop the clusters, and remove the software if it is not wanted, after the run.
