@@ -34,7 +34,10 @@ const statusText = (p) => p.textContent('#status');
 
 before(async () => {
   S = await start();
-  B = await chromium.launch();
+  // BNX_CHROMIUM: use a Chromium that is already installed (system package or other) instead of Playwright's own download,
+  // for environments where the Playwright CDN is blocked. Unset: Playwright's bundled browser, as before.
+  B = await chromium.launch(process.env.BNX_CHROMIUM ? { executablePath: process.env.BNX_CHROMIUM } : {});
+  console.log(`browser: ${process.env.BNX_CHROMIUM ? 'BNX_CHROMIUM=' + process.env.BNX_CHROMIUM : 'playwright bundled'} version ${B.version()}`);
   owner = await S.login('g-owner');
   const inst = S.info.institution_id;
   const a = await S.cmd(owner, 'create_account', { kind: 'bank_deposit', label: 'Joint chequing', currencies: ['CAD'], institution_id: inst });

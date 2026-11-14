@@ -63,6 +63,7 @@ You are the **independent G0 runner** for the open-source repository `walter-luo
   ```
 - **OS packages:** `tesseract-ocr`, `tesseract-ocr-eng`, `strace`, `age`.
 - **Node 22:** run `npm ci` in `apps/worker` and in `tests/pwa`, then `npx playwright install --with-deps chromium` (Playwright 1.63.0).
+  If that download is blocked, use an installed Chromium instead (for example from the system package manager) and set `BNX_CHROMIUM` to its executable; the PWA suite prints the browser it used. See `docs/s4/reviews/G0_PWA_RUN_PROMPT.md`.
 - **Secret scan:** gitleaks 8.21.2 with `.gitleaks.toml`.
 
 If a tool cannot be installed on your platform, say which one and grade the affected parts `NOT_EXECUTED`. Do not substitute a weaker check silently.
