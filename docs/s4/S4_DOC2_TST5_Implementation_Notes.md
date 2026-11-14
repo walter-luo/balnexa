@@ -51,6 +51,6 @@
 | L-DOC2-2 | The Worker tick does not launch Executor jobs yet (Cloud Run is M0-A). Runs are manual or scheduled outside the Worker | M0-A |
 | L-DOC2-3 | `bnx.document` rows (statement segmentation) and the second copy (`dual_verified`) are not written | Statement work packages; M0-B-08 |
 | L-INT-1 | Real Message-IDs often contain long digit runs. `message_id` is not exact hex, so a Luhn-valid run is refused by the staging guard, and the canonical key alone cannot carry the fetch. The mocks use digit-free ids | Owner decision with L-DOC2-1 (guard exemption for provider identifiers, or staging only digests of them) before real mail |
-| L-INT-2 | There is no command to create mail folder routes or route rules yet; the tables exist (9010) | PWA mail settings, with INS-2 |
+| L-INT-2 | **Closed by 9028:** `cmd_set_mail_route` (Owner, PWA) appends an institution route or a coverage-home rule, and `q_mail_routes` lists them. AT-INT-02 now sets its route through the command, and a member is refused | — |
 | L-INT-3 | Nothing yet creates `MAIL_EXACT_FETCH` requests automatically from index records; the Executor takes them as items | Index-to-mail linking needs the record contract for message ids (SI) |
 | L-DOC2-4 | No Documents screen in the PWA beyond the redaction queue | DOC-5 |

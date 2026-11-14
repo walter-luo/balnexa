@@ -264,9 +264,11 @@ def t_mail(server, ev):
         # route: the bank's institution -> folder; then MAIL_MOVE
         before_route = shim.due("MAIL_MOVE")
         inst = H._inst["Synthetic Bank"]
-        C4.sql(H, "insert into bnx_intake.mail_folder_route(source_ref, institution_id, folder_ref, effective_from, created_by) "
-                  "values ('mbx-owner-gmail', %s, 'Banking/SynthBank', '2026-01-01', (select created_by from bnx_intake.mail_source "
-                  "where source_ref = 'mbx-owner-gmail'))", (inst,))
+        route = H.cmd(H.owner, "set_mail_route", source_ref="mbx-owner-gmail", institution_id=inst, folder_ref="Banking/SynthBank",
+                      effective_from="2026-01-01")                                     # 9028: the Owner's command (L-INT-2)
+        route_member = C4.err(H.cmd, H.member, "set_mail_route", source_ref="mbx-owner-gmail", institution_id=inst, folder_ref="X",
+                              effective_from="2026-01-01")[0]
+        routes = H.q(H.owner, "mail_routes")["routes"]
         due_mv = shim.due("MAIL_MOVE")
         c4, r4 = run(E, shim, "MAIL_MOVE", due_mv); C15.promote_all(H)
         after = shim.due("MAIL_MOVE")
@@ -280,7 +282,8 @@ def t_mail(server, ev):
         out = {"fetch": [x.get("status") for x in r1], "not_found": [(x.get("status"), x.get("reason")) for x in r_nf],
                "unauthorized_lease": lease_refused, "mail_item": item[:5], "evidence_file": ev_ok, "discoveries": disc,
                "due_move_before_route": before_route, "due_move": due_mv, "move": [x.get("status") for x in r4], "due_after": after,
-               "folder_now": mb.folder_of(pid), "subject_or_body_staged": ("synthetic statement" in staged.lower())}
+               "folder_now": mb.folder_of(pid), "subject_or_body_staged": ("synthetic statement" in staged.lower()),
+               "route": route.get("kind"), "route_member": route_member, "routes": [(r["kind"], r["folder_ref"]) for r in routes]}
         json.dump(out, open(os.path.join(ev, "AT-INT-02.json"), "w"), indent=1, default=str)
         shutil.rmtree(evdir, ignore_errors=True)
     finally:
@@ -289,6 +292,7 @@ def t_mail(server, ev):
     check(item[0] == "MOVED" and item[1] == "verified" and item[2] == 1 and item[3] == 1 and item[4] == "Banking/SynthBank" and ev_ok, f"{out}")
     check(disc == [("MAIL_ATTACHMENT", "1", "PENDING_DECLARATION")] and before_route == [] and len(due_mv) == 1 and after == [], f"{out}")
     check(out["folder_now"] == "Banking/SynthBank" and not out["subject_or_body_staged"], f"{out}")
+    check(out["route"] == "institution" and "FORBIDDEN" in str(out["route_member"]) and out["routes"] == [("institution", "Banking/SynthBank")], f"{out}")
     return (f"exact fetch by Message-ID staged (no subject or body), .eml kept as content-addressed evidence; missing message "
             f"MESSAGE_NOT_FOUND; a mailbox without an authorized credential stages nothing; the PDF attachment is discovered as MAIL_ATTACHMENT part 1 and "
             f"validated through the mailbox (PENDING_DECLARATION, no classifier); no move before a route; with the institution route the "
