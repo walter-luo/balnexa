@@ -111,7 +111,36 @@ AT-OUT-01 keeps the 23 tools of 9032/9033; the 12 tools of 9035 are AT-OUT-03's.
 | L-OUT-6-1 | No public command sets `posting_plan.job_id` yet, so an onboarding job's `plans` is always empty in the suites. Its item schema (`plan_id`, `kind`) follows the table definition but no fixture exercises it | Exercise it when the onboarding pipeline creates plans for a job |
 | L-OUT-6-2 | A replay whose digest does not verify (`projection_digest_verified: false`) is not reachable through the commands; the schema allows it | none needed |
 
+## Seventh part (migration 9036): rows of the report families F1–F7
+
+`DRAFT — AI-generated`, 2026-11-12. Release 0.9.2-p2 (extension range 9035–9036).
+
+**What changed.** The rows and nested objects of F1–F7 are now field-level. Each was derived from its 9013 function body. The top-level keys, types and required lists of 9032 are unchanged; only `items` and nested `properties` were added.
+
+| Family | Typed now |
+|---|---|
+| F1 balances | rows: account, institution, state, currency, balance status (`ok`, `NO_OPENING`, `BEFORE_OPENING`), balance (absent when not ok); `holders` is an array of owners **or the string `unknown`**; latest final statement (printed figures, shown apart); reporting conversion |
+| F2 transactions | rows: dates, economic type, flow class, origin channel, correction links, source rows; `lines` include **masked lines** (`masked`, `ledger_kind` only) for accounts the connection may not see; calendar (inflow, outflow per date and currency) |
+| F3 income and expense | categories: ledger account, kind (`income`, `expense`), flow class, amount |
+| F4 investments | each account is the `fin.investments.holdings` result (the 9035 schema) plus `movements`, which are F2 rows |
+| F5 net worth | lines: class (`asset`, `liability`), balance (null when not ok), `eliminated_r28`; reporting (`net_worth` null when a rate is missing); by owner (`party_id` or `unknown`) |
+| F6 cards | rows: owed, latest statement, repayments since it; `annual_fee` is the `fin.cards.fee_eligibility` result (the 9035 schema) |
+| F7 reconciliation | `coverage` items are `fin.reconciliation.coverage` results and `exceptions` are its exception rows (9035); transfer matching: open clearing items (kind, amount, opened) and decisions by state |
+
+**How it was checked.**
+1. **Offline:** the 54 F1–F7 results captured in the full PG16 + PG17 run all conform.
+2. **AT-OUT-04** (`run_s4_core19.py`) calls F1–F7 as the Owner and as an AI connection that sees the chequing account and the receivable side of the loan only. The household has statements, a savings statement that differs from the ledger (a reconciliation exception), an open clearing item (inserted as in AT-MR-02), the intra-household loan, an investment account and a card. It asserts the branches:
+   - holders as a list and as `unknown`;
+   - a latest statement, and reporting on every F1 row;
+   - a masked F2 line for the AI connection;
+   - income and expense categories;
+   - F4 movements;
+   - eliminated and non-eliminated F5 lines, and owners;
+   - a card without fee policy;
+   - an F7 exception, an open clearing item and coverage.
+3. **Negative check (one-off):** requiring `amount` on every F2 line makes AT-OUT-04 fail at `$.rows[3].lines[1].amount`, a masked line.
+
 ## Remaining
 
 - The MCP-reachable commands other than the draft tools keep derived input schemas: they are RC-ADMIN or PWA-first.
-- Field-level schemas for report rows and the explanatory structures above, one at a time (D-OUT-1).
+- Rows of R09 (cash flow), R30 (review queue) and R31 (evidence trace), and the explanatory structures (match traces, candidates, criteria, evidence), one at a time (D-OUT-1).

@@ -1,4 +1,4 @@
-# Balnexa S4 — migration register addendum: 9017–9035
+# Balnexa S4 — migration register addendum: 9017–9036
 
 | Field | Value |
 |---|---|
@@ -42,6 +42,7 @@
 | 9033 | `9033_s4_output_schemas_read_tools.sql` | catalog delta (5) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 4: output schemas for FX rate, snapshots, registry search, handoff status; PR from `s4/output-schemas-2` |
 | 9034 | `9034_s4_output_schemas_remaining.sql` | catalog delta (12) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 5: top-level output schemas for the remaining MCP read tools; PR from `s4/output-contract` |
 | 9035 | `9035_s4_output_schemas_fields.sql` | catalog delta (12; MODIFY of the 9034 entries) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 6: field-level output schemas for the 12 read tools of 9034; PR from `s4/output-fields` |
+| 9036 | `9036_s4_output_schemas_report_rows.sql` | catalog delta (7; MODIFY of the 9032 report-family entries) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 7: field-level rows and nested objects of F1–F7; PR from `s4/report-rows` |
 
 ## 3. Proposed disposition rows
 
@@ -50,7 +51,7 @@
 | 9017–9023 | **Accept into the register** as V1-CORE support migrations; they are merged into `main` | none beyond confirming the rows |
 | 9024, 9030 | **Accept** as guard false-positive fixes (F-M0A-01, F-AUD-01) | none |
 | 9025, 9028 | **Accept**; they run only against mocks until M0-B | L-DOC2-1 / L-INT-1 (provider ids with digit runs) is still open; recommended option (b), stage only digests, would need one more migration |
-| 9026, 9031–9035 | **Accept** as catalog-only | none |
+| 9026, 9031–9036 | **Accept** as catalog-only | none |
 | 9027 | **Accept** | none |
 | 9029 | **Accept** | none |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |

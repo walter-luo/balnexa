@@ -224,6 +224,85 @@ def t_output_fields(server, ev):
             f"gap; artifact CURRENT then STALE; a card with no policy; evidence denied over MCP; the replay still verifies")
 
 
+@test("AT-OUT-04", "2.8 part 7; 9036; D-OUT-1 (field-level rows and nested objects of the report families F1-F7: each family is "
+                   "called by the Owner and by an AI connection over a household with statements, a reconciliation difference, an "
+                   "open clearing item, an intra-household loan, an investment account and a card; the row branches are asserted)")
+def t_output_rows(server, ev):
+    import run_s4_core3 as C3
+    import run_s4_core10 as C10
+    import run_s4_core11 as C11
+    import run_s4_core12 as C12
+    fams = ["q_f1_balances", "q_f2_transactions", "q_f3_income_expense", "q_f4_investments", "q_f5_networth", "q_f6_cards",
+            "q_f7_reconciliation"]
+    ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
+    H = C12.world(server, "bnx_c19out4")
+    cad, rec = H.cad["account_currency_id"], H.rec["account_currency_id"]
+    entries = {fn: catalog_entry(H, fn) for fn in fams}
+    C3.client(H)
+    r, v = C3.consent(H, ["finance.read", "reports.read"], acs=[cad, rec])       # sees neither savings nor the payable side
+    B = {"kind": "bearer", "secret": C3.token(H, r, v)["access_token"]}
+    # statements: chequing matches the ledger; savings prints 1250.00 where the ledger has 1200.00 (a reconciliation exception)
+    s1 = C10.stmt(H, H.cad, "2026-01-02", "2026-01-31", "1000.00", "2000.00")
+    s2 = C10.stmt(H, H.sav, "2026-01-02", "2026-01-31", "500.00", "1250.00")
+    for jid, d, amt in (("J1", "2026-01-10", "3000.00"), ("J2", "2026-01-12", "-200.00"), ("J4", "2026-01-20", "-100.00"),
+                        ("J5", "2026-01-22", "-400.00"), ("J6", "2026-01-25", "-1000.00"), ("J7", "2026-01-28", "-300.00")):
+        C10.row(H, H.cad, d, amt, link=H.j[jid])
+    H.cmd(H.owner, "run_reconciliation", statement_id=s1)
+    H.cmd(H.owner, "run_reconciliation", statement_id=s2)
+    C10.row(H, H.cad, "2026-01-30", "-75.00", desc="E-TRANSFER OUT")
+    C11.match(H, H.cad)
+    with H.definer() as cx:                          # an open clearing item, as the clearing path leaves it (fixture as in AT-MR-02)
+        ver = cx.execute("select version from bnx.ledger_state").fetchone()[0]
+        ci = cx.execute("insert into bnx.clearing_item(id, account_currency_id, currency, kind, amount, counterpart_hint, opened_journal) "
+                        "values (gen_random_uuid(), %s, 'CAD', 'transfer_in_transit', -400.00, %s, %s) returning id",
+                        (cad, json.dumps({"account_currency_id": H.sav["account_currency_id"], "window_days": 7}), H.j["J5"])).fetchone()[0]
+        cx.execute("insert into bnx.clearing_item_event(clearing_item_id, seq, event, recorded_version) values (%s, 1, 'opened', %s)", (ci, ver))
+        cx.commit()
+    calls = []
+
+    def run(who, cred, fn, **q):
+        res = H.app.call(fn, cred, q)
+        calls.append((who, fn, res))
+        return res
+
+    for who, cred in (("owner/pwa", H.owner), ("ai/mcp", B)):
+        run(who, cred, "q_f1_balances", as_of="2026-01-31", reporting_currency="USD")
+        run(who, cred, "q_f2_transactions", date_from="2026-01-01", date_to="2026-01-31")
+        run(who, cred, "q_f3_income_expense", date_from="2026-01-01", date_to="2026-01-31")
+        run(who, cred, "q_f4_investments", as_of="2026-01-31", reporting_currency="USD")
+        run(who, cred, "q_f5_networth", as_of="2026-01-31", reporting_currency="USD")
+        run(who, cred, "q_f6_cards", as_of="2026-01-31")
+        run(who, cred, "q_f7_reconciliation")
+    H.close()
+    bad = [(who, fn, validate(entries[fn]["output_schema"], res)) for who, fn, res in calls if validate(entries[fn]["output_schema"], res)]
+    got = lambda who, fn: next(res for w, f, res in calls if w == who and f == fn)
+    o, ai = (lambda fn: got("owner/pwa", fn)), (lambda fn: got("ai/mcp", fn))
+    seen = {
+        "f1 holders": sorted({type(x["holders"]).__name__ for x in o("q_f1_balances")["rows"]}),
+        "f1 latest statement": any("latest_statement" in x for x in o("q_f1_balances")["rows"]),
+        "f1 reporting": all("reporting" in x for x in o("q_f1_balances")["rows"]),
+        "f2 masked line (ai)": any(l.get("masked") for x in ai("q_f2_transactions")["rows"] for l in x["lines"]),
+        "f3 kinds": sorted({x["kind"] for x in o("q_f3_income_expense")["categories"]}),
+        "f4 movements": [len(x["movements"]) for x in o("q_f4_investments")["accounts"]],
+        "f5 eliminated": sorted({x["eliminated_r28"] for x in o("q_f5_networth")["lines"]}),
+        "f5 by_owner": len(o("q_f5_networth")["by_owner"]),
+        "f6 cards": [x["annual_fee"]["status"] for x in o("q_f6_cards")["cards"]],
+        "f7 exceptions": len(o("q_f7_reconciliation")["exceptions"]),
+        "f7 open clearing": len(o("q_f7_reconciliation")["transfer_matching"]["open_clearing_items"]),
+        "f7 coverage": len(o("q_f7_reconciliation")["coverage"]),
+    }
+    json.dump({"calls": [{"who": w, "fn": f} for w, f, _ in calls], "seen": seen}, open(os.path.join(ev, "AT-OUT-04.json"), "w"),
+              indent=1, default=str)
+    check(bad == [] and sorted({fn for _, fn, _ in calls}) == fams, f"{bad}")
+    check(all(entries[fn]["output_schema"] == ovr["schemas"][fn]["output"] for fn in fams), "catalog output schemas differ from the overrides")
+    check(seen["f1 holders"] == ["list", "str"] and seen["f1 latest statement"] and seen["f1 reporting"] and seen["f2 masked line (ai)"]
+          and seen["f3 kinds"] == ["expense", "income"] and seen["f4 movements"] and all(seen["f4 movements"])
+          and seen["f5 eliminated"] == [False, True] and seen["f5 by_owner"] > 0 and seen["f6 cards"] == ["NO_POLICY"]
+          and seen["f7 exceptions"] > 0 and seen["f7 open clearing"] == 1 and seen["f7 coverage"] > 0, f"{seen}")
+    return (f"{len(calls)} calls of F1-F7 by the Owner and an AI connection: every result conforms to its field-level row schema in the "
+            f"catalog; branches seen: {seen}")
+
+
 @test("AT-OUT-02", "2.8 part 5; D-OUT-2 (the output contract runs in every suite: every bnx_app call of a tool with a curated "
                    "output schema is validated by the harness; a mismatch fails the calling test, with the path only)")
 def t_output_contract(server, ev):    # noqa: ARG001 - no database needed
