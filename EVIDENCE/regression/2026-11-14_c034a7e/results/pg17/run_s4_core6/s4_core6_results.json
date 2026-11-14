@@ -1,0 +1,74 @@
+{
+ "server": "pg17",
+ "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "pypdf": "6.17.0",
+ "openpyxl": "3.1.5",
+ "pillow": "12.3.0",
+ "ocr": [
+  "tesseract 5.3.4"
+ ],
+ "seconds": 37.6,
+ "pass": 8,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-SIN-01-04",
+   "ref": "Addendum A1 \u00a77 AT-SIN-01..04, Rev 1 \u00a75, DOC-SIN-01/02/03 (PDF: visible, under a box, earlier revision, Info, XMP, annotation, form field, hidden layer, embedded file)",
+   "status": "PASS",
+   "detail": "11 synthetic PDFs: visible value, value under a black box (text layer), value only in revision 0 of an incremental update (last revision clean), Info, XMP, annotation, form field, hidden optional-content layer and embedded file -> SIN_CANDIDATE, each through its own extraction path; clean and properly redacted -> PASSED; a field named 'sin' labels its value; graphics coordinates are not read as numbers. End to end: QUARANTINED, archive refused, Z3 rows [0, 0, 0], no value in staging, scans, notifications or audit",
+   "seconds": 6.91
+  },
+  {
+   "id": "AT-SIN-05,07",
+   "ref": "Addendum A1 \u00a77 AT-SIN-05/07, Rev 1 A1-OD-3, DOC-SIN-05/06/12 (OCR scans; Owner-redacted copy admitted to Z3)",
+   "status": "PASS",
+   "detail": "OCR: visible value in a PNG scan and in an image-only PDF -> SIN_CANDIDATE (R_OCR9); the same scans with a black box over the number -> PASSED. End to end: the visible scan is QUARANTINED; the redacted T4 waits in PENDING_DECLARATION (archive refused), the Owner declares it, the queue labels it 'Owner-redacted copy', and admission registers it in Z3: evidence_object (SHA-256 of the re-fetched bytes, drive_processed, verified, single_copy), evidence_file (drive_inbox, image/png, archived) and document_evidence (OWNER_REDACTED_SOURCE with the declaration); declaration_status, scan_result and sin_detector_version are separate fields; the redacted T4 PDF follows the same path; Z3 rows are write-once; audit_verify 0",
+   "seconds": 4.96
+  },
+  {
+   "id": "AT-SIN-06",
+   "ref": "Addendum A1 \u00a77 AT-SIN-06, DOC-SIN-02 (XLSX very hidden sheet, comment, property; EML nested attachment; CSV, OFX)",
+   "status": "PASS",
+   "detail": "10 synthetic files: XLSX value in a very hidden sheet, a cell comment, a document property and under a 'SIN' column header (Mod-10-invalid) -> SIN_CANDIDATE; three-digit numbers in adjacent cells stay clean; EML value in an attachment of an attached message -> SIN_CANDIDATE; CSV and OFX scanned as text",
+   "seconds": 0.2
+  },
+  {
+   "id": "AT-SIN-13",
+   "ref": "Addendum A1 Rev 1 AT-SIN-13, \u00a73.5 (OCR: any nine digits; 8/10-digit runs with a weak glyph); D-A1-4 t_ocr",
+   "status": "PASS",
+   "detail": "tesseract on rendered synthetic lines: Mod-10-invalid nine digits -> R_OCR9; 8- and 10-digit runs containing a confusable glyph (S, B) -> R_OCR_RUN; a clean 8-digit run -> no hit; lowest clean digit confidence per size {18: 0.926, 24: 0.947, 32: 0.95, 44: 0.945} is above t_ocr 0.9",
+   "seconds": 11.56
+  },
+  {
+   "id": "AT-SIN-29",
+   "ref": "Addendum A1 Rev 1 AT-SIN-29, DOC-SIN-12 (bytes changed between scan and archive: nothing written)",
+   "status": "PASS",
+   "detail": "bytes changed between scan and archive -> HASH_MISMATCH, back to DISCOVERED, no Z3 row; after a fresh scan the statement is admitted as AS_RECEIVED_FROM_OWNER without a declaration; the same bytes arriving by mail share the evidence object (one object, two evidence files, two links)",
+   "seconds": 3.87
+  },
+  {
+   "id": "AT-SIN-30",
+   "ref": "Addendum A1 Rev 1 AT-SIN-30, \u00a73.7, DOC-SIN-07 (fail closed: SCAN_INCOMPLETE or PENDING_DECLARATION, never ADMISSIBLE)",
+   "status": "PASS",
+   "detail": "encrypted PDF, damaged image, OCR timeout, OCR engine missing, JavaScript, ZIP archive, macro workbook, unknown binary, oversize and truncated PDF -> SCAN_INCOMPLETE with a rule code each; end to end the encrypted PDF stays SCAN_INCOMPLETE and an uncertain or missing class stays PENDING_DECLARATION, archive refused, no Z3 row",
+   "seconds": 5.53
+  },
+  {
+   "id": "AT-SIN-31",
+   "ref": "Addendum A1 Rev 1 AT-SIN-31, \u00a74 zone Z1 (no file on disk, no content in logs after success, quarantine, timeout or crash)",
+   "status": "PASS",
+   "detail": "success, quarantine, OCR timeout and a SIGKILL during OCR: no file created or written (strace of every open/creat/mkdir/rename/link/unlink/truncate in the validator and its OCR child), TMPDIR, HOME and the working directory left empty, stdout and stderr hold no value",
+   "seconds": 3.93
+  },
+  {
+   "id": "AT-SIN-11c",
+   "ref": "Addendum A1 Rev 1 guard C1 (the validator's text path gives the reference detector's verdict for every corpus case)",
+   "status": "PASS",
+   "detail": "94 native corpus cases as UTF-8 text files: verdict, rule codes and hit count identical to sin_detector.scan",
+   "seconds": 0.59
+  }
+ ]
+}
