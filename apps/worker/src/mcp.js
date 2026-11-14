@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Streamable HTTP MCP server generated from the bnx-tools/1.0 catalog (AIH V1.2 §2–§3, §6, §8; AIH-2, AIH-4; replaces the R1
 // static MCP_TOOLS map, OBJ-268). Stateless JSON responses (no SSE stream, no session id): POST /mcp carries one JSON-RPC
 // message; GET and DELETE answer 405. One resource: the display-only confirmation card ui://balnexa/cards/v1 (card.js). Tools are exactly the catalog entries on the mcp channel of class RC-READ or RC-DRAFT, listed

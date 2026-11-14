@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Shared harness for the agentB review cases (vendored from Balnexa_9011_review_SAME_FAMILY_2026-11-11.zip, cases/validator/;
 only the REPO path is changed, so that the cases run against this checkout). Synthetic data only: values come from sin_corpus.value() at run time and are
 never printed or written. Case functions return (bytes, name) or a dict for special cases. Only ids, verdicts and rule codes

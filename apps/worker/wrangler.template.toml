@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 # Template for the M0-A synthetic test instance (docs/s4/M0A_Deployment_Runbook.md). deploy/install_instance.py renders
 # apps/worker/wrangler.toml from it (that file is not committed: it carries instance identifiers). Secrets are never here:
 # DB_URL_BNX_APP, DB_URL_BNX_AUTHN, DB_URL_BNX_WORKER are set with `wrangler secret put`.

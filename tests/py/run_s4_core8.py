@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 8 tests: 9012a R28 intra-household loans (UA V1.2 §5.7, §10; BNX-S2-08; OR-L-01...06).
 The database engine bnx.r28_evaluate is compared byte for byte (canonical JSON, including the rounding-event ledger) with
 the CI oracle tests/oracle/r28_reference.py on every fixture of r28_fixtures_V1.1.json (30, unchanged) and

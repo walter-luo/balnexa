@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """External providers of the Executor (TST-5; WP matrix V1.2 phase 2.1).
 
 The Executor reads documents from the instance's Drive (Inbox, Processed), shared-index sheets (Google Sheets, CSV or

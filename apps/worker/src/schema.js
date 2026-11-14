@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Minimal JSON Schema validator for the bnx-tools/1.0 input schemas (CORE-7; UA V1.2 §8: "JSON-Schema validation of the
 // body"). Supports exactly the keywords the catalog generator emits or an override may use: type (string or list),
 // properties, required, additionalProperties (boolean or schema), enum, pattern, minLength, maxLength, minimum, maximum,

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Reviewer adversarial cases for the SIN/ITN detector (generators only; every value is built at run time from
 tests/py/sin_corpus.value(kind, seed). No literal nine-digit value appears in this file. Case ids are R-A-nn.)"""
 import os, random, sys

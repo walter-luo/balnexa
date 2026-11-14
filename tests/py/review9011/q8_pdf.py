@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q8 PDF hiding places (vendored from the 9011 review ZIP; widget rectangles written as decimals, 10.0 not 10, so that the
 repository scan, guard C6, does not read a coordinate list next to a field named sin as a labelled value). Every builder returns (bytes, name). Values are built in memory only."""
 from common import *

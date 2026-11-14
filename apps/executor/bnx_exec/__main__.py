@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """python -m bnx_exec run --kind KIND [--item ID ...]
 
 Runs one job kind over the given items (no item = one item with item_id null: BACKUP, EVIDENCE_VERIFY). Exit codes:

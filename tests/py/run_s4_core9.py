@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 9 tests: 9012b FX quotes, investment lots and card annual-fee policy and events (UA V1.2 §5.7;
 BNX-S2-02 §4.7; BNX-S2-14 OR-R-07 AT-P0-R19, OR-R-08 AT-INV-01 (named AT-INVL-01 here: AT-INV-01 is the catalog inventory
 test of core1), OR-R-09 AT-FX-01). Every expected figure is computed independently in this file with Python Decimal and

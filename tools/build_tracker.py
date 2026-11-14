@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Builds AUD001_054_Master_Tracker.csv: 54 canonical AUD IDs (+ NEW-* author namespace rows). AUD-001…043 Draft-04
 author dispositions are taken verbatim from tools/aud001_043_draft04_extract.json (parsed from
 Balnexa_Draft04_Consolidated_Review_and_Traceability.md sha256 111f86ee…); R1 columns are this package's assessment.

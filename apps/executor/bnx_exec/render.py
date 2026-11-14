@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """REPORT_RENDER: a snapshot's projection rows rendered as one self-contained HTML document (UA V1.2 §5.8.2).
 
 The renderer receives the rows exactly as the database digested them (``rows_text`` of the 9018 work order) and refuses to

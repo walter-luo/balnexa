@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """age encryption through the ``age`` binary that ships in the Executor image (UA §9.3 step 8; §9.4 K2).
 
 Only public recipients (``age1…``) are passed on the command line. The drill identity is a file whose path comes from the

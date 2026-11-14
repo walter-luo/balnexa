@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """G0-08 artifact integrity checks for the R1 package (run from the repository root):
   1. migration-chain lint: object created twice without CREATE OR REPLACE/DROP, privileged statements outside B001,
      RESET ROLE in migrations, SECURITY DEFINER without the fixed search_path, edits to history/draft04;

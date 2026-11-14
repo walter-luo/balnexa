@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Gateway client of the PWA (UA V1.2 §8, §12). Same origin only: the session cookie is HttpOnly/SameSite=Strict and the
 // Gateway checks Origin on every cookie-authenticated command. No other host is ever contacted (CSP connect-src 'self').
 export class ApiError extends Error {

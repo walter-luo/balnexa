@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Completion payload schemas per (job kind, staging kind) (UA V1.2 §9.2: "a staging payload (JSON Schema per job kind;
 // size-capped); the Gateway validates"). CORE-8: the kinds whose promoters exist in 9016/9018. Shapes only: the promoters
 // (wrk_render_done, wrk_backup_recorded, wrk_evidence_state, wrk_restore_drill_recorded) stay the validators of record and

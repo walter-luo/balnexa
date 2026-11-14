@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """R28 intra-household loan reference engine, V1.2 (CI oracle for bnx.r28_evaluate, migration 9012a).
 
 Derived from the S2 design oracle `r28_reference_s2_v1_0.py` (BNX-S2-08a, SHA-256 ead5a9f8…22f18, kept unchanged next to

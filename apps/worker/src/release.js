@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Release manifest of this Worker (B3, Amendment 03 §5.2; IL V1.2 §4: supports_schema_from = N-1). The Gateway serves a
 // database whose migration heads lie inside these ranges; otherwise it answers 503 BNX_BINDING_MISMATCH and only
 // /api/v1/health responds. work_kinds: the work-item kinds this release processes (deploy rule UA §9.1: a release that

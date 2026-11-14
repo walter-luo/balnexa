@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Balnexa M0-A synthetic test instance: one-command deploy to the Owner's Cloudflare account.
 // Run from this folder:  node deploy.mjs
 // Steps: npm ci -> wrangler login -> deploy -> set APP_ORIGIN to the real workers.dev URL and deploy again

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Generate spec/sin-detector/sin_detector_v1.json, the single source of the SIN/ITN detector parameters shared by the
 Executor (Python), the Worker (JS) and the database (SQL, embedded in migration 9011). Addendum A1 Rev 1 §3.
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Generates the seed block of migration 9006 from institution_registry_seed_V1.0.json (Amendment 02 seed).
 Usage: gen_registry_seed_sql.py <seed.json>  -> SQL on stdout (pasted into 9006; the migration file is the artifact)."""
 import json, sys

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """SIN/ITN candidate detector, reference implementation (Executor, Python).
 
 Specification: Addendum A1 Rev 1 §3 and spec/sin-detector/sin_detector_v1.json. The Worker (apps/worker/src/sin_detector.js)

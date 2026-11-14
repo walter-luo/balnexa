@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Production entry of the Gateway on Cloudflare Workers (M0-A; UA V1.2 §3, §8). The routes live in index.js, which the
 // local node adapter also runs; this entry adds only what the platform provides:
 //   * env.db — one Neon serverless HTTP client per database login role, from the secrets DB_URL_BNX_APP, DB_URL_BNX_AUTHN and

@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Black-box suite: HTTP requests against the real Worker module (node adapter) and a real PostgreSQL database migrated
 // by bnx_migrator. No test helper touches the database; identities are synthetic RSA-signed Google-style ID tokens.
 import { test, before, after } from 'node:test';

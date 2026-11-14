@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 work package CORE-1 tests (B002, run_migrations.py lanes, 9002-9004). Same conventions as run_g0.py:
 runtime claims are exercised through the intended roles; the migrator under SET ROLE bnx_definer is used only for installer
 steps and defence-in-depth probes; postgres only creates/drops test databases and plays the installer for B001/B002.

@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """FP-SIN-01 benign corpus (Addendum A1 Rev 1 §6, §11): synthetic texts of the kinds a household's documents and postings hold,
 none of which contains a SIN or an ITN by construction intent. Every item is generated from a seed; nothing here is real
 data. The measurement is the share of items the detector flags (a false positive by construction). Random nine-digit

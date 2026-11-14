@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 # gitleaks configuration (CI secret scan). Default rules plus two reviewed false positives:
 # - manifest_sha256.json files list SHA-256 digests of repository files; file paths containing words such as
 #   "secret", "api" or "authz" make the generic-api-key rule fire on the digest

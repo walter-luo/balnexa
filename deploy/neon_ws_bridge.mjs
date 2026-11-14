@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Local TCP -> Neon WebSocket bridge for the installer (M0-A runbook step 3). Some build environments reach the internet only
 // through an HTTPS proxy, which cannot carry the PostgreSQL wire protocol on port 5432; Neon also accepts that protocol over
 // WebSocket (the transport of its serverless driver). This bridge listens on 127.0.0.1 and forwards each TCP connection to

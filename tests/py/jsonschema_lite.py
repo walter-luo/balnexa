@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """JSON Schema subset used by the bnx-tools/1.0 catalog (a port of apps/worker/src/schema.js validate()), and the output
 contract: every result of a tool with a curated output schema (db/catalog/bnx-tools-1.0.overrides.json, schemas.<fn>.output)
 must conform, wherever a test calls it as bnx_app (2.8 part 3; D-OUT-2: the Gateway refuses a non-conforming MCP result)."""

@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // SIN/ITN candidate detector — Worker implementation (Addendum A1 Rev 1 §3; spec/sin-detector/sin_detector_v1.json).
 // Same algorithm as apps/executor/bnx_exec/sin_detector.py and bnx.sin_scan (migration 9011) for origins 'native' and
 // 'typed'. 'ocr' is refused here (only the Executor performs OCR). Hits are {rule, start, end} in code-point positions of

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 4 tests: 9010 intake, drafts, validations and approval holds, Executor lease and staging, shared index
 consumer, exact mail retrieval results, project handoff, account proposals, notifications. Conventions as run_g0.py.
 Usage: run_s4_core4.py --server pg16|pg17 [--only PREFIX] [--evidence DIR]"""

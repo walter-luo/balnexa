@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Shared test harness: fresh database = privileged bootstrap B001 (installer identity) + migration chain applied by the
 restricted bnx_migrator through db/tools/run_migrations.py. Tests then connect ONLY as the intended runtime roles."""
 import json, os, subprocess, sys, uuid

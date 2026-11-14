@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """INS-1 release manifest (WP matrix V1.2 phase 2.6; UA V1.2 §9.1 deploy rule; IL V1.2 §4).
 
 Builds release/manifest.json from the repository: the Worker release and its schema range (apps/worker/src/release.js),

@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // AUD-046 deterministic adversarial simulation of the Cron/KV/Neon wake-up protocol.
 // Uses the production decision functions from apps/worker/src/dispatch.js (shouldReadNeon/isBackstopTick) with a
 // simulated eventually-consistent KV (per-POP stale reads up to 60 s, lost writes, last-writer-wins overwrites) and a

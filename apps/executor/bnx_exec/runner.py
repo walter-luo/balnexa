@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Job loop of the Executor (UA V1.2 §9.2; WP-CORE CORE-8).
 
 One process runs one job kind over a list of items (a Cloud Run Job task, or a local run). For each item:

@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // The one MCP App resource of the MCP server (AIH-4; UA V1.2 §12.3; AIH V1.2 §8): ui://balnexa/cards/v1. A display-only card
 // that renders a draft (Draft Confirm) or a status from the tool result the host hands to it. Confirm opens the sealed PWA
 // link (#/confirm/<plan>?h=<plan_hash>&s=<scope_digest>, CORE-9 Mode H); the card never calls a tool, never fetches anything

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 13 tests: 9016 backup/DR registries, header facts and the generated restore preamble, restore drills,
 key custody (K2 fingerprints), audit anchor (9011R R-11), evidence re-hash, usage ledger, capacity and admission (UA V1.2
 §9.2-§9.5; Draft-04 Backup and DR §3-§10; Cloud Cost and Quota Model §5-§7). Synthetic data only; no cloud resource and no

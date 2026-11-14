@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Job handlers. Each takes (ctx, lease) and returns (staging kind, payload). A handler never posts: its result is a staging
 payload that the Worker tick promotes through the wrk_* promoter of that kind (9016, 9018)."""
 import datetime as dt

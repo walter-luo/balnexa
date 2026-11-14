@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 6 tests: 9011c Executor document validator (zone Z1) and Z3 registration at admission (Addendum A1 Rev 1
 §3, §5, §7 DOC-SIN-01/02/03/07/12; tests AT-SIN-01..07, 13, 29, 30, 31). Conventions as run_g0.py.
 

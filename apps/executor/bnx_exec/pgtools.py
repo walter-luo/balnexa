@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """PostgreSQL client tools shipped in the Executor image (UA V1.2 §3: pg_dump 16/17 and pg_restore of the same major).
 
 The binary directory of each major comes from ``BNX_PG_BINDIR_<major>`` or defaults to the Debian layout

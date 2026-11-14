@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Streaming digests (UA §5.9 / OR-I-05: SHA-256 is computed by the Executor; MD5 only to compare with an R2/S3 ETag)."""
 import hashlib
 

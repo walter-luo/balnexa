@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """bnx-tools/1.0 catalog generator (UA V1.2 §8; AIH V1.2 §2, DD-21; CORE-7).
 
 Derives one catalog entry per REST-callable function (every bnx.cmd_*/q_* function that bnx_app may EXECUTE) from the

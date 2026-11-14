@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 15 tests: CORE-8 Executor (UA V1.2 §9.2-§9.3, §5.8.2; WP-CORE CORE-8) and migration 9018 (work orders
 returned with the lease, the REPORT_RENDER promoter). The Executor package (apps/executor/bnx_exec) runs here for real: the
 job loop, the renderer, the BACKUP procedure with pg_dump/pg_restore and age, the RESTORE_DRILL into an isolated database, the

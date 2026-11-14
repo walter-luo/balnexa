@@ -1,3 +1,5 @@
+/* Copyright 2026 Walter Luo
+   SPDX-License-Identifier: Apache-2.0 */
 :root { --bg: #ffffff; --fg: #14181f; --muted: #555d6b; --line: #d5d9e0; --accent: #1f4e79; --accent-fg: #ffffff;
   --ok: #1b6e3a; --err: #a4161a; --warn: #8a5300; --card: #f5f7fa; --focus: #ffbf47; color-scheme: light dark; }
 @media (prefers-color-scheme: dark) { :root { --bg: #11151b; --fg: #e8ebf0; --muted: #aab2bf; --line: #333b47; --accent: #8cbcf0;

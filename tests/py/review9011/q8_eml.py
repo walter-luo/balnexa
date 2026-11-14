@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q8 EML hiding places."""
 from common import *
 import email.message, email.policy, email.utils, quopri

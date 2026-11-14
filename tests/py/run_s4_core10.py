@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """S4 V1.2 increment 10 tests: 9012c balance observations, statement periods and the deterministic reconciliation engine
 (UA V1.2 §5.6; Draft-04 §D1-§D7, SHA-256 4ad49225...). Statements, statement rows and links are inserted as the definer, as
 document extraction would leave them (no writer exists yet). Synthetic data only. Conventions as run_g0.py.

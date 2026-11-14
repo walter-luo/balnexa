@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Guard C6 (Addendum A1 Rev 1): scan every tracked text file for SIN/ITN candidates with the reference detector
 (origin 'native'). Prints file:line:rule for each hit, never the value. Exit 1 on any hit.
 Binary files (NUL byte) and files larger than 5 MiB are skipped and counted. Usage: sin_repo_scan.py [--all-history]

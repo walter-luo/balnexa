@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Extra Q8 cases found during the ITN sweep."""
 from common import *
 import q8_pdf as P, q8_xlsx as X

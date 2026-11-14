@@ -1,3 +1,5 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
 """Q9 limits and failure paths. Heavy cases are meant to be run one per process by run_heavy.py (rusage is measured there)."""
 from common import *
 import zipfile

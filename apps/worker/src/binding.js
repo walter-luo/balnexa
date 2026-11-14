@@ -1,3 +1,5 @@
+// Copyright 2026 Walter Luo
+// SPDX-License-Identifier: Apache-2.0
 // Binding checks B1/B2/B3/B8 (Amendment 03 §5.2; AE V1.2 §6) and the bnx-tools/1.0 catalog cache (CORE-7).
 // Run on the first request of an isolate and again at most every 10 minutes (isolate memory, never KV). A failure answers
 // every route except GET /api/v1/health with 503 (fail closed, ISO-4) and is re-checked after 60 s so a corrected deploy

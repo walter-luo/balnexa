@@ -27,16 +27,24 @@ The notice states a claim; it does not create ownership. Three points need the O
 ## 3. Contributions from others
 
 - **Inbound = outbound.** Apache-2.0 §5 says that a contribution intentionally submitted for inclusion is under the same license terms, unless the contributor states otherwise. Each contribution is therefore Apache-2.0. Its copyright stays with its author, and the company holds no more than the license.
-- If the company wants to **own** outside contributions, or to relicense them later, it needs each contributor's written agreement: a contributor licence agreement or an assignment. The Owner decides whether to require one; until then, none is asked for.
+- If the company wants to **own** outside contributions, or to relicense them later, it needs each contributor's written agreement: a contributor licence agreement or an assignment. **The Owner decided (CR-2) not to ask for one.**
 - Review reports from independent AI reviewers (for example `docs/s4/reviews/g0/*`) are kept as records under the same license.
 
 ## 4. Open points for the Owner
 
 | ID | Question |
 |---|---|
-| CR-1 | **When** to sign the written assignment from Walter Luo to Tambition Technologies Group Inc. (and whether it includes a waiver of moral rights). Until then the notice names the author. On signing, `NOTICE` and `README.md` change to the company in one commit, and this note records the date (never the document itself) |
-| CR-2 | Should outside contributors sign a CLA or assignment, or is inbound = outbound under Apache-2.0 enough? |
-| CR-3 | Should source files carry a short header (`Copyright 2026 <holder>. SPDX-License-Identifier: Apache-2.0`)? Apache-2.0 recommends it but does not require it. Adding headers would touch every file; committed migrations would need the header only in new migrations, because they are never edited |
+| CR-1 | **Deferred (Owner, 2026-11-14 06:20).** When to sign the written assignment from Walter Luo to Tambition Technologies Group Inc. (and whether it includes a waiver of moral rights). Until then the notice names the author. On signing, `NOTICE` and `README.md` change to the company in one commit, and this note records the date (never the document itself) |
+| CR-2 | **Decided 2026-11-14 06:20: inbound = outbound** (Apache-2.0 §5). No CLA or assignment is asked of contributors; each contribution is Apache-2.0, and its copyright stays with its author |
+| CR-3 | **Decided 2026-11-14 06:20: add headers** (see below) |
+
+**License headers (CR-3).** `tools/s4/license_headers.py` gives each source file in scope a two-line header: `Copyright 2026 Walter Luo` and `SPDX-License-Identifier: Apache-2.0`. The copyright line is read from `NOTICE`, so a change of holder (CR-1) is made in `NOTICE` and propagated with `--apply`. CI runs `--check`. Out of scope, never edited:
+
+- committed migrations and bootstrap files, because installed databases depend on their exact bytes; new migrations carry the header from the start;
+- `db/history` and the `tests/sql` fixtures;
+- `EVIDENCE`;
+- reviewer reports, which others wrote;
+- JSON and lock files, which have no comments.
 
 ## Sources
 
