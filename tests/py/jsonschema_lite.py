@@ -61,6 +61,9 @@ def validate(s, v, path="$"):
                 if e: return e
             elif s.get("additionalProperties") is False:
                 return (f"{path}.{k}", "additional property")
+            elif isinstance(s.get("additionalProperties"), dict):          # schema-valued, as in apps/worker/src/schema.js
+                e = validate(s["additionalProperties"], v[k], f"{path}.{k}")
+                if e: return e
     return None
 
 

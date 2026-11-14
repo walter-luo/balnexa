@@ -1,0 +1,62 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "age": "1.1.1",
+ "seconds": 26.0,
+ "pass": 7,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-EXEC-03",
+   "ref": "UA V1.2 \u00a79.2 (the render jobs hold no database credential: the work order travels with the lease); 9018",
+   "status": "PASS",
+   "detail": "REPORT_RENDER order carries the 7 projection rows as digested (SHA-256 = projection_sha256), source revision V25, ownership revision 24, account labels and the object prefix; unknown or missing snapshot and unknown backup run refused with no lease row (1 -> 1); BACKUP order = wrk_backup_due (advisory: K2_RECIPIENTS_MISSING -> due); EVIDENCE_VERIFY lists hashed objects; document kinds keep input null; bnx_app cannot read orders",
+   "seconds": 3.12
+  },
+  {
+   "id": "AT-RND-01",
+   "ref": "UA V1.2 \u00a75.8.2; L-9013-2 (REPORT_RENDER: verified rows, deterministic artifact, content-addressed object, promoter)",
+   "status": "PASS",
+   "detail": "the job loop leased, rendered 1512 bytes (STAGED), uploaded to the content-addressed object and staged; the Worker promoter recorded artifact seq 1 (q_snapshot_artifact: CURRENT, SHA-256 equal to the stored bytes); re-render byte-identical (seq 2, same digest, idempotent store write); renderer refuses rows that do not match projection_sha256; promoter rejects [('digest', 'PROJECTION_DIGEST'), ('other snapshot', 'ITEM_MISMATCH'), ('revision', 'REVISION'), ('size', 'ARTIFACT_FACTS'), ('unknown field', 'FIELD')]; render_done on an INDEX_RENDER lease waits for its promoter",
+   "seconds": 3.12
+  },
+  {
+   "id": "AT-BAK-01-EXEC",
+   "ref": "UA V1.2 \u00a79.3 steps 1-8 (the Executor's BACKUP job: snapshot, header, pg_dump, K2 age, upload, re-download, drill-identity decrypt)",
+   "status": "PASS",
+   "detail": "BACKUP job: bnx_backup snapshot + header facts, pg_dump 16.15 on server 16.15 (custom, data only, every schema), deterministic tar with backup_header.json, age to the Owner and drill recipients, upload bnx-vault-backups/2026/11/16d3dfd9-5167-4a4e-ae30-353e7b853f88.age, re-download + drill-identity decrypt + pg_restore --list; promoter recorded VERIFIED (anchor MATCH); vault holds only ciphertext; second run the same local date -> not due; before K2 keys -> not due; a wrong drill recipient -> FAILED RECIPIENT_FINGERPRINT (staged, never VERIFIED)",
+   "seconds": 3.35
+  },
+  {
+   "id": "AT-BKP-DRILL-EXEC",
+   "ref": "UA V1.2 \u00a79.3 step 9; Backup \u00a77-\u00a78; AT-BKP-20 (the Executor's drill: drill identity only, isolated target, generated preamble)",
+   "status": "PASS",
+   "detail": "RESTORE_DRILL job: vault object downloaded, generation checked, decrypted with the drill identity, digests checked, isolated target bootstrapped and migrated to the recorded versions (equal), loaded through the generated preamble, post-checks (audit_verify 0, journals re-asserted), restored header facts staged; promoter stored PASS (key drill-k2a, cleanup verified, no drill database left) and the run is restorable; Owner identity in the drill job -> FAIL DRILL_KEY_NOT_RECIPIENT; tampered object -> FAIL (['age decrypt failed', 'HEADER_FACTS_DIFFER'])",
+   "seconds": 6.76
+  },
+  {
+   "id": "AT-EVV-01",
+   "ref": "Backup \u00a79; R-09 (the Executor re-hashes the R2 copy of each hashed evidence object; mismatch alerts the Owner)",
+   "status": "PASS",
+   "detail": "EVIDENCE_VERIFY job re-hashed 2 R2 copies: MATCH, MISMATCH (Owner alert ['30dfd9f1-6f27-4b30-8226-83b619dbcb6c']); a missing copy is logged (missing=1, no payload field: L-CORE8-6) and comes first in the next order (least recently verified first)",
+   "seconds": 2.91
+  },
+  {
+   "id": "AT-EXEC-04",
+   "ref": "UA \u00a79.2; M0-A-03/04 shape (SIGTERM: the current item is abandoned unstaged; lease expires; staging-guard pre-check; replay)",
+   "status": "PASS",
+   "detail": "SIGTERM during an item: child process terminated after 0.6s, item ABANDONED with no completion (lease open, expires), loop stopped before item 2, exit 4; staging-guard pre-check stops a Luhn-valid run at ['$.note'] before the nonce is spent; lost response + LEASE_USED = staged (replay), 4xx never retried, nonce never in a repr or log, > 256 KiB refused locally; CLI without configuration exits 2",
+   "seconds": 3.75
+  },
+  {
+   "id": "AT-EXEC-02-STG",
+   "ref": "UA \u00a79.2 (direct completion as bnx_stager through stg_* when bnx_stager LOGIN is enabled)",
+   "status": "PASS",
+   "detail": "REPORT_RENDER completed through bnx.stg_render_done as bnx_stager (staged_by bnx_stager), promoted by the Worker; an invalid nonce -> 422 LEASE_INVALID",
+   "seconds": 2.99
+  }
+ ]
+}

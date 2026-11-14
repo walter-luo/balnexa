@@ -1,0 +1,41 @@
+PASS AT-MIG-01 [AUD-049,AUD-037] (3.3s): 49 migrations applied by session_user=bnx_migrator (current_user=bnx_definer); rerun verified 49 checksums, applied 0
+PASS AT-MIG-02 [AUD-049] (0.3s): modified applied 0103 -> exit 5 before any apply; removed applied file -> exit 4
+PASS AT-MIG-03 [AUD-049] (3.0s): failure injected after 0106 body+ledger row: head stays 0105, no 0106 object exists; rerun completes
+PASS AT-MIG-04 [AUD-049] (0.4s): Draft-04 0001 in chain -> refused (exit 2); runner under postgres superuser -> refused (exit 3)
+PASS AT-MIG-05 [AUD-049] (0.0s): 24 denied statements (runtime roles x4 statements; migrator without SET ROLE x4)
+PASS AT-MIG-06 [AUD-049,AUD-050] (0.0s): 0 violations over 166 relations and 385 functions; injected GRANT detected; matrix -> privilege_matrix.json
+PASS AT-MIG-07 [AUD-049,AUD-037] (2.9s): Draft-02 fixture converted by bnx_migrator via 9001: anchor versions 5000 then 5200, 2 versioned confirmations, 2 decision events, 1 current; balance 10140.0000
+PASS AT-MIG-08 [AUD-049 (negative control)] (0.1s): Draft-04 0001-0007 under bnx_migrator fails as the audit predicted: ['psql:<stdin>:16: ERROR:  permission denied to alter role']
+PASS AT-BAL-01 [AUD-044] (3.0s): header-only: JOURNAL_INCOMPLETE; one line: JOURNAL_INCOMPLETE; same sign: JOURNAL_UNBALANCED; cross-currency zero sum: JOURNAL_UNBALANCED; unbalanced: JOURNAL_UNBALANCED; over-scale: AMOUNT_SCALE; wrong-currency line: composite FK; late lines in later txn: LATE_LINE; balance changed only by the one valid probe (1000.0000 -> 999.0000)
+PASS AT-BAL-02 [AUD-044] (0.0s): 7 malformed commands rejected; ledger version, journals, audit, idempotency and outbox counts unchanged (7, 2, 17, 11, 0)
+PASS AT-BAL-03 [AUD-044,AUD-045] (0.0s): 2-line, 3-line split and 4-line FX journals committed; CAD 999.0000->822.0000; USD=100.0100; original 137.00 CAD @0.73 preserved
+PASS AT-BAL-04 [AUD-045] (0.0s): rejected: statement USD on CAD account-currency; source_txn USD on CAD account-currency; clearing_item USD on CAD account-currency; account_currency EUR bound to a USD ledger account; lower-case currency code; JPY fraction; statement CAD scale
+PASS AT-BAL-05 [AUD-044,AUD-045 (negative control on Draft-04 baseline)] (0.3s): Draft-04 baseline accepts a header-only journal (0 lines committed) and a USD line on a CAD ledger account (defects reproduced)
+PASS AT-MUT-01 [AUD-044,AUD-045 (mutation check: the tests detect removal of the fix)] (3.0s): mutants: without t_journal_complete_header a header-only journal commits; without the composite FK the deferred LINE_CURRENCY_MISMATCH layer still rejects; without both a USD line on the CAD account commits. The AT-BAL-01 probes detect each mutant
+PASS AT-CMD-01 [AUD-053] (0.0s): unknown subject, unverified email, foreign issuer, forged and truncated tokens rejected; 3 sessions stored as SHA-256 only
+PASS AT-CMD-02 [AUD-053] (0.0s): same key+payload -> identical receipt (replayed=true), changed payload -> IDEMPOTENCY_CONFLICT without effects, keys scoped per member
+PASS AT-CONC-01 [AUD-053] (0.1s): 8 concurrent identical requests -> 1 journal, 7 replays
+PASS AT-CONC-02 [AUD-053,AUD-044] (1.1s): 100 concurrent posts (10 connections, 2 members): versions 15..114 unique and contiguous; balance -1.00 exact; audit chain intact
+PASS AT-CMD-03 [AUD-053] (0.1s): viewer cannot post; private account invisible, not postable and not self-grantable by owner (uniform NOT_AVAILABLE), shareable only by its creator; revoked can_post enforced; member cannot grant/invite; 10 direct/cross-role calls denied
+PASS AT-CMD-04 [AUD-053] (0.0s): PKCE wrong verifier -> INVALID_GRANT; code replay -> invalid_grant with the earlier token revoked; bearer limited to approved account-currency; MCP post/approve -> FORBIDDEN_CHANNEL; evidence denied; revoked connection -> UNAUTHENTICATED
+PASS AT-CMD-05 [AUD-053] (0.1s): reversal+replacement at one version 117; balance at V-1 shows original (-50), at V shows -5; double correction refused
+PASS AT-PLAN-01 [AUD-053] (2.8s): freeze -> approve (digest-bound) -> chunk (invisible) -> atomic activation at V7 (+2488.00), idempotent re-activation
+PASS AT-PLAN-02 [AUD-053] (3.1s): in-scope direct post after approval -> stale before any write, claim released; re-plan allowed; overlapping held claim rejected
+PASS AT-PLAN-03 [AUD-053] (3.1s): approver lost can_post -> suspended at chunk; approver suspended after seal -> activation refused without writes, revalidation suspends; suspended member's session revoked
+PASS AT-CONC-03 [AUD-053] (4.1s): activation blocked 1.01s on an in-flight in-scope posting, then failed closed (revalidation_required -> stale, 0 visible)
+PASS AT-FAULT-01 [AUD-053,AUD-044] (0.1s): backend killed before COMMIT -> no journal/audit/idempotency/version change, retry executes once; tampered plan item -> whole chunk rolled back (0 journals)
+PASS AT-CMD-06 [AUD-053] (0.0s): 139 audit events hash-chained (verify=0); UPDATE refused (append-only); forged row refused at insert (AUDIT_CHAIN_APPEND); 108 outbox rows for postings
+PASS AT-CMD-07 [AUD-053] (3.3s): revision (T3, owner) reverses and reposts at one version: Jan-31 balance 990.00 at V-1, 890.00 at V; exclusion and pre-anchor posting refused
+PASS AT-SNAP-03 [AUD-051] (3.0s): own replay digest-verified (also after back-dated post); guessed/other-audience/malformed IDs -> identical NOT_AVAILABLE; owner T3 audit replay verified+audited; revoked grant -> ACCESS_REVOKED; suspended zero-scope member -> ACCESS_REVOKED
+PASS AT-SNAP-04 [AUD-051] (3.0s): other AI connection of same member -> NOT_AVAILABLE; narrower AI consent on PWA snapshot -> ACCESS_REVOKED; zero-scope consent refused (SUBSET_REQUIRED)
+PASS AT-SNAP-05 [AUD-051 (negative control on Draft-04 baseline)] (0.0s): Draft-04 snapshot_replay_access returns 'ok' for a suspended non-audience member on a zero-scope snapshot (defect reproduced)
+PASS AT-OWN-05 [AUD-052] (3.2s): 60/40 (V7) -> 50/50 from Mar (V8); backdated Feb transfer at V9: Feb@V8=60/40, Feb@V9=100/0, Mar=50/50; tie and 101% rejected without effects; grants unchanged; scope versioned
+PASS AT-OWN-06 [AUD-052 (negative control on Draft-04 baseline)] (0.0s): Draft-04 accepts two same-party/same-date/same-version events (tie with no deterministic winner) (defect reproduced)
+PASS AT-SRC-01 [AUD-054] (2.9s): history ['reserved', 'released', 'reserved', 'linked', 'released', 'linked'] recorded with chained prior_event_id; illegal transitions rejected (SOURCE_LINK_TRANSITION, SOURCE_TXN_ALREADY_LINKED, SOURCE_LINK_TRANSITION); repeated purchase occurrences 1/2 both linked; duplicate fingerprint rejected; history append-only
+PASS AT-SRC-02 [AUD-054 (negative control on Draft-04 baseline)] (0.0s): Draft-04 source_txn_link_event: unique violation on reserved->released->reserved (defect reproduced)
+PASS AT-EVP-11 [AUD-041,AUD-030] (3.0s): grant-derived access granted (60 s URL) then denied on the next request after revocation; revoked and unknown files return identical responses; decisions logged [('denied', 2), ('granted', 1)]
+PASS AT-ARC-02 [AUD-047,AUD-042] (2.8s): silent dual_verified rejected; mismatched Drive re-hash -> archive_failed + outbox alert; matching re-hash -> dual_verified; only dual_verified counted recoverable after R2 loss; gate (Owner T3) blocks approval until the plan's evidence is dual_verified
+PASS AT-Q-01 [AUD-046] (3.5s): enqueue during an open claim serializes on queue_state; generation 1 > drained 0 with 1 queued (no lost wakeup at the authority); drained only after claim; failed item re-queued
+PASS AT-BAK-01 [AUD-050] (4.2s): pg_dump --snapshot --data-only --schema=bnx --schema=bnx_audit --schema=auth as bnx_backup succeeds before and after a new bnx table+identity and an auth table+serial; 9 write/DDL attempts by bnx_backup denied; isolated restore: 125 tables equal counts, audit chain intact, 112 journals re-asserted complete, migrations and ledger version V118 equal, identical q_balances; no session secret in dump
+PASS AT-BAK-02 [AUD-050 (negative control on Draft-04 baseline)] (0.2s): Draft-04 grants: pg_dump as bnx_backup fails after a new table appears: pg_dump: error: query failed: ERROR:  permission denied for table m1_future_fact
+== pg16: 40 PASS, 0 FAIL, 0 SKIP in 60.2s
