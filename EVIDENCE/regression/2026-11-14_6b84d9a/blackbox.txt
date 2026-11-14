@@ -1,0 +1,224 @@
+TAP version 13
+# Subtest: BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
+ok 1 - BB-AUTH-01 Google sign-in: forged, expired, wrong-audience and unknown-subject tokens are rejected
+  ---
+  duration_ms: 119.474839
+  type: 'test'
+  ...
+# Subtest: BB-API-01 account, category, opening and posting through /api/v1 with idempotency
+ok 2 - BB-API-01 account, category, opening and posting through /api/v1 with idempotency
+  ---
+  duration_ms: 100.690452
+  type: 'test'
+  ...
+# Subtest: BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
+ok 3 - BB-API-02 CSRF, unknown routes, injection-shaped names and anonymous calls
+  ---
+  duration_ms: 12.781988
+  type: 'test'
+  ...
+# Subtest: BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
+ok 4 - BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope
+  ---
+  duration_ms: 169.636054
+  type: 'test'
+  ...
+# Subtest: BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
+ok 5 - BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) 
+  ---
+  duration_ms: 86.452807
+  type: 'test'
+  ...
+# Subtest: BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
+ok 6 - BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop rescan
+  ---
+  duration_ms: 40.048422
+  type: 'test'
+  ...
+# Subtest: BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
+ok 7 - BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)
+  ---
+  duration_ms: 87.051917
+  type: 'test'
+  ...
+# Subtest: BB-CAT-01 catalog from the Core: session sees every entry, bearer only MCP entries; REST and MCP give identical results (AT-AIH-01)
+ok 8 - BB-CAT-01 catalog from the Core: session sees every entry, bearer only MCP entries; REST and MCP give identical results (AT-AIH-01)
+  ---
+  duration_ms: 32.816438
+  type: 'test'
+  ...
+# Subtest: BB-SCHEMA-01 body validated against the catalog input schema; error codes are the database codes (AT-AIH-05)
+ok 9 - BB-SCHEMA-01 body validated against the catalog input schema; error codes are the database codes (AT-AIH-05)
+  ---
+  duration_ms: 34.898331
+  type: 'test'
+  ...
+# dispatch_refused BNX_BINDING_MISMATCH ["B1"]
+# dispatch_refused BNX_BINDING_MISMATCH ["B2"]
+# dispatch_refused BNX_FLAG_BINDING_MISMATCH ["B8"]
+# Subtest: BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answers and reveals no identity (AT-ISO-04, AT-CFG-05)
+ok 10 - BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answers and reveals no identity (AT-ISO-04, AT-CFG-05)
+  ---
+  duration_ms: 98.896144
+  type: 'test'
+  ...
+# Subtest: BB-B7-01 a token is accepted only on the surface and instance it was issued for (B7; AIH-1 resource binding)
+ok 11 - BB-B7-01 a token is accepted only on the surface and instance it was issued for (B7; AIH-1 resource binding)
+  ---
+  duration_ms: 101.881321
+  type: 'test'
+  ...
+# Subtest: BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for R2 (AT-EV-01)
+ok 12 - BB-UP-01 presigned upload: O-7 gate, own upload_pending file only, URL for R2 (AT-EV-01)
+  ---
+  duration_ms: 55.142581
+  type: 'test'
+  ...
+# artifact_integrity a7179423-48e9-4b89-afda-333576d640ae
+# Subtest: BB-EXEC-02 Executor end to end over HTTP: lease with work order, render, completion schema, promotion, artifact proxy (L-9013-2)
+ok 13 - BB-EXEC-02 Executor end to end over HTTP: lease with work order, render, completion schema, promotion, artifact proxy (L-9013-2)
+  ---
+  duration_ms: 284.378152
+  type: 'test'
+  ...
+# Subtest: BB-EXEC-03 Executor due list (DOC-2, 9025): pinned job identity; DOC_PROCESS items; other kinds refused
+ok 14 - BB-EXEC-03 Executor due list (DOC-2, 9025): pinned job identity; DOC_PROCESS items; other kinds refused
+  ---
+  duration_ms: 22.64162
+  type: 'test'
+  ...
+# Subtest: AT-AIH-06 discovery: RFC 8414 AS metadata, RFC 9728 metadata for /mcp and /api, 401 challenge, transport rules
+ok 15 - AT-AIH-06 discovery: RFC 8414 AS metadata, RFC 9728 metadata for /mcp and /api, 401 challenge, transport rules
+  ---
+  duration_ms: 24.310863
+  type: 'test'
+  ...
+# Subtest: BB-OAUTH-03 DCR: host profile inferred from the redirect URIs; outside the allowlist refused; public clients only; rate limit
+ok 16 - BB-OAUTH-03 DCR: host profile inferred from the redirect URIs; outside the allowlist refused; public clients only; rate limit
+  ---
+  duration_ms: 64.623671
+  type: 'test'
+  ...
+# Subtest: AT-AIH-07 a host connects end to end: DCR, authorize -> PWA consent, deny, approve, token, MCP; the audit chain carries host provenance
+ok 17 - AT-AIH-07 a host connects end to end: DCR, authorize -> PWA consent, deny, approve, token, MCP; the audit chain carries host provenance
+  ---
+  duration_ms: 53.218197
+  type: 'test'
+  ...
+# Subtest: BB-OAUTH-02 refresh rotation; reuse of a rotated refresh revokes the connection; RFC 7009 and PWA revocation (PV-AIH-03)
+ok 18 - BB-OAUTH-02 refresh rotation; reuse of a rotated refresh revokes the connection; RFC 7009 and PWA revocation (PV-AIH-03)
+  ---
+  duration_ms: 100.647462
+  type: 'test'
+  ...
+# Subtest: AT-AIH-04 tool classes: no RC-POST/RC-ADMIN tool is listed; read-only connections see no draft tool and are refused by the Core with the REST code (AT-AIH-01/03/05/08)
+ok 19 - AT-AIH-04 tool classes: no RC-POST/RC-ADMIN tool is listed; read-only connections see no draft tool and are refused by the Core with the REST code (AT-AIH-01/03/05/08)
+  ---
+  duration_ms: 129.761632
+  type: 'test'
+  ...
+# Subtest: AT-AIH-06b CIMD: an allowlisted client-id URL is fetched once and registered; any other URL is never fetched
+ok 20 - AT-AIH-06b CIMD: an allowlisted client-id URL is fetched once and registered; any other URL is never fetched
+  ---
+  duration_ms: 34.854759
+  type: 'test'
+  ...
+# Subtest: AT-CONF-04 AIH-4 card: one display-only MCP App resource; draft tools name it; the draft result carries the sealed PWA link; nothing is posted
+ok 21 - AT-CONF-04 AIH-4 card: one display-only MCP App resource; draft tools name it; the draft result carries the sealed PWA link; nothing is posted
+  ---
+  duration_ms: 41.241059
+  type: 'test'
+  ...
+# Subtest: RV-AIH-01…12 review remediation: consent only through /oauth/authorize; keys required and well-formed on both surfaces; malformed input is a protocol error
+ok 22 - RV-AIH-01…12 review remediation: consent only through /oauth/authorize; keys required and well-formed on both surfaces; malformed input is a protocol error
+  ---
+  duration_ms: 94.434832
+  type: 'test'
+  ...
+# Subtest: BB-AUTH-02 logout revokes the session server-side
+ok 23 - BB-AUTH-02 logout revokes the session server-side
+  ---
+  duration_ms: 4.683653
+  type: 'test'
+  ...
+# Subtest: UT-PRESIGN-01 SigV4 query-string presigning equals the AWS documented example
+ok 24 - UT-PRESIGN-01 SigV4 query-string presigning equals the AWS documented example
+  ---
+  duration_ms: 6.085473
+  type: 'test'
+  ...
+# Subtest: UT-PRESIGN-02 R2 PUT: account host, bucket path, region auto, 15 minutes, key encoding
+ok 25 - UT-PRESIGN-02 R2 PUT: account host, bucket path, region auto, 15 minutes, key encoding
+  ---
+  duration_ms: 3.882115
+  type: 'test'
+  ...
+# Subtest: UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, additionalProperties, items
+ok 26 - UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, additionalProperties, items
+  ---
+  duration_ms: 1.088278
+  type: 'test'
+  ...
+# Subtest: UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes
+ok 27 - UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes
+  ---
+  duration_ms: 0.831268
+  type: 'test'
+  ...
+# Subtest: UT-JWKS-01 kid rotation without redeploy; unknown-kid refetch at most once per 60 s; max-age cache (BB-AUTH-01 rotated kid)
+ok 28 - UT-JWKS-01 kid rotation without redeploy; unknown-kid refetch at most once per 60 s; max-age cache (BB-AUTH-01 rotated kid)
+  ---
+  duration_ms: 72.300848
+  type: 'test'
+  ...
+# Subtest: UT-DISPATCH-01 unknown work-item kind is deferred, never completed; known kinds by table (UA §9.1; AT-Q-02)
+ok 29 - UT-DISPATCH-01 unknown work-item kind is deferred, never completed; known kinds by table (UA §9.1; AT-Q-02)
+  ---
+  duration_ms: 0.903873
+  type: 'test'
+  ...
+# Subtest: UT-EXEC-SCHEMA-01 completion schemas per (job kind, staging kind) load and reject wrong shapes (UA §9.2; CORE-8)
+ok 30 - UT-EXEC-SCHEMA-01 completion schemas per (job kind, staging kind) load and reject wrong shapes (UA §9.2; CORE-8)
+  ---
+  duration_ms: 0.637278
+  type: 'test'
+  ...
+# Subtest: UT-MCP-01 MCP tool set from the catalog: mcp channel and RC-READ/RC-DRAFT only, host-valid names, consent coverage incl. legacy scopes (AIH-2)
+ok 31 - UT-MCP-01 MCP tool set from the catalog: mcp channel and RC-READ/RC-DRAFT only, host-valid names, consent coverage incl. legacy scopes (AIH-2)
+  ---
+  duration_ms: 0.372817
+  type: 'test'
+  ...
+# Subtest: UT-OAUTH-01 metadata documents derive every URL from the instance URL (RFC 8414, RFC 9728; AIH-1)
+ok 32 - UT-OAUTH-01 metadata documents derive every URL from the instance URL (RFC 8414, RFC 9728; AIH-1)
+  ---
+  duration_ms: 0.358807
+  type: 'test'
+  ...
+# Subtest: UT-CARD-01 confirmation card (AIH-4): the instance URL cannot break out of its JSON element; the card has no network or tool API; sealed link format
+ok 33 - UT-CARD-01 confirmation card (AIH-4): the instance URL cannot break out of its JSON element; the card has no network or tool API; sealed link format
+  ---
+  duration_ms: 0.456133
+  type: 'test'
+  ...
+# Subtest: UT-CF-01 production entry (M0-A): one Neon client per held role from its secret; other roles refused; env wrapped once per isolate
+ok 34 - UT-CF-01 production entry (M0-A): one Neon client per held role from its secret; other roles refused; env wrapped once per isolate
+  ---
+  duration_ms: 0.325948
+  type: 'test'
+  ...
+# Subtest: UT-MCP-OUT-01 output schemas (2.8 part 3): advertised in tools/list; a conforming result is returned; a result that does not conform is refused as OUTPUT_SCHEMA_MISMATCH, path only
+ok 35 - UT-MCP-OUT-01 output schemas (2.8 part 3): advertised in tools/list; a conforming result is returned; a result that does not conform is refused as OUTPUT_SCHEMA_MISMATCH, path only
+  ---
+  duration_ms: 3.840732
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 35
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4733.541068

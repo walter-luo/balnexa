@@ -30,3 +30,4 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-14 02:41 | `09f5a9a` | `s4/g0-pwa-record` | 471 | 0 | 3 | [2026-11-14_09f5a9a](2026-11-14_09f5a9a/INDEX.md) |
 | 2026-11-14 03:35 | `5a832fa` | `s4/g0-pwa-record` | 471 | 0 | 3 | [2026-11-14_5a832fa](2026-11-14_5a832fa/INDEX.md) |
 | 2026-11-14 10:36 | `d6b8d04` | `s4/copyright-notice` | 471 | 0 | 3 | [2026-11-14_d6b8d04](2026-11-14_d6b8d04/INDEX.md) |
+| 2026-11-14 11:00 | `6b84d9a` | `s4/copyright-notice` | 471 | 0 | 3 | [2026-11-14_6b84d9a](2026-11-14_6b84d9a/INDEX.md) |
