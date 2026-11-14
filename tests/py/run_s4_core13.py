@@ -330,7 +330,7 @@ def t_restore_mode_negative(server, ev):
         R.cx.execute("set bnx.restore_mode = 'on'")
         out[role + " create CN account"] = expect_err(R.call, "SCOPE_DISABLED", "cmd_create_account", H.owner,
                                                       {"kind": "bank_deposit", "institution_code": "BOC", "label": "x", "currencies": ["CNY"],
-                                                       "idempotency_key": str(uuid.uuid4())})
+                                                       "idempotency_key": C4.F.new_key()})
         R.close()
     W = h.Role(server, H.db, "bnx_worker")
     W.cx.execute("set bnx.restore_mode = 'on'")

@@ -1,8 +1,15 @@
 """Synthetic household fixture built ONLY through production entry points:
 installer step (migrator) -> authn_begin_session (bnx_authn) -> cmd_* (bnx_app). No t.* helpers, no superuser."""
-import json, uuid
+import json, secrets, uuid
 import psycopg
 import harness as h
+
+# Idempotency keys carry no digit, as the Gateway sends them (9020 key normalization; PWA api.js newKey). The key is part of the
+# audited payload and the 9011 guard refuses any payload with a Luhn-valid 9-digit run, so a uuid4 key failed about 1 command in
+# 1,000 (F-M0A-01: AT-HX-01-08 on PR #17). 24 letters from a 32-letter alphabet = 120 random bits.
+_KEY_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEF"
+def new_key():
+    return "tst-" + "".join(_KEY_ALPHABET[b & 31] for b in secrets.token_bytes(24))
 
 ISS = "https://accounts.google.com"
 
@@ -68,7 +75,7 @@ class Household:
         return {"kind": "session", "secret": self.authn.call("authn_begin_session", claims(sub))["session_token"]}
 
     def cmd(self, cred, _cmd, key=None, **body):
-        body["idempotency_key"] = key or str(uuid.uuid4())
+        body["idempotency_key"] = key or new_key()
         return self.app.call("cmd_" + _cmd, cred, body)
 
     def q(self, cred, _q, **body):

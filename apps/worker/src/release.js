@@ -4,6 +4,6 @@
 // understands a kind is deployed before the migration that can enqueue it; others are deferred, never dropped).
 export const RELEASE = {
   version: '0.7.4-m0a',
-  supports_schema: { core: ['0109', '0109'], extension: ['9022', '9023'] },
+  supports_schema: { core: ['0109', '0109'], extension: ['9023', '9024'] },
   work_kinds: ['plan.execute', 'staging.promote'],
 };
