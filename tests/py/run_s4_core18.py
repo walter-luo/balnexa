@@ -295,6 +295,32 @@ def t_mail(server, ev):
             f"message moves to its folder and the item is MOVED; nothing left due")
 
 
+@test("AT-TST1-01", "TST-1 (tools/s4/gen_fixtures.py: a generated household runs through discover and validate with the expected verdicts)")
+def t_generator(server, ev):
+    import subprocess
+    E = Env()
+    H = C4.v2_full(server, "bnx_c18gen")
+    shim = Shim(H)
+    try:
+        r = subprocess.run([sys.executable, os.path.join(h.ROOT, "tools", "s4", "gen_fixtures.py"), "--root", E.root, "--months", "2", "--seed", "7"],
+                           capture_output=True, text=True, check=True)
+        man = json.load(open(os.path.join(E.root, "MANIFEST.json")))
+        run(E, shim, "DOC_DISCOVER", docjobs.plan_discover(E.ctx)); C15.promote_all(H)
+        run(E, shim, "DOC_PROCESS", shim.due("DOC_PROCESS")); C15.promote_all(H)
+        with H.definer() as cx:
+            got = {fid: st for fid, st in cx.execute("select d.source_file_id, c.state from bnx_doc.document_discovery d "
+                                                       "join bnx_doc.document_current c on c.discovery_id = d.id")}
+        want = {d["file_id"]: d["expect"].split(" ")[0].rstrip(";") for d in man["drive"]}
+        mails = len(providers.MockMailbox(E.root, "mbx-owner-gmail")._idx())
+        recs = len(providers.MockIndex(E.root).read("index-ref")["records"])
+        json.dump({"stdout": r.stdout.strip(), "want": want, "got": got}, open(os.path.join(ev, "AT-TST1-01.json"), "w"), indent=1)
+    finally:
+        H.close(); E.close()
+    check(got == want and mails == 2 and recs == 3, f"{want} {got} {mails} {recs}")
+    kinds = sorted({v for v in want.values()})
+    return f"generator: {len(want)} Inbox files, {recs} index records, {mails} messages; every file reached its expected state {kinds}"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--server", required=True)

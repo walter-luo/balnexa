@@ -40,6 +40,7 @@
 | AT-TST5-01 | Mock contracts: Drive revisions, `REVISION_GONE`, idempotent Processed copy; the index read back from JSON, CSV and Markdown; mailbox exact fetch, attachment numbering and move; the real providers refuse until M0-B; generated ids carry no digit |
 | AT-INT-01 | The index household's source is due; one lease stages the masked index; 3 records are stored. The record whose File ID is in the Drive is `FILED_VERIFIED`, the other is not. A CRA notice produces a notification. A value in Notes never reaches staging or the record table. A second run replays |
 | AT-INT-02 | Exact fetch by Message-ID is staged without subject or body, and the `.eml` is kept as evidence. A missing message gives `MESSAGE_NOT_FOUND`. A mailbox without an authorized credential stages nothing. The PDF attachment is discovered as `MAIL_ATTACHMENT` part 1 and validated through the mailbox. No move is due before a route; with the institution route the message moves and the item is `MOVED`; then nothing is due |
+| AT-TST1-01 | `tools/s4/gen_fixtures.py` (TST-1) generates a household: monthly chequing CSVs, card PDFs, a redacted and an unredacted slip, a ZIP, the index and a statement mailbox. Every generated Inbox file reaches its expected state through the Executor |
 | BB-EXEC-03 | `POST /exec/v1/due` over HTTP: the pinned identity is required; `DOC_PROCESS` returns `{items: []}` on an empty household; an unsupported kind gives `VALIDATION_FAILED` |
 
 ## 4. Limits
