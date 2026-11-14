@@ -2,6 +2,7 @@
 restricted bnx_migrator through db/tools/run_migrations.py. Tests then connect ONLY as the intended runtime roles."""
 import json, os, subprocess, sys, uuid
 import psycopg
+import jsonschema_lite
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PSQL = os.environ.get("BNX_PSQL", "/usr/lib/postgresql/16/bin/psql")
@@ -87,7 +88,10 @@ class Role:
     def call(self, fn, *args):
         ph = ", ".join(["%s::jsonb" if isinstance(a, (dict, list)) else "%s" for a in args])
         conv = [json.dumps(a) if isinstance(a, (dict, list)) else a for a in args]
-        return self.cx.execute(f"select bnx.{fn}({ph})", conv).fetchone()[0]
+        r = self.cx.execute(f"select bnx.{fn}({ph})", conv).fetchone()[0]
+        if self.role == "bnx_app":                    # output contract (2.8): curated tools conform in every suite
+            jsonschema_lite.check_output(fn, r)
+        return r
 
     def sql(self, q, p=None):
         return self.cx.execute(q, p).fetchall()

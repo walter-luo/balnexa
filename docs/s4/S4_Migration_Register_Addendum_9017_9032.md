@@ -1,4 +1,4 @@
-# Balnexa S4 — migration register addendum: 9017–9032
+# Balnexa S4 — migration register addendum: 9017–9034
 
 | Field | Value |
 |---|---|
@@ -40,6 +40,7 @@
 | 9031 | `9031_s4_curated_read_tools.sql` | catalog delta (28) | — | — | D-SCH-1 | 2.8 part 2: descriptions for every MCP read tool; PR from `s4/tool-schemas-2` |
 | 9032 | `9032_s4_curated_output_schemas.sql` | catalog delta (18) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 3: curated output schemas, enforced by the Gateway; PR from `s4/next-work` |
 | 9033 | `9033_s4_output_schemas_read_tools.sql` | catalog delta (5) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 4: output schemas for FX rate, snapshots, registry search, handoff status; PR from `s4/output-schemas-2` |
+| 9034 | `9034_s4_output_schemas_remaining.sql` | catalog delta (12) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 5: top-level output schemas for the remaining MCP read tools; PR from `s4/output-contract` |
 
 ## 3. Proposed disposition rows
 
@@ -48,7 +49,7 @@
 | 9017–9023 | **Accept into the register** as V1-CORE support migrations; they are merged into `main` | none beyond confirming the rows |
 | 9024, 9030 | **Accept** as guard false-positive fixes (F-M0A-01, F-AUD-01) | none |
 | 9025, 9028 | **Accept**; they run only against mocks until M0-B | L-DOC2-1 / L-INT-1 (provider ids with digit runs) is still open; recommended option (b), stage only digests, would need one more migration |
-| 9026, 9031, 9032, 9033 | **Accept** as catalog-only | none |
+| 9026, 9031–9034 | **Accept** as catalog-only | none |
 | 9027 | **Accept** | none |
 | 9029 | **Accept** | none |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |

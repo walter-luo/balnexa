@@ -1,0 +1,47 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 14.4,
+ "pass": 5,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-MR-01",
+   "ref": "Draft-04 \u00a7C4.3 MR-08/09/10, \u00a7C4.5 uniqueness, \u00a7C4.9 append-only decisions; OBJ-249 q_transfer_matching",
+   "status": "PASS",
+   "detail": "same date and description with one candidate on each side -> MR-08 confirmed automatically; one candidate each side otherwise -> MR-09 proposed; two candidate legs -> MR-10 ambiguous, confirmable only by naming a leg; a linked row is posted; a re-run records nothing new; member decisions stand and MR-08 can be reversed; a leg confirmed for one row is no longer offered to another (the other row's single remaining leg becomes MR-09); the earlier ledger version shows the earlier decisions; decisions are append-only events",
+   "seconds": 4.58
+  },
+  {
+   "id": "AT-MR-02",
+   "ref": "Draft-04 \u00a7C4.3 MR-11/12/13, INV-34; OBJ-249 cmd_match_clearing; S2 cross_source_match (OR-I-11)",
+   "status": "PASS",
+   "detail": "a transfer-like row with exactly one opposite row on another account within 5 days -> MR-11 pair proposed (both sides); two candidates -> ambiguous; no counterpart -> MR-12 clearing_post while other accounts lack statement coverage, counterpart_missing once every other account is covered; an open clearing item hinting at savings is resolved by the opposite savings row inside its window (MR-13), not by a late one, and cannot be matched twice; a cross-source match is unique per pair, cannot be confirmed once its supporting row is posted (no second journal), and is decided once",
+   "seconds": 2.58
+  },
+  {
+   "id": "AT-ONB-01",
+   "ref": "Draft-04 \u00a7C5.2-\u00a7C5.5 onboarding job, SF-*, AH-* states, progress counters; UA V1.2 posting_plan.job_id FK",
+   "status": "PASS",
+   "detail": "job states derived from item states (DRAFT -> COLLECTING -> REVIEW -> POSTING -> RECONCILING -> PROCESSING until collection closes -> COMPLETED_WITH_EXCEPTIONS; PAUSED and back); file and history transitions enforced (no skipped stage, SF-DEAD only after 3 failed attempts, members approve or exclude, the worker records deterministic stages and stops while paused); posting_plan.job_id references the job; counters come from the tables; another member's job and an ungranted account are not visible",
+   "seconds": 2.56
+  },
+  {
+   "id": "AT-IMP-PAY-01",
+   "ref": "S2-02 import_mapping (data, not code), payment_attribute (OR-I-11 attributes, never accounts)",
+   "status": "PASS",
+   "detail": "an import mapping is versioned data with closed keys, keeps its provider and is Owner/admin only; Apple Pay and UnionPay are recorded as attributes of the card journal, no wallet account appears; unknown values and ungranted members refused",
+   "seconds": 2.44
+  },
+  {
+   "id": "AT-9012d-CAT",
+   "ref": "9012d catalog: append-only, transition triggers, flag on account_history_state, catalog rows, grants",
+   "status": "PASS",
+   "detail": "the 8 new tables are append-only and classed; SF/AH transition triggers and the module flag on account_history_state exist; both queries are finance.read; commands go to bnx_app, wrk_onboarding_step to bnx_worker only, internal helpers to nobody",
+   "seconds": 2.28
+  }
+ ]
+}

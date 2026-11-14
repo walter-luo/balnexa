@@ -26,64 +26,7 @@ def test(tid, ref):
 
 
 # ---------------------------------------------------------------------------------------------- JSON Schema (output side)
-# A port of apps/worker/src/schema.js validate(): the same keywords and the same first-violation order, so a result that
-# passes here passes the Worker's check (UT-MCP-OUT-01 covers the Worker side).
-UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
-DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}(:?\d{2})?)?$")
-
-
-def jtype(v):
-    if v is None: return "null"
-    if isinstance(v, bool): return "boolean"
-    if isinstance(v, int): return "integer"
-    if isinstance(v, float): return "integer" if v.is_integer() else "number"
-    if isinstance(v, str): return "string"
-    if isinstance(v, list): return "array"
-    return "object"
-
-
-def valid_date(s):
-    import datetime as dt
-    m = DATE.match(s)
-    if not m: return False
-    try:
-        dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))); return True
-    except ValueError:
-        return False
-
-
-def validate(s, v, path="$"):
-    if s is True or s is None: return None
-    if s is False: return (path, "not allowed")
-    if "type" in s:
-        ts = s["type"] if isinstance(s["type"], list) else [s["type"]]
-        a = jtype(v)
-        if not any(a == t or (t == "number" and a == "integer") for t in ts): return (path, f"type {a}")
-    if "enum" in s and not any(e == v and type(e) is type(v) for e in s["enum"]): return (path, "enum")
-    if isinstance(v, str):
-        if "pattern" in s and not re.search(s["pattern"], v): return (path, "pattern")
-        if s.get("format") == "uuid" and not UUID.match(v): return (path, "format uuid")
-        if s.get("format") == "date" and not valid_date(v): return (path, "format date")
-        if s.get("format") == "date-time" and not (DATETIME.match(v) and valid_date(v[:10])): return (path, "format date-time")
-        if "minLength" in s and len(v) < s["minLength"]: return (path, "minLength")
-        if "maxLength" in s and len(v) > s["maxLength"]: return (path, "maxLength")
-    if isinstance(v, list):
-        if "items" in s:
-            for i, x in enumerate(v):
-                e = validate(s["items"], x, f"{path}[{i}]")
-                if e: return e
-    if isinstance(v, dict):
-        for r in s.get("required", []):
-            if r not in v: return (f"{path}.{r}", "required")
-        props = s.get("properties", {})
-        for k in sorted(v):
-            if k in props:
-                e = validate(props[k], v[k], f"{path}.{k}")
-                if e: return e
-            elif s.get("additionalProperties") is False:
-                return (f"{path}.{k}", "additional property")
-    return None
+from jsonschema_lite import validate  # noqa: E402,F401 (shared with the harness output contract)
 
 
 # ---------------------------------------------------------------------------------------------- 2.8 part 3 output schemas
@@ -97,7 +40,9 @@ def catalog_entry(H, fn):
                    "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
-    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v)
+    # field-level schemas (with required keys) are called here; the top-level-only ones (9034) are checked by the harness
+    # output contract in every suite that calls them (AT-OUT-02)
+    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v and v["output"].get("required"))
     H = C4.v2_full(server, "bnx_c19out")
     cad = H.cad["account_currency_id"]
     sav = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Savings", currencies=["CAD"])["account_currencies"][0]
@@ -176,6 +121,33 @@ def t_output_schemas(server, ev):
     return (f"{len(calls)} calls by the Owner (PWA), an AI connection (MCP) and a member over {len(curated)} tools with curated output "
             f"schemas ({', '.join(curated)}): every result conforms (incl. replays, ai_draft and member_draft, a withdrawn draft); "
             f"the catalog carries the overrides' schemas; the generator refuses unsupported keywords and dangling required keys")
+
+
+@test("AT-OUT-02", "2.8 part 5; D-OUT-2 (the output contract runs in every suite: every bnx_app call of a tool with a curated "
+                   "output schema is validated by the harness; a mismatch fails the calling test, with the path only)")
+def t_output_contract(server, ev):    # noqa: ARG001 - no database needed
+    import jsonschema_lite as J
+    ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
+    mcp_reads = sorted(k for k, v in ovr["schemas"].items() if k.startswith("q_"))
+    missing = [k for k in ovr["schemas"] if "output" not in ovr["schemas"][k]]
+    good = J.check_output("q_snapshot_status", {"snapshot_id": "00000000-0000-4000-8000-000000000000", "status": "CURRENT"})
+    errs = []
+    for fn, r in (("q_snapshot_status", {"snapshot_id": "00000000-0000-4000-8000-000000000000", "status": "SOMETHING_ELSE"}),
+                  ("q_balances", {"ledger_version": 3, "as_of": "2026-01-01"}),
+                  ("q_fx_rate", {"base": "CAD", "quote": "USD", "date": "2026-01-01", "rate": 1.5, "quality": "REFERENCE", "inverse": False,
+                                 "ledger_version": 1, "fx_policy": "x"})):
+        try:
+            J.check_output(fn, r)
+        except J.OutputContractError as e:
+            errs.append(str(e))
+    hooked = "jsonschema_lite.check_output" in open(os.path.join(h.ROOT, "tests", "py", "harness.py")).read()
+    check(good is None and missing == [] and hooked and errs == [
+        "OUTPUT_SCHEMA_MISMATCH q_snapshot_status at $.status: enum",
+        "OUTPUT_SCHEMA_MISMATCH q_balances at $.balances: required",
+        "OUTPUT_SCHEMA_MISMATCH q_fx_rate at $.rate: type number"], f"{good} {missing} {hooked} {errs}")
+    return (f"every curated tool ({len(ovr['schemas'])}, of which {len(mcp_reads)} read tools) has an output schema; the harness "
+            f"validates every bnx_app call against it in every suite; a wrong enum, a missing required key and a number for a decimal "
+            f"string are each reported with their path and no value")
 
 
 # ---------------------------------------------------------------------------------------------- INS-1 signed releases
