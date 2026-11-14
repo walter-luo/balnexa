@@ -29,7 +29,7 @@
    cd deploy && npm ci && node neon_ws_bridge.mjs <ep-…>.neon.tech 15432
    ```
 
-4. **Install.** Re-running the command is safe: it skips completed steps.
+4. **Install.** First run the same command with `--plan` (INS-2): it validates every input and prints the steps without touching anything. Re-running the install is safe: it skips completed steps.
 
    ```bash
    python3 deploy/install_instance.py --pg "host=127.0.0.1 port=15432 dbname=balnexa user=balnexa_owner password=… sslmode=disable" \
