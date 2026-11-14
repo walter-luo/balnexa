@@ -1,0 +1,96 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 30.5,
+ "pass": 12,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-CMD-06x",
+   "ref": "S4B-F08; UA \u00a75.10 (AT-CMD-06 extended)",
+   "status": "PASS",
+   "detail": "14 R1 v1 events verify unchanged; first v2 seq 15 (boundary); verify=0 also under TimeZone Asia/Shanghai; envelope recorded and hashed; member/connection swap changes the v2 hash; v1 concat_ws ambiguity reproduced, v2 unambiguous; forged v2 row refused at insert (AUDIT_CHAIN_APPEND, R-10); v1-after-v2 refused (AUDIT_CHAIN_APPEND (chain_version)); oversized envelope -> VALIDATION_FAILED; envelope GUCs set directly in a session are refused at audit() too ['envelope.host_profile', 'envelope.tool_name']; head 17",
+   "seconds": 2.65
+  },
+  {
+   "id": "AT-REG-01-03,09",
+   "ref": "Amendment 02 \u00a72 tests 1-3, 9",
+   "status": "PASS",
+   "detail": "5 traditional + 12 joint-stock CN banks; 29 seed institutions with 29 unique codes; PSBC not seeded, code reserved, never joint-stock (CHECK); HSBC_HK/HSBC_CN separate jurisdictions; currencies ['AUD', 'CAD', 'CHF', 'CNY', 'EUR', 'GBP', 'HKD', 'JPY', 'SGD', 'USD']; provider jurisdictions (F-C2-05) {'ALIPAY': 'CN', 'APPLE_PAY': 'CA', 'PAYPAL': 'CA', 'UNIONPAY': 'CN', 'WECHAT_PAY': 'CN'}",
+   "seconds": 2.41
+  },
+  {
+   "id": "AT-REG-07,08",
+   "ref": "Amendment 02 tests 7-8 (brand issuer history)",
+   "status": "PASS",
+   "detail": "brand issuers {'PC_FINANCIAL_BANKING@2015': ('CIBC',), 'PC_FINANCIAL_BANKING@2018': None, 'SIMPLII@2020': ('CIBC',), 'PC_FINANCIAL_CARDS@2026-08': ('PC_BANK',), 'TRIANGLE@2024': ('CTB',)}; EQB acquisition recorded as a relationship ('PC_BANK', 'EQB', 'acquired_by', '2026-07-02') and does not rewrite the PC cards issuer",
+   "seconds": 2.36
+  },
+  {
+   "id": "AT-REG-15",
+   "ref": "UA \u00a75.4.4; Amendment 02 \u00a73 step 8 (negatives)",
+   "status": "PASS",
+   "detail": "refused: ['VALIDATION_FAILED', 'INSTITUTION_NOT_ELIGIBLE', 'INSTITUTION_NOT_ELIGIBLE', 'JURISDICTION_REQUIRED', 'trigger: INSTITUTION_NOT_ELIGIBLE']; accepted regions ['CN', 'CA', 'CN', 'NONE', 'CA'] (CMB; PayPal CA by Owner decision F-C2-05, declared region ignored; Alipay CN; cash; CTB in HKD); timezone from financial_policy = America/Toronto",
+   "seconds": 2.66
+  },
+  {
+   "id": "AT-REG-04-06",
+   "ref": "Amendment 02 \u00a73 steps 2-5, 8 (discovery candidates)",
+   "status": "PASS",
+   "detail": "unknown bank -> one PENDING candidate, reused by a later variant spelling (no duplicate); traditional-Chinese and legal-suffix variants match CMB; same name in CA and US -> codes ['NORTHERN_TRUST_BANK', 'NORTHERN_TRUST_BANK_US'], unqualified proposal -> AMBIGUOUS; candidate cannot hold an account (INSTITUTION_NOT_ELIGIBLE)",
+   "seconds": 2.49
+  },
+  {
+   "id": "AT-REG-17",
+   "ref": "S4B-F05; UA \u00a75.4.2 data migration (upgrade of free-text institutions)",
+   "status": "PASS",
+   "detail": "free text -> ICBC linked by legal-name normalization; traditional \u4e2d\u570b\u5de5\u5546\u9280\u884c merged into it (account re-pointed: INITIAL+MERGE events, region CN); 'Synthetic Bank'/'SYNTHETIC BANK.' collapsed; unmatched rows PENDING_VERIFICATION, accounts grandfathered with region UNKNOWN; ledger untouched by the upgrade (fingerprint); after activation the UNKNOWN account is fail-closed (posting SCOPE_DISABLED, balances ['EXCLUDED_SCOPE:UNKNOWN']) until the Owner verifies the institution (jurisdiction CA) -> posting works",
+   "seconds": 2.72
+  },
+  {
+   "id": "AT-REG-18",
+   "ref": "RR-02; UA \u00a75.4.5 (reassignment, history, drift, rollback)",
+   "status": "PASS",
+   "detail": "refused (no partial event/projection): ['FORBIDDEN_ROLE', 'VALIDATION_FAILED', 'INSTITUTION_NOT_ELIGIBLE', 'direct UPDATE: INSTITUTION_REASSIGN_REQUIRED', 'projection without event: PROJECTION_DRIFT at commit']; events INITIAL -> CORRECTION -> CORRECTION; institution_at: before the account existed none, at the old ledger version CTB, at the new version PC_BANK, now HSBC_HK; region follows (HK)",
+   "seconds": 2.66
+  },
+  {
+   "id": "AT-POL-01",
+   "ref": "UA \u00a75.4.1 (financial policy)",
+   "status": "PASS",
+   "detail": "installer policy v1 (unconfirmed, in the Owner queue); member refused (FORBIDDEN_ROLE); Owner declaration v2; new account timezone Asia/Shanghai; history append-only (APPEND_ONLY: UPDATE on financial_policy)",
+   "seconds": 2.35
+  },
+  {
+   "id": "AT-FLG-01-09",
+   "ref": "S4B-F06/F07; UA \u00a74.4.1; BNX-S2-01 \u00a75.2-5.4",
+   "status": "PASS",
+   "detail": "International=NO: refused ['create CN account', 'post on CN', 'widen grant on CN', 'post on CA (all NO)'] -> SCOPE_DISABLED; partial reduction (owner post removed) and full revocation (member) allowed (F-C2-13); CA and cash (NONE) post; balances exclude CN with scope_warnings ['EXCLUDED_SCOPE:International']; snapshot made under YES replays ACCESS_REVOKED, verifies again after re-enabling (digest untouched); nothing deleted; NO/NO/NO: only the NONE cash account is reachable (['EXCLUDED_SCOPE:Canada', 'EXCLUDED_SCOPE:International']); restore mode bypasses",
+   "seconds": 2.62
+  },
+  {
+   "id": "AT-FLG-10",
+   "ref": "S4B-F06/F18 (upgrade fails closed until activation)",
+   "status": "PASS",
+   "detail": "after upgrade (R1 account linked to ICBC, region CN): ['SCOPE_UNCONFIGURED', 'SCOPE_UNCONFIGURED', 'SCOPE_UNCONFIGURED', 'SCOPE_UNCONFIGURED'] until install_activate_config; then posting works (no implicit YES)",
+   "seconds": 2.59
+  },
+  {
+   "id": "AT-FLG-11",
+   "ref": "S4B-F06; UA \u00a74.4.1 (generated matrix = design, for tables that exist)",
+   "status": "PASS",
+   "detail": "generated matrix covers all 15 \u00a74.4.1 tables that exist; not yet created (trigger due in their migration): []; additional enforcement points: ['account_history_state', 'account_holder_event', 'ai_connection', 'card_fee_policy', 'card_link_event', 'intake_item', 'investment_lot', 'investment_lot_disposal', 'loan_payment_link', 'loan_term_event', 'posting_plan', 'reconciliation_exception', 'reconciliation_run'] (prologue rows of \u00a74.4.1 enforced at table level, F-C2-06)",
+   "seconds": 2.47
+  },
+  {
+   "id": "AT-MUT-02",
+   "ref": "S4B-F06 (mutation: the tests detect removal of the gate)",
+   "status": "PASS",
+   "detail": "with t_scope_flag_account a CN account insert is refused (SCOPE_DISABLED); with the trigger dropped the same insert commits (mutant detected); rolled back",
+   "seconds": 2.51
+  }
+ ]
+}
