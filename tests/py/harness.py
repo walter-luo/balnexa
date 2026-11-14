@@ -42,10 +42,24 @@ def drop_all(server):
 
 
 def run_bootstrap(server, db, name, user="postgres"):
-    r = subprocess.run([PSQL, dsn(server, user, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1",
-                        "-f", os.path.join(ROOT, "db/bootstrap", name)], capture_output=True, text=True)
+    """run one bootstrap file with psql as the installer, then confirm it took effect: a psql that exits 0 without having
+    applied the file (seen on a native-Windows runner, G0-PWA-01) must fail here, not later as a missing role."""
+    try:
+        r = subprocess.run([PSQL, dsn(server, user, db), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-1",
+                            "-f", os.path.join(ROOT, "db", "bootstrap", name)], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, timeout=300)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"{name}: psql did not finish within 300 s ({PSQL})") from e
     if r.returncode:
         raise RuntimeError(f"{name} failed: " + r.stderr)
+    version = name.split("_", 1)[0]
+    with psycopg.connect(dsn(server, "postgres", db), autocommit=True) as cx:
+        has_table = cx.execute("select to_regclass('bnx.schema_bootstrap') is not null").fetchone()[0]
+        done = has_table and cx.execute("select exists (select 1 from bnx.schema_bootstrap where version = %s)",
+                                        (version,)).fetchone()[0]
+    if not done:
+        raise RuntimeError(f"{name}: psql exited 0 but {version} is not recorded in bnx.schema_bootstrap ({PSQL}); "
+                           f"stdout: {r.stdout[-300:]!r} stderr: {r.stderr[-300:]!r}")
     return r
 
 

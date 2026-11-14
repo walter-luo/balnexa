@@ -25,3 +25,14 @@ Grade: `OWNER_DECISION`. Recorded by the author (Claude) as `DRAFT` until the Ow
   - (b) The design package is also committed, so that a reviewer can read it.
 
   Reading (b) publishes it, and the Requirements Book contains Owner sources. Until the Owner chooses, the author applies (a).
+
+## Later the same day
+
+Recorded from the Owner's message of 2026-11-13 20:59 (America/Toronto): "1，https://drive.google.com/…（link withheld here）, 20-Inbox/还要分人名，年份，银行，种类，怎么放更合适？AI对20-Inbox只读，其他目录对Owner是只读。" ("1" answers G0-PWA-1, option 1.)
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-G0-2 | **G0-PWA-1, option 1:** the PWA suite stands on `AUTHOR_RUNTIME_EVIDENCE` plus CI. The independent G0 verification is complete with that one gate not independently executed | All other G0 gates are `VERIFIED_INDEPENDENT` (runs R1–R3; dispositions in `docs/s4/reviews/`). The PWA-only run on native Windows was `NOT_EXECUTED` (`G0_PWA_R1_DISPOSITION_2026-11-13.md`). An independent PWA run on Linux, for example WSL2, remains possible later and is advised before production use |
+| OD-GH-4 | **Source documents live in a data folder outside the repository, under one convention for every household:** `docs/s4/Data_Folder_Convention.md`. The data owner writes `20-Inbox` only; the AI assistant reads `20-Inbox` and manages every other folder. Each instance's location, member names and files are private and never written here | Balnexa is a public, general-purpose project; the Owner is one of its users. The Owner's own instance follows the convention; its details are kept in the Owner's private project documents. The rule is a convention: when the AI works through the data owner's own account it cannot be enforced, so integrity is checked through the sha256 of each original recorded in the index |
+
+Recorded from the Owner's messages of 2026-11-13 22:05 and 22:07: "确认布局，20-Inbox归我管，其他目录由AI管。" (layout confirmed; the data owner manages `20-Inbox`, the AI manages the other folders) and "记得这是公开项目。我是其中一用户" (remember this is a public project; I am one of its users). The convention document was written as instance-neutral in response.

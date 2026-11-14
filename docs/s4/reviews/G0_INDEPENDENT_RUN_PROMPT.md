@@ -41,6 +41,9 @@ You are the **independent G0 runner** for the open-source repository `walter-luo
 
 ### Environment (authoritative recipe: `.github/workflows/ci.yml`; summary in `docs/s4/handoff/03_Balnexa_S4_Platform_Handoff_2026-11-12.md` §5)
 
+**Supported platform: Linux x86-64** (natively, in WSL2, or in a Docker/VM Linux guest). The Executor's pinned wheels are manylinux only, and the test harness is not supported on native Windows or macOS. If you only have native Windows, stop and report `NOT_EXECUTED` with that reason, rather than adapting the set-up.
+
+
 - **PostgreSQL 16 and 17 with client tools of the same major** (`pg_dump`/`pg_restore` 16 and 17). Get them from PGDG apt (`postgresql-16`, `postgresql-17`) or any equivalent.
 - **Clusters.** Start one cluster per major with exactly these sockets and ports, which `tests/py/harness.py` expects:
 

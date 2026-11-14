@@ -1,0 +1,47 @@
+{
+ "server": "pg17",
+ "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 15.8,
+ "pass": 5,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-CAT-01",
+   "ref": "AIH V1.2 \u00a72 (DD-21), \u00a72.1; UA V1.2 \u00a78 (catalog from COMMENT ON FUNCTION; no drift; RC-POST never on MCP)",
+   "status": "PASS",
+   "detail": "119 entries = every REST-callable cmd_/q_ function (0 uncatalogued), read from COMMENT ON FUNCTION; the generator's --check re-derives the same block from the function bodies (no drift); unique names; every MCP entry is RC-READ/RC-DRAFT and in bnx.function_scope; RC-POST/RC-ADMIN are PWA-only; catalog digest 1c3e4bb0681c equals the binding facts'",
+   "seconds": 3.18
+  },
+  {
+   "id": "AT-ISO-BF",
+   "ref": "Amendment 03 \u00a75.2 B1/B2/B3/B8; AE V1.2 \u00a76 (binding facts for the Gateway; worker-only; reveal nothing to bnx_app)",
+   "status": "PASS",
+   "detail": "wrk_binding_facts returns identity, ACTIVE digest and flags {'CRA': 'YES', 'Canada': 'YES', 'International': 'YES'}, deployable digests, schema heads ('0109', '9039') and the catalog digest; bnx_app cannot call it or wrk_catalog (permission denied); a non-worker session is FORBIDDEN; q_health still reveals no identity value",
+   "seconds": 3.18
+  },
+  {
+   "id": "AT-B7-01",
+   "ref": "Amendment 03 \u00a75.2 B7; AE V1.2 \u00a76 (token audience = this instance, inside resolve_actor)",
+   "status": "PASS",
+   "detail": "a token issued for resource R works at the Gateway of R and is UNAUTHENTICATED at another audience; tokens issued without a resource (R1/9009 optional parameter) stay accepted (limit L-CORE7-4)",
+   "seconds": 3.18
+  },
+  {
+   "id": "AT-Q-02-DB",
+   "ref": "UA V1.2 \u00a79.1; S4B-F13; AT-Q-02 (unknown kind: back-off, Owner alert after 3 attempts, never done or dead)",
+   "status": "PASS",
+   "detail": "an item of an unknown kind is deferred with back-off [5, 10, 20, 40, 80, 160] min over 6 attempts, stays leased (never done, never dead \u2014 R1 would have marked it dead after 5 failures), one Owner alert at attempt 3 (deduplicated per kind and day); while deferred it is not claimable and the queue counts as drained, so idle ticks do not wake Neon",
+   "seconds": 3.2
+  },
+  {
+   "id": "AT-EV-01-DB",
+   "ref": "UA V1.2 \u00a78.1; OBJ-271; AT-EV-01 (upload target: own upload_pending file only; no oracle; never on an AI connection)",
+   "status": "PASS",
+   "detail": "the registering member gets the R2 key, size and declared SHA-256 of an upload_pending file; another member, an unknown file and a stored file -> NOT_AVAILABLE (identical, no oracle); an AI connection is refused before the function body (SCOPE_NOT_CONSENTED: outside the MCP catalog; FORBIDDEN_CHANNEL behind it)",
+   "seconds": 3.09
+  }
+ ]
+}
