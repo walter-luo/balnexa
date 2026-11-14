@@ -76,7 +76,7 @@ test('AT-UI-00 shell: served from the Gateway with a same-origin CSP, no camera/
   assert.equal(keys.filter((k) => /\d/.test(k) || k.length < 8 || k.length > 80).length, 0);
   assert.equal(new Set(keys).size, keys.length);
   const cfg = await S.call('/app/config.json', { method: 'GET' });
-  assert.deepEqual(Object.keys(cfg.json).sort(), ['google_client_id', 'release']);
+  assert.deepEqual(Object.keys(cfg.json).sort(), ['google_client_id', 'release', 'uploads']);   // CORE-9: uploads flag, no secret
 });
 
 test('AT-NOAI-01 item 1: identity and sign-in state without any AI host; signed-out visitor sees only the sign-in screen', async () => {
@@ -594,6 +594,22 @@ test('AT-CONF-01/02 via the AIH-4 card: a host renders the draft from the server
   await o.waitForFunction(() => /approved/i.test(document.querySelector('#status').textContent));
   const after = await mcp('tools/call', { name: 'fin_draft_get_for_confirmation', arguments: { plan_id: r.structuredContent.plan_id } });
   assert.notEqual(after.structuredContent.state, g.structuredContent.state, 'approved in the PWA, not in the card');
+});
+
+test('AT-UP-01 / AT-DOC-UI-01 upload widget and Documents screen: uploads not set up here; empty redaction queue for the Owner; a member is refused', async () => {
+  const p = await page(owner);
+  await open(p, 'upload');
+  assert.equal(await p.textContent('main h1'), 'Upload evidence');
+  assert.match(await p.textContent('main'), /Uploads are not set up on this instance yet/);
+  assert.equal(await p.getAttribute('#upload-go', 'disabled'), '');
+  await open(p, 'documents');
+  assert.equal(await p.textContent('main h1'), 'Documents to review');
+  assert.match(await p.textContent('main'), /Nothing to review/);
+  assert.deepEqual(p.errors, []);
+  const m = await page(member);
+  await open(m, 'documents');
+  assert.match(await m.textContent('#status'), /\S/);                     // Owner only: a member sees the refusal, no list
+  assert.equal(await m.$('main table'), null);
 });
 
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {

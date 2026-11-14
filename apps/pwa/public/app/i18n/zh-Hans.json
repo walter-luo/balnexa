@@ -365,5 +365,14 @@
  "documents.declare": "声明已遮盖",
  "documents.tag": "标记为含 SIN",
  "documents.declared_ok": "已声明，下次运行时归档。",
- "documents.tagged_ok": "已标记，现在需要你的声明。"
+ "documents.tagged_ok": "已标记，现在需要你的声明。",
+ "upload.title": "上传凭证",
+ "upload.explain": "把对账单、收据或信件作为凭证上传。文件直接存到你家庭的存储；Balnexa 只记录文件名、类型、大小和指纹，并在之后核对指纹。",
+ "upload.file": "文件",
+ "upload.send": "上传",
+ "upload.choose": "请先选择文件。",
+ "upload.too_large": "文件大小须在 1 字节到 25 MB 之间。",
+ "upload.ok": "已上传。",
+ "upload.done": "凭证 {id}… 已上传；指纹 {sha}…（下次核对时验证）。",
+ "upload.not_configured": "此实例尚未开通上传。"
 }

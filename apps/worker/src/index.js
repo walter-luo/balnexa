@@ -78,6 +78,13 @@ const PWA_HEADERS = {
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
   'cross-origin-opener-policy': 'same-origin-allow-popups',
 };
+// CORE-9 upload widget: when evidence uploads are configured (O-7), the browser PUTs to the presigned R2 URL, so that one
+// origin (the account's R2 endpoint) joins connect-src; nothing else changes.
+function pwaHeaders(env) {
+  if (!uploadsConfigured(env)) return PWA_HEADERS;
+  const r2 = `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  return { ...PWA_HEADERS, 'content-security-policy': PWA_HEADERS['content-security-policy'].replace("connect-src 'self'", `connect-src 'self' ${r2}`) };
+}
 const PWA_FILE = /^\/app\/(?:[a-z0-9_-]+\/)*[A-Za-z0-9_.-]*$/;
 
 async function pwaAsset(req, env, p) {
@@ -86,7 +93,7 @@ async function pwaAsset(req, env, p) {
   const r = await env.ASSETS.fetch(new Request(new URL(file, req.url), { method: req.method }));
   if (r.status !== 200) return json(404, { error: 'NOT_FOUND' });
   const h = new Headers(r.headers);
-  for (const [k, v] of Object.entries(PWA_HEADERS)) h.set(k, v);
+  for (const [k, v] of Object.entries(pwaHeaders(env))) h.set(k, v);
   // the shell, the service worker and the catalogs revalidate; versioned assets may be cached by the service worker
   h.set('cache-control', /\.(html|json|webmanifest)$|\/sw\.js$/.test(file) ? 'no-cache' : 'public, max-age=300');
   if (file.endsWith('/sw.js')) h.set('service-worker-allowed', '/app/');
@@ -123,7 +130,8 @@ export default {
         return new Response(null, { status: 302, headers: { location: '/app/', ...PWA_HEADERS } });
       }
       if (req.method === 'GET' && p === '/app/config.json') {
-        return json(200, { google_client_id: env.GOOGLE_CLIENT_ID || null, release: RELEASE.version }, { ...PWA_HEADERS, 'cache-control': 'no-store' });
+        return json(200, { google_client_id: env.GOOGLE_CLIENT_ID || null, release: RELEASE.version, uploads: uploadsConfigured(env) },
+          { ...pwaHeaders(env), 'cache-control': 'no-store' });
       }
       if ((req.method === 'GET' || req.method === 'HEAD') && p.startsWith('/app/')) return pwaAsset(req, env, p);
       // health answers even when a binding check fails; it reveals no identity value (q_health, 9003)
