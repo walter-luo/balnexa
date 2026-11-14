@@ -201,8 +201,11 @@ def main():
         cx.commit()
         for (cv,) in pend:
             cx.execute("set role bnx_definer")
+            rel = open(os.path.join(ROOT, "apps", "worker", "src", "release.js")).read()
+            wr = list(re.search(r"extension:\s*\['(\d{4})',\s*'(\d{4})'\]", rel).groups())      # 9029 deploy rule (B3)
             cx.execute("select bnx.install_activate_config(%s, %s, %s::jsonb)",
-                       (cv, digest, json.dumps({"project_id": a.project_id, "instance_uid": uid, "modules": mods})))
+                       (cv, digest, json.dumps({"project_id": a.project_id, "instance_uid": uid, "modules": mods,
+                                                "worker_supports_extension": wr})))
             cx.commit()
             print(f"ok install_activate_config v{cv}")
 

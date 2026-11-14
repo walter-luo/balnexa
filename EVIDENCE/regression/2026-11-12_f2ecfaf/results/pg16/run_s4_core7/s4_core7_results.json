@@ -1,0 +1,47 @@
+{
+ "server": "pg16",
+ "version": "PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "python": "3.13.18",
+ "psycopg": "3.2.3",
+ "seconds": 18.9,
+ "pass": 5,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-G0R-01",
+   "ref": "G0 F-01 / V8.4 / X3 (owner path cannot remove, change or replace audit rows)",
+   "status": "PASS",
+   "detail": "bnx_migrator -> SET ROLE bnx_definer: all 15 attempts refused (TRUNCATE table/view, DISABLE TRIGGER, DELETE, UPDATE, DROP TABLE, DROP SCHEMA, RENAME, OWNER TO, SET ROLE, CREATE, self-GRANT then TRUNCATE, session_replication_role); bnx.audit() still appends, while a mis-hashed or gapped INSERT is refused at insert (AUDIT_CHAIN_APPEND, 9011 review R-10); 12 rows unchanged, audit_verify 0, external verifier INTACT, 0 privilege violations",
+   "seconds": 2.49
+  },
+  {
+   "id": "AT-G0R-02",
+   "ref": "G0 F-01 (privilege audit and external verifier detect each weakening; runner exit 7)",
+   "status": "PASS",
+   "detail": "11 weakenings made by a superuser (owner back to bnx_definer, TRUNCATE or column UPDATE granted, trigger disabled, SET membership for bnx_migrator, LOGIN for the audit owner, INSERT for bnx_app, pg_write_all_data for the definer, a hiding row-security policy, the chain-append check disabled): each reported by audit_privileges() (runner exit 7) and by the external verifier (exit 1); an extra trigger is reported by the verifier; clean again after revert",
+   "seconds": 7.78
+  },
+  {
+   "id": "AT-G0R-03",
+   "ref": "G0 F-01, F-02 (install order: runner stops before 9011 until B003; B003 order and name checks; re-run no-op)",
+   "status": "PASS",
+   "detail": "runner without B003: applies up to 9010 and stops with exit 6 BOOTSTRAP_MISSING naming B003 (audit table still in bnx); B003 before the migrations -> B003_ORDER, nothing created; installer named bnx_* -> B003_INSTALLER_NAME (F-02); B003 applied, re-run no-op; runner then applies 9011 with 0 violations; bnx_audit registered (owner balnexa_audit_owner, USAGE bnx_backup only)",
+   "seconds": 2.2
+  },
+  {
+   "id": "AT-G0R-04",
+   "ref": "G0 F-04 (envelope values: printable ASCII only, locale-independent)",
+   "status": "PASS",
+   "detail": "16 probes: zero-width space, bidi override, no-break space and non-ASCII letters refused (VALIDATION_FAILED) in resolve_actor and at audit() for Worker-set GUCs; 100 printable ASCII characters accepted, 101 refused",
+   "seconds": 2.0
+  },
+  {
+   "id": "AT-G0R-05",
+   "ref": "G0 F-06, V8.6, X2 (external verifier; an anchor of seq and head hash detects superuser truncation and rewrites)",
+   "status": "PASS",
+   "detail": "clean chain INTACT, head 12 recorded as anchor; superuser tail deletion (V8.6) and full rewrite with recomputed hashes (X2): audit_verify 0 and verifier INTACT without an anchor (documented residual), FAILED with the anchor (ANCHOR_MISSING, ANCHOR_HASH); a mis-hashed append through the owner path is refused at insert and the chain stays INTACT (R-10); a malformed --anchor exits 2 (R-14)",
+   "seconds": 4.42
+  }
+ ]
+}

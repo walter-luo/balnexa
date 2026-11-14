@@ -21,7 +21,7 @@ CI runs `--check` in the `secret-scan` job. After adding a migration or changing
 
 ## Remaining in INS-1 and INS-2
 
-- `install_activate_config` reading `min_worker_release` (database side).
+- **Done (9029):** `install_activate_config` refuses activation (B3) when the deployed Worker's stated schema range (`worker_supports_extension`) excludes the applied head. `install_instance.py` sends the range from `release.js`. Test AT-DPL-01.
 - Signed releases.
 - INS-2, part done: `deploy/install_instance.py --plan` validates every input before anything is touched, and prints the steps (AT-INS-01). Its rules:
   - the installer role is not `bnx_*`;
