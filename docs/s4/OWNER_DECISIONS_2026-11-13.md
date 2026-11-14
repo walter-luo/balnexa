@@ -25,3 +25,12 @@ Grade: `OWNER_DECISION`. Recorded by the author (Claude) as `DRAFT` until the Ow
   - (b) The design package is also committed, so that a reviewer can read it.
 
   Reading (b) publishes it, and the Requirements Book contains Owner sources. Until the Owner chooses, the author applies (a).
+
+## Later the same day
+
+Recorded from the Owner's message of 2026-11-13 20:59 (America/Toronto): "1，https://drive.google.com/…（link withheld here）, 20-Inbox/还要分人名，年份，银行，种类，怎么放更合适？AI对20-Inbox只读，其他目录对Owner是只读。" ("1" answers G0-PWA-1, option 1.)
+
+| ID | Decision | Effect |
+|---|---|---|
+| OD-G0-2 | **G0-PWA-1, option 1:** the PWA suite stands on `AUTHOR_RUNTIME_EVIDENCE` plus CI. The independent G0 verification is complete with that one gate not independently executed | All other G0 gates are `VERIFIED_INDEPENDENT` (runs R1–R3; dispositions in `docs/s4/reviews/`). The PWA-only run on native Windows was `NOT_EXECUTED` (`G0_PWA_R1_DISPOSITION_2026-11-13.md`). An independent PWA run on Linux, for example WSL2, remains possible later and is advised before production use |
+| OD-GH-4 | **The Drive data directory exists** (OD-GH-3). Its location is held in the Owner's private project documents, **not in this public repository**. Access rule: **the AI reads `20-Inbox` only; the other folders are read-only for the Owner** | A convention, not a technical control. The AI works through the Owner's own Google account, so Drive cannot enforce it. Integrity is checked through the sha256 of each Inbox original, recorded in the index. The folder layout under `20-Inbox` and `30-Processed` is the author's **proposal, awaiting the Owner's confirmation** |

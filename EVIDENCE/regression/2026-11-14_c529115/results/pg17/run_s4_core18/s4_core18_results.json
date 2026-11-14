@@ -1,0 +1,72 @@
+{
+ "server": "pg17",
+ "seconds": 22.0,
+ "pass": 9,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-DOC2-01",
+   "ref": "DOC-2; Addendum A1 Rev 1 \u00a74-\u00a75, DOC-SIN-04/05/12; 9025 (Executor discover -> validate -> declare -> archive on the mock Drive)",
+   "status": "PASS",
+   "detail": "mock Drive, 3 files: discover stages identities only (repeats promoted as known); validate -> clean statement PENDING_DECLARATION (no classifier), PDF with a value QUARANTINED, ZIP SCAN_INCOMPLETE; nothing else due and a run for the quarantined one stages nothing (NOTHING_TO_DO); after the Owner's declaration the statement is due for ARCHIVE: Processed copy written, re-hashed, admitted -> ARCHIVED, evidence USABLE; bytes changed behind the identity -> MD5_MISMATCH, not staged; a new revision is a new discovery and the archived one is kept; no value in staging; audit_verify 0",
+   "seconds": 3.27
+  },
+  {
+   "id": "AT-TST5-01",
+   "ref": "TST-5 (mock providers: Drive revisions and Processed copies, shared index in JSON/CSV/Markdown, mailbox exact fetch and move)",
+   "status": "PASS",
+   "detail": "Drive: revisions, head, REVISION_GONE, idempotent Processed copy; index read back from JSON, CSV and Markdown; mailbox: exact fetch by Message-ID, attachment numbering, move; real providers refuse until M0-B ({'drive': 'NOT_CONFIGURED', 'sheets': 'NOT_CONFIGURED', 'gmail': 'NOT_CONFIGURED', 'graph': 'NOT_CONFIGURED'}); generated ids carry no digit",
+   "seconds": 0.01
+  },
+  {
+   "id": "AT-INT-01",
+   "ref": "INT-2; SI \u00a72-\u00a77 (shared-index consumer through the Executor: contract, availability, masking, CRA notice, replay)",
+   "status": "PASS",
+   "detail": "due ['idx-family-01']; one lease stages the masked index (15-column contract); 3 records stored, the Drive-readable one FILED_VERIFIED, the other not; CRA notice -> notification; a value in Notes never reaches staging or the record table; acks {'CONSUMED': 2, 'BLOCKED': 1}; a second run replays without new records",
+   "seconds": 2.82
+  },
+  {
+   "id": "AT-INT-02",
+   "ref": "INT-3; SI \u00a74, \u00a710; OR-EML-03\u202606 (exact fetch by Message-ID, evidence .eml, attachment discovery, route and move)",
+   "status": "PASS",
+   "detail": "exact fetch by Message-ID staged (no subject or body), .eml kept as content-addressed evidence; missing message MESSAGE_NOT_FOUND; a mailbox without an authorized credential stages nothing; the PDF attachment is discovered as MAIL_ATTACHMENT part 1 and validated through the mailbox (PENDING_DECLARATION, no classifier); no move before a route; with the institution route the message moves to its folder and the item is MOVED; nothing left due",
+   "seconds": 3.22
+  },
+  {
+   "id": "AT-TST1-01",
+   "ref": "TST-1 (tools/s4/gen_fixtures.py: a generated household runs through discover and validate with the expected verdicts)",
+   "status": "PASS",
+   "detail": "generator: 7 Inbox files, 3 index records, 2 messages; every file reached its expected state ['PENDING_DECLARATION', 'QUARANTINED', 'SCAN_INCOMPLETE']",
+   "seconds": 4.14
+  },
+  {
+   "id": "AT-INS-01",
+   "ref": "INS-2 (installer validator and plan: every input checked before anything is touched)",
+   "status": "PASS",
+   "detail": "valid inputs pass; each of 7 bad inputs gives exactly one problem (pg, modules, app_origin, kv_id, project_id, google_client_id, bind_owner_sub); --plan prints the steps and creates nothing",
+   "seconds": 0.17
+  },
+  {
+   "id": "AT-DPL-01",
+   "ref": "INS-1 deploy rule; 9029 (activation refused when the deployed Worker's schema range excludes the applied head)",
+   "status": "PASS",
+   "detail": "schema head 9039: a Worker supporting 9017-9023 is refused (B3); malformed ranges ['[\"9039\", \"9xx9\"]', '[\"9039\"]', '[]', '[null, \"9039\"]', '{\"lo\": \"9000\"}'] are refused (B3, 9039); one supporting N-1..9039 activates the configuration",
+   "seconds": 2.82
+  },
+  {
+   "id": "AT-AUD-01",
+   "ref": "F-AUD-01; 9030 (correct_transaction: journal UUIDs in the audit subject sit under *_id keys, so guard C2 exempts them)",
+   "status": "PASS",
+   "detail": "subject keys ['original_journal_id', 'replacement_journal_id', 'reversal_journal_id']; a UUID with a Mod-10 run in a group: refused under 'original' (old), exempt under 'original_journal_id' (9030)",
+   "seconds": 2.67
+  },
+  {
+   "id": "AT-NULL-01",
+   "ref": "G0 R2 remediation; 9039 (a command without a required array is refused: guards are NULL-safe)",
+   "status": "PASS",
+   "detail": "5 commands with an absent, null or empty required field -> VALIDATION_FAILED and nothing stored (['account', 'items']); the same account with currencies is created",
+   "seconds": 2.88
+  }
+ ]
+}

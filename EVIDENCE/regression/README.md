@@ -26,3 +26,4 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-13 19:18 | `9dd2cb9` | `s4/g0-remediation-2` (icu-en-US) | 471 | 0 | 3 | [2026-11-13_9dd2cb9_icu-en-US](2026-11-13_9dd2cb9_icu-en-US/INDEX.md) |
 | 2026-11-13 22:15 | `a77c9b7` | `s4/g0-r3-record` | 471 | 0 | 3 | [2026-11-13_a77c9b7](2026-11-13_a77c9b7/INDEX.md) |
 | 2026-11-13 23:58 | `ba1c3cf` | `s4/pwa-system-chromium` | 471 | 0 | 3 | [2026-11-13_ba1c3cf](2026-11-13_ba1c3cf/INDEX.md) |
+| 2026-11-14 02:13 | `c529115` | `s4/g0-pwa-record` | 471 | 0 | 3 | [2026-11-14_c529115](2026-11-14_c529115/INDEX.md) |
