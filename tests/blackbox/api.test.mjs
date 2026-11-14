@@ -176,6 +176,15 @@ test('BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope', as
     assert.ok(names.includes(n), n);
   }
   assert.ok(!names.some((n) => n.startsWith('handoff_') || n.startsWith('doc_')), `${names}`);
+  // 2.8 curated schemas (9026): hosts see the required fields, the enum of economic types and plain descriptions;
+  // a call missing a required field is refused by the Gateway with the database's own code and the field named
+  const ct = list.json.result.tools.find((t) => t.name === 'fin_draft_create_transaction');
+  if (ct.inputSchema.required) {
+    assert.deepEqual(ct.inputSchema.required.filter((r) => r !== 'idempotency_key').sort(), ['account_currency_id', 'economic_type', 'transaction_date']);
+    assert.ok(ct.inputSchema.properties.economic_type.enum.includes('consumption_expense') && /Owner/.test(ct.description), ct.description);
+    const miss = await rpc('tools/call', { name: 'fin_draft_create_transaction', arguments: { idempotency_key: 'bb-curated-0001', transaction_date: '2026-03-01' } });
+    assert.match(JSON.stringify(miss.json), /VALIDATION_FAILED/);
+  }
   const bal = await rpc('tools/call', { name: 'fin_balances_as_of', arguments: { as_of: '2026-12-31' } });
   assert.equal(bal.json.result.structuredContent.balances.length, 1);
   const w = await rpc('tools/call', { name: 'pwa_post_transaction', arguments: {} });

@@ -4,7 +4,7 @@
 // items, minItems, maxItems, format (uuid, date, date-time). Unknown keywords are an error at load time, never ignored.
 // The database stays the validator of record; this check rejects wrong shapes before a database round trip.
 const KNOWN = new Set(['type', 'properties', 'required', 'additionalProperties', 'enum', 'pattern', 'minLength', 'maxLength',
-  'minimum', 'maximum', 'items', 'minItems', 'maxItems', 'format']);
+  'minimum', 'maximum', 'items', 'minItems', 'maxItems', 'format', 'description']);     // description: annotation only (2.8)
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}(:?\d{2})?)?$/;

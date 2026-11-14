@@ -85,6 +85,12 @@ def derive(cx, ovr):
             if re.search(rf"jsonb_array_elements(?:_text)?\(\s*{par}\s*->\s*'{k}'\s*\)|jsonb_array_length\(\s*{par}\s*->\s*'{k}'\s*\)", src):
                 casts.add("array")
             props[k] = dict(TYPES[next(iter(casts))]) if len(casts) == 1 else {}
+        cur = ovr.get("schemas", {}).get(name)
+        if cur:                                              # 2.8 curated schema: must name exactly the keys the body reads
+            ck = set(cur["input"].get("properties", {}))
+            if ck != set(props):
+                errors.append(f"{name}: curated schema keys {sorted(ck ^ set(props))} differ from the keys the body reads"); continue
+            props = cur["input"]["properties"]
         fs = fscope.get(name)
         tool = fs[4] if fs and fs[4] and re.fullmatch(r"[a-z]+(\.[a-z0-9_]+)+", fs[4]) else None
         mcp = bool(fs) and tier is not None and tier <= 1
@@ -101,7 +107,8 @@ def derive(cx, ovr):
             "needs_ac_subset": bool(fs and fs[3]),
             "channels": ["pwa"] + (["mcp"] if mcp else []),
             "module_flags": [],
-            "input_schema": {"type": "object", "properties": props, "additionalProperties": True},
+            "input_schema": {"type": "object", "properties": props, "additionalProperties": True,
+                             **({"required": cur["input"]["required"]} if cur and cur["input"].get("required") else {})},
             "output_schema": {"type": "object"},
             "errors": COMMON_ERRORS,
             "idempotency": "required" if re.search(r"bnx\.idem_begin\(", src) else "none",
@@ -110,8 +117,8 @@ def derive(cx, ovr):
             "mcp": {"readOnlyHint": tier == 0, "destructiveHint": False, "openWorldHint": False,
                     "ui_resource": CARD_URI if mcp and name in ovr.get("ui_cards", {}) else None},
             "ui_profile": ovr.get("ui_cards", {}).get(name) if mcp else None,
-            "description": ovr.get("descriptions", {}).get(name, f"{kind} {name.split('_', 1)[1]}"),
-            "provenance": "derived",
+            "description": (cur or {}).get("description") or ovr.get("descriptions", {}).get(name, f"{kind} {name.split('_', 1)[1]}"),
+            "provenance": "curated" if cur else "derived",
         }
         entries.append((nsp, name, e))
     seen = {}

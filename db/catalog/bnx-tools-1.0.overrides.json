@@ -1,61 +1,417 @@
 {
-  "format": "bnx-tools-1.0-overrides",
-  "note": "Explicit facts the generator (tools/s4/catalog_build.py) cannot read from a function body. Every cmd_/q_ function whose tier is not visible as bnx.require(a, N) must be listed here, otherwise the generator fails (no silent default).",
-  "tier_helpers": {
-    "backup_owner": 3,
-    "backup_reader": 0
+ "format": "bnx-tools-1.0-overrides",
+ "note": "Explicit facts the generator (tools/s4/catalog_build.py) cannot read from a function body. Every cmd_/q_ function whose tier is not visible as bnx.require(a, N) must be listed here, otherwise the generator fails (no silent default).",
+ "tier_helpers": {
+  "backup_owner": 3,
+  "backup_reader": 0
+ },
+ "public": [
+  "q_health"
+ ],
+ "descriptions": {
+  "q_ai_connections": "The caller's AI connections: client, host profile, scopes, consented account-currencies, last token issue, revocation state (PWA only)",
+  "q_audit_trail": "Audit chain events (command, subject, member, channel, version, host provenance); Owner and admins see the household, others their own",
+  "q_ledger_accounts": "Ledger accounts the caller may book against (visible account-currencies with can_post) and active income and expense categories (PWA Quick Entry)",
+  "q_health": "Instance health without identity values; answers while a binding check fails",
+  "q_whoami": "The calling member, channel, connection and scopes",
+  "q_config_status": "Active configuration version, digest, flags, pending versions, identity and schema head",
+  "q_balances": "Balances per account-currency at a date and ledger version (R1 R-BAL)",
+  "q_f1_balances": "F1 balances with statement column, reporting currency and envelope",
+  "q_f2_transactions": "F2 transactions with masked lines and calendar flows",
+  "q_f3_income_expense": "F3 income and expense by flow class",
+  "q_f4_investments": "F4 investment positions and movements",
+  "q_f5_networth": "F5 net worth (book value) with R28 elimination",
+  "q_f6_cards": "F6 cards: owed balance, statements, annual-fee progress",
+  "q_f7_reconciliation": "F7 reconciliation findings and coverage",
+  "q_cashflow_statement": "R09 cash flow by flow class (cash basis)",
+  "q_backup_status": "Backup runs, drills, keys, evidence verification and the O-8 anchor precondition",
+  "q_cost_status": "Usage, ceilings, capacity state and admissions of a billing month",
+  "cmd_post_transaction": "Post a balanced journal (PWA only)",
+  "cmd_create_account": "Create an account with its account-currencies"
+ },
+ "names": {
+  "q_ai_connections": "sys.ai_connections",
+  "q_health": "sys.health",
+  "q_ledger_accounts": "fin.ledger.accounts",
+  "q_audit_trail": "sys.audit_trail",
+  "q_whoami": "sys.whoami",
+  "q_config_status": "sys.config_status",
+  "q_replay_snapshot": "fin.reports.replay_snapshot",
+  "cmd_create_report_snapshot": "fin.reports.create_snapshot",
+  "q_institutions_search": "reg.institutions.search",
+  "cmd_propose_institution_candidate": "reg.discovery.propose_candidate",
+  "q_draft_get_for_confirmation": "fin.draft.get_for_confirmation",
+  "cmd_draft_revise": "fin.draft.revise",
+  "cmd_draft_validate": "fin.draft.validate",
+  "cmd_draft_withdraw": "fin.draft.withdraw",
+  "q_account_proposals": "fin.account.proposals",
+  "q_evidence_access": "doc.evidence.access",
+  "cmd_register_evidence": "doc.evidence.register"
+ },
+ "note_names": "AIH V1.2 §2.2 tool names where bnx.function_scope carries none; every other entry is named from function_scope.note or pwa.<rest name>",
+ "ui_cards": {
+  "cmd_draft_create_transaction": "draft_confirm",
+  "cmd_draft_create_transfer": "draft_confirm",
+  "cmd_draft_revise": "draft_confirm",
+  "cmd_draft_validate": "draft_confirm",
+  "q_draft_get_for_confirmation": "draft_confirm",
+  "cmd_draft_withdraw": "status"
+ },
+ "note_ui_cards": "AIH-4 (UA V1.2 §12.3; AIH §8): MCP tools whose result the host renders with the one MCP App resource ui://balnexa/cards/v1, by card profile. Display only: the card opens the sealed PWA link and never calls a tool (in-card approval off, OD-40).",
+ "schemas": {
+  "cmd_draft_create_transaction": {
+   "description": "Propose one transaction on an account the connection may see. Nothing is posted: the household Owner reviews and approves the draft in Balnexa.",
+   "input": {
+    "type": "object",
+    "required": [
+     "account_currency_id",
+     "transaction_date",
+     "economic_type"
+    ],
+    "properties": {
+     "account_currency_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The account-currency the money moves on (from fin.balances.as_of)"
+     },
+     "transaction_date": {
+      "type": "string",
+      "format": "date"
+     },
+     "economic_type": {
+      "enum": [
+       "consumption_expense",
+       "card_spend",
+       "income",
+       "interest_income",
+       "refund",
+       "fee",
+       "interest_expense",
+       "loan_interest",
+       "internal_transfer",
+       "card_repayment",
+       "fx_conversion",
+       "loan_disbursement",
+       "loan_principal_repayment",
+       "loan_lent",
+       "loan_principal_collected",
+       "intra_household_loan",
+       "intra_household_loan_repayment",
+       "investment_subscription",
+       "investment_redemption",
+       "investment_income",
+       "transfer_to_clearing",
+       "clearing_resolution",
+       "opening_balance",
+       "correction_reversal",
+       "correction_replacement",
+       "interledger_transfer"
+      ],
+      "description": "What the transaction is economically"
+     },
+     "amount": {
+      "type": [
+       "number",
+       "string"
+      ],
+      "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+      "description": "Signed amount on the account: negative = money out, positive = money in"
+     },
+     "counter_ledger_account_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The category or other ledger account on the other side (from fin.ledger.accounts); use with amount"
+     },
+     "lines": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20,
+      "items": {
+       "type": "object",
+       "required": [
+        "ledger_account_id",
+        "currency",
+        "amount"
+       ],
+       "properties": {
+        "ledger_account_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "amount": {
+         "type": [
+          "number",
+          "string"
+         ],
+         "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+         "description": "Signed amount on the account: negative = money out, positive = money in"
+        }
+       }
+      },
+      "description": "Full balanced lines instead of amount + counter_ledger_account_id"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Short description; no account, card or government ID numbers"
+     },
+     "source_fingerprint": {
+      "type": "string",
+      "maxLength": 128
+     },
+     "evidence_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "evidence_file_ids": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      }
+     },
+     "supersedes_plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "An earlier draft this one replaces"
+     }
+    }
+   }
   },
-  "public": [
-    "q_health"
-  ],
-  "descriptions": {
-    "q_ai_connections": "The caller's AI connections: client, host profile, scopes, consented account-currencies, last token issue, revocation state (PWA only)",
-    "q_audit_trail": "Audit chain events (command, subject, member, channel, version, host provenance); Owner and admins see the household, others their own",
-    "q_ledger_accounts": "Ledger accounts the caller may book against (visible account-currencies with can_post) and active income and expense categories (PWA Quick Entry)",
-    "q_health": "Instance health without identity values; answers while a binding check fails",
-    "q_whoami": "The calling member, channel, connection and scopes",
-    "q_config_status": "Active configuration version, digest, flags, pending versions, identity and schema head",
-    "q_balances": "Balances per account-currency at a date and ledger version (R1 R-BAL)",
-    "q_f1_balances": "F1 balances with statement column, reporting currency and envelope",
-    "q_f2_transactions": "F2 transactions with masked lines and calendar flows",
-    "q_f3_income_expense": "F3 income and expense by flow class",
-    "q_f4_investments": "F4 investment positions and movements",
-    "q_f5_networth": "F5 net worth (book value) with R28 elimination",
-    "q_f6_cards": "F6 cards: owed balance, statements, annual-fee progress",
-    "q_f7_reconciliation": "F7 reconciliation findings and coverage",
-    "q_cashflow_statement": "R09 cash flow by flow class (cash basis)",
-    "q_backup_status": "Backup runs, drills, keys, evidence verification and the O-8 anchor precondition",
-    "q_cost_status": "Usage, ceilings, capacity state and admissions of a billing month",
-    "cmd_post_transaction": "Post a balanced journal (PWA only)",
-    "cmd_create_account": "Create an account with its account-currencies"
+  "cmd_draft_create_transfer": {
+   "description": "Propose a transfer between two of the household's account-currencies. Nothing is posted until the Owner approves.",
+   "input": {
+    "type": "object",
+    "required": [
+     "from_account_currency_id",
+     "to_account_currency_id",
+     "amount",
+     "transaction_date"
+    ],
+    "properties": {
+     "from_account_currency_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "to_account_currency_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "amount": {
+      "type": [
+       "number",
+       "string"
+      ],
+      "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+      "description": "Positive amount moved"
+     },
+     "transaction_date": {
+      "type": "string",
+      "format": "date"
+     },
+     "economic_type": {
+      "enum": [
+       "internal_transfer",
+       "card_repayment"
+      ],
+      "description": "Default internal_transfer"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Short description; no account, card or government ID numbers"
+     },
+     "source_fingerprint": {
+      "type": "string",
+      "maxLength": 128
+     }
+    }
+   }
   },
-  "names": {
-    "q_ai_connections": "sys.ai_connections",
-    "q_health": "sys.health",
-    "q_ledger_accounts": "fin.ledger.accounts",
-    "q_audit_trail": "sys.audit_trail",
-    "q_whoami": "sys.whoami",
-    "q_config_status": "sys.config_status",
-    "q_replay_snapshot": "fin.reports.replay_snapshot",
-    "cmd_create_report_snapshot": "fin.reports.create_snapshot",
-    "q_institutions_search": "reg.institutions.search",
-    "cmd_propose_institution_candidate": "reg.discovery.propose_candidate",
-    "q_draft_get_for_confirmation": "fin.draft.get_for_confirmation",
-    "cmd_draft_revise": "fin.draft.revise",
-    "cmd_draft_validate": "fin.draft.validate",
-    "cmd_draft_withdraw": "fin.draft.withdraw",
-    "q_account_proposals": "fin.account.proposals",
-    "q_evidence_access": "doc.evidence.access",
-    "cmd_register_evidence": "doc.evidence.register"
+  "cmd_draft_revise": {
+   "description": "Replace the proposed transaction of an open draft (a new version; the Owner approves exactly the version shown).",
+   "input": {
+    "type": "object",
+    "required": [
+     "plan_id",
+     "item"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "item": {
+      "type": "object",
+      "description": "The proposed transaction (same fields as fin.draft.create_transaction)",
+      "properties": {
+       "transaction_date": {
+        "type": "string",
+        "format": "date"
+       },
+       "economic_type": {
+        "enum": [
+         "consumption_expense",
+         "card_spend",
+         "income",
+         "interest_income",
+         "refund",
+         "fee",
+         "interest_expense",
+         "loan_interest",
+         "internal_transfer",
+         "card_repayment",
+         "fx_conversion",
+         "loan_disbursement",
+         "loan_principal_repayment",
+         "loan_lent",
+         "loan_principal_collected",
+         "intra_household_loan",
+         "intra_household_loan_repayment",
+         "investment_subscription",
+         "investment_redemption",
+         "investment_income",
+         "transfer_to_clearing",
+         "clearing_resolution",
+         "opening_balance",
+         "correction_reversal",
+         "correction_replacement",
+         "interledger_transfer"
+        ]
+       },
+       "description": {
+        "type": "string",
+        "maxLength": 200,
+        "description": "Short description; no account, card or government ID numbers"
+       },
+       "amount": {
+        "type": [
+         "number",
+         "string"
+        ],
+        "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+        "description": "Signed amount on the account: negative = money out, positive = money in"
+       },
+       "counter_ledger_account_id": {
+        "type": "string",
+        "format": "uuid"
+       },
+       "lines": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 20,
+        "items": {
+         "type": "object",
+         "required": [
+          "ledger_account_id",
+          "currency",
+          "amount"
+         ],
+         "properties": {
+          "ledger_account_id": {
+           "type": "string",
+           "format": "uuid"
+          },
+          "currency": {
+           "type": "string",
+           "pattern": "^[A-Z]{3}$"
+          },
+          "amount": {
+           "type": [
+            "number",
+            "string"
+           ],
+           "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+           "description": "Signed amount on the account: negative = money out, positive = money in"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
   },
-  "note_names": "AIH V1.2 §2.2 tool names where bnx.function_scope carries none; every other entry is named from function_scope.note or pwa.<rest name>",
-  "ui_cards": {
-    "cmd_draft_create_transaction": "draft_confirm",
-    "cmd_draft_create_transfer": "draft_confirm",
-    "cmd_draft_revise": "draft_confirm",
-    "cmd_draft_validate": "draft_confirm",
-    "q_draft_get_for_confirmation": "draft_confirm",
-    "cmd_draft_withdraw": "status"
+  "cmd_draft_validate": {
+   "description": "Re-run the checks of a draft and return its findings; changes nothing.",
+   "input": {
+    "type": "object",
+    "required": [
+     "plan_id"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   }
   },
-  "note_ui_cards": "AIH-4 (UA V1.2 §12.3; AIH §8): MCP tools whose result the host renders with the one MCP App resource ui://balnexa/cards/v1, by card profile. Display only: the card opens the sealed PWA link and never calls a tool (in-card approval off, OD-40)."
+  "cmd_draft_withdraw": {
+   "description": "Withdraw a draft this connection created; it can no longer be approved.",
+   "input": {
+    "type": "object",
+    "required": [
+     "plan_id"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   }
+  },
+  "q_draft_get_for_confirmation": {
+   "description": "The current version of a draft as the Owner will see it, with the link where the Owner confirms it.",
+   "input": {
+    "type": "object",
+    "required": [
+     "plan_id"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   }
+  },
+  "q_balances": {
+   "description": "Balances of the account-currencies the connection may see, as of a date.",
+   "input": {
+    "type": "object",
+    "properties": {
+     "as_of": {
+      "type": "string",
+      "format": "date",
+      "description": "Default: today"
+     },
+     "account_currency_ids": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+       "type": "string",
+       "format": "uuid"
+      },
+      "description": "Default: every visible account-currency"
+     },
+     "ledger_version": {
+      "type": [
+       "integer",
+       "string"
+      ],
+      "pattern": "^-?[0-9]{1,18}$",
+      "description": "Read at this ledger version (replay)"
+     }
+    }
+   }
+  }
+ },
+ "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'."
 }
