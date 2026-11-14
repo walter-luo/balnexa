@@ -171,6 +171,7 @@
  "host.claude_remote_mcp": "Claude",
  "host.unknown": "unregistered host",
  "login.failed": "Sign-in failed.",
+ "login.probe": "Installer setup: this Google account is not a member yet. Send this subject to the installer to bind it as the Owner: {sub}",
  "login.text": "Sign in with the Google account your household Owner invited.",
  "login.title": "Sign in",
  "menu.accounts": "2. Accounts, currencies and balances",

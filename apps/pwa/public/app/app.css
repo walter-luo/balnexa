@@ -92,3 +92,7 @@ details summary { cursor: pointer; min-height: 44px; display: flex; align-items:
   .scroll td.n { text-align: left; }
   .scroll td::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
 }
+
+/* Google sign-in mount: the button renders in a Google iframe; cap any placeholder graphic until it loads */
+#gsi { min-height: 44px; }
+#gsi svg { width: 18px; height: 18px; }

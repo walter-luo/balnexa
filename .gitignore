@@ -1,2 +1,4 @@
 node_modules/
 __pycache__/
+apps/worker/wrangler.toml
+apps/worker/.wrangler/

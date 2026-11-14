@@ -1,0 +1,34 @@
+# Template for the M0-A synthetic test instance (docs/s4/M0A_Deployment_Runbook.md). deploy/install_instance.py renders
+# apps/worker/wrangler.toml from it (that file is not committed: it carries instance identifiers). Secrets are never here:
+# DB_URL_BNX_APP, DB_URL_BNX_AUTHN, DB_URL_BNX_WORKER are set with `wrangler secret put`.
+name = "@@WORKER_NAME@@"
+main = "src/cloudflare.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "../pwa/public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[kv_namespaces]]
+binding = "KV"
+id = "@@KV_ID@@"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+APP_ORIGIN = "@@APP_ORIGIN@@"
+GOOGLE_CLIENT_ID = "@@GOOGLE_CLIENT_ID@@"
+BNX_PROJECT_ID = "@@PROJECT_ID@@"
+BNX_INSTANCE_UID = "@@INSTANCE_UID@@"
+BNX_CONFIG_DIGEST = "@@CONFIG_DIGEST@@"
+BNX_INSTALL_PROBE = "@@INSTALL_PROBE@@"
+DCR_LIMIT_PER_DAY = "10"
+
+[vars.BNX_MODULES]
+Canada = "@@MOD_CANADA@@"
+International = "@@MOD_INTERNATIONAL@@"
+CRA = "@@MOD_CRA@@"

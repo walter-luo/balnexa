@@ -1,6 +1,6 @@
 // Service worker (CORE-9): caches the application shell only, so the app opens offline and says it is offline. API
 // responses, the catalog and the session are never cached (every figure shown comes from the server, live).
-const VERSION = 'bnx-shell-0.7.1-aihr';
+const VERSION = 'bnx-shell-0.7.4-m0a';
 const SHELL = ['/app/', '/app/index.html', '/app/app.css', '/app/js/main.js', '/app/js/api.js', '/app/js/i18n.js', '/app/js/render.js',
   '/app/i18n/en.json', '/app/i18n/zh-Hans.json', '/app/menu.json', '/app/manifest.webmanifest', '/app/icon.svg'];
 

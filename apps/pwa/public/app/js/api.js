@@ -15,7 +15,7 @@ async function send(path, { method = 'POST', body, headers = {} } = {}) {
   }
   let j = null;
   try { j = await r.json(); } catch { /* empty body */ }
-  if (!r.ok) throw new ApiError(r.status, (j && j.error) || `HTTP_${r.status}`, j && j.field);
+  if (!r.ok) throw Object.assign(new ApiError(r.status, (j && j.error) || `HTTP_${r.status}`, j && j.field), { body: j });
   return j;
 }
 

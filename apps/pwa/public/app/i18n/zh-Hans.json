@@ -171,6 +171,7 @@
  "host.claude_remote_mcp": "Claude",
  "host.unknown": "未登记的主机",
  "login.failed": "登录失败。",
+ "login.probe": "安装设置：此 Google 账户还不是成员。请把下面的标识发给安装人员，绑定为户主：{sub}",
  "login.text": "请使用家庭所有者邀请的 Google 账号登录。",
  "login.title": "登录",
  "menu.accounts": "2. 账户、币种与余额",

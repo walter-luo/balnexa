@@ -68,12 +68,13 @@ function jwks(env) {
 
 // PWA documents (CORE-9; UA V1.2 §12; OR-U-01/06): the page may talk only to this origin and to Google Identity Services for
 // sign-in (no other host, so no hidden LLM call is possible from the shell); camera, microphone and location are never asked.
+// Referrer: strict-origin-when-cross-origin, as GIS requires (M0-A live finding F-M0A-02: no-referrer left the button unrendered).
 const PWA_HEADERS = {
   'content-security-policy': "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; "
     + "style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; "
     + "connect-src 'self' https://accounts.google.com/gsi/; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
     + "worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'x-frame-options': 'DENY',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
   'cross-origin-opener-policy': 'same-origin-allow-popups',
 };
@@ -142,8 +143,20 @@ export default {
         try {
           claims = await verifyGoogleIdToken(bd && bd.id_token, { jwks: jwks(env), audience: env.GOOGLE_CLIENT_ID });
         } catch (e) { if (e instanceof AuthError) return json(401, { error: 'UNAUTHENTICATED' }); throw e; }
-        const r = await env.db.one('bnx_authn', 'select bnx.authn_begin_session($1::jsonb) r',
-          [JSON.stringify({ iss: claims.iss, sub: claims.sub, email_verified: claims.email_verified, aud: claims.aud })]);
+        let r;
+        try {
+          r = await env.db.one('bnx_authn', 'select bnx.authn_begin_session($1::jsonb) r',
+            [JSON.stringify({ iss: claims.iss, sub: claims.sub, email_verified: claims.email_verified, aud: claims.aud })]);
+        } catch (e) {
+          // M0-A installer probe (runbook step 6): while BNX_INSTALL_PROBE is set, a verified Google identity that is not a member
+          // is logged with its subject so that the installer can bind the Owner; off in every other deployment
+          // (shown only to the account that just proved it holds that Google identity, and only while the installer keeps the probe on)
+          if (e.code === 'P0401' && env.BNX_INSTALL_PROBE === '1' && claims.email_verified) {
+            log('install_probe_unknown_identity', String(claims.sub).replace(/[0-9]/g, (d) => 'abcdefghij'[d]));   // digits as letters: the log scrubber masks digit runs
+            return json(401, { error: 'UNAUTHENTICATED', install_probe_subject: String(claims.sub) });
+          }
+          throw e;
+        }
         return json(200, { member_id: r.member_id }, {
           'set-cookie': `bnx_session=${encodeURIComponent(r.session_token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=7776000` });
       }
