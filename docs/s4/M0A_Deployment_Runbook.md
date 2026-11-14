@@ -119,3 +119,4 @@ No real data exists, so a teardown loses nothing. Every deletion needs the Owner
 | F-M0A-03 | the probe note was removed by `fail()` re-booting to a fresh login screen; the subject was read from `wrangler tail` (digits logged as letters) and the PWA fixed. No automated test covers the probe note yet |
 | Owner binding | `--bind-owner-sub` done; Owner signed in; `BNX_INSTALL_PROBE=0` redeployed (0.7.4-m0a) |
 | F-M0A-01 | handoff SIN guard false positive on UUIDs (about 0.1% per UUID in free text); next DB batch |
+| Upgrade 2026-11-12 23:07–23:10 UTC | Upgrade procedure above, run from commit 64b59b1 (code = 7b56433, regression 459/0/3). Neon backup branch `backup-pre-upgrade-9023-to-9032` (no compute); installer re-run: 9024–9032 applied, `privilege_violations=0`, install and activation skipped; Worker deployed with the 7-day token; health `release 0.8.8-p2`, `schema_head 9032`, `bindings.ok` |

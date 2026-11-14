@@ -94,7 +94,7 @@ def catalog_entry(H, fn):
 
 @test("AT-OUT-01", "2.8 part 3; MCP tools outputSchema; 9032 (every tool with a curated output schema returns conforming results "
                    "for an Owner in the PWA and for an AI connection: draft tools incl. replay, transfer, revise, validate, withdraw; "
-                   "balances; whoami; report families F1-F7, R09, R30, R31)")
+                   "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
     curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v)
@@ -102,7 +102,7 @@ def t_output_schemas(server, ev):
     cad = H.cad["account_currency_id"]
     sav = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Savings", currencies=["CAD"])["account_currencies"][0]
     H.cmd(H.owner, "set_opening", account_currency_id=sav["account_currency_id"], anchor_date="2026-01-01", amount="50.00")
-    B = C4.bearer(H, ["finance.read", "finance.draft"], acs=[cad, sav["account_currency_id"]])
+    B = C4.bearer(H, ["finance.read", "finance.draft", "reports.read", "handoff.read"], acs=[cad, sav["account_currency_id"]])
     entries = {fn: catalog_entry(H, fn) for fn in curated}
     calls = []                                       # (who, function, result)
 
@@ -127,6 +127,14 @@ def t_output_schemas(server, ev):
         run(who, cred, "q_cashflow_statement", date_from="2026-01-01", date_to="2026-12-31")
         run(who, cred, "q_r30_review_queue")
         run(who, cred, "q_evidence_trace", journal_id=j)
+        # 2.8 part 4 (9033): FX, snapshots, registry search, handoff status
+        run(who, cred, "q_fx_rate", base="CAD", quote="USD", date="2026-03-01")                # no rate: MISSING, rate null
+        run(who, cred, "q_fx_rate", base="CAD", quote="CAD", date="2026-03-01")                # IDENTITY
+        snap = H.app.call("cmd_create_report_snapshot", cred, {"report_code": "R-BAL", "as_of": "2026-12-31", "idempotency_key": new_key()})
+        run(who, cred, "q_snapshot_list")
+        run(who, cred, "q_snapshot_status", snapshot_id=snap["snapshot_id"])
+        run(who, cred, "q_institutions_search", text="CIBC")
+        run(who, cred, "q_handoff_status")
         run(who, cred, "q_whoami")
         run(who, cred, "q_balances", as_of="2026-12-31")
         k = new_key()

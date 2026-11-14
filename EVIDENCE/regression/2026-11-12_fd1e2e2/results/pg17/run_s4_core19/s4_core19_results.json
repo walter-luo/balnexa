@@ -1,0 +1,23 @@
+{
+ "server": "pg17",
+ "seconds": 3.7,
+ "pass": 2,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-OUT-01",
+   "ref": "2.8 part 3; MCP tools outputSchema; 9032 (every tool with a curated output schema returns conforming results for an Owner in the PWA and for an AI connection: draft tools incl. replay, transfer, revise, validate, withdraw; balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status)",
+   "status": "PASS",
+   "detail": "57 calls by the Owner (PWA), an AI connection (MCP) and a member over 23 tools with curated output schemas (cmd_draft_create_transaction, cmd_draft_create_transfer, cmd_draft_revise, cmd_draft_validate, cmd_draft_withdraw, q_balances, q_cashflow_statement, q_draft_get_for_confirmation, q_evidence_trace, q_f1_balances, q_f2_transactions, q_f3_income_expense, q_f4_investments, q_f5_networth, q_f6_cards, q_f7_reconciliation, q_fx_rate, q_handoff_status, q_institutions_search, q_r30_review_queue, q_snapshot_list, q_snapshot_status, q_whoami): every result conforms (incl. replays, ai_draft and member_draft, a withdrawn draft); the catalog carries the overrides' schemas; the generator refuses unsupported keywords and dangling required keys",
+   "seconds": 3.38
+  },
+  {
+   "id": "AT-SIG-01",
+   "ref": "INS-1 signed releases (Ed25519 detached signature over release/manifest.json; installer --require-signed)",
+   "status": "PASS",
+   "detail": "key c11c83c3686878f2: private key 0600 and refused inside the repository; unsigned -> UNSIGNED, signed -> VALID, edited manifest -> MANIFEST_CHANGED, edited digest -> SIGNATURE_INVALID, other key -> KEY_MISMATCH, no key -> NO_PUBLIC_KEY; an edited and an unlisted migration are reported; the installer passes the unsigned repository release by default, refuses it with --require-signed (no key / unsigned), and --plan reports the release state",
+   "seconds": 0.3
+  }
+ ]
+}
