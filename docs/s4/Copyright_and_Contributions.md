@@ -41,7 +41,7 @@ The notice states a claim; it does not create ownership. Three points need the O
 **License headers (CR-3).** `tools/s4/license_headers.py` gives each source file in scope a two-line header: `Copyright 2026 Walter Luo` and `SPDX-License-Identifier: Apache-2.0`. The copyright line is read from `NOTICE`, so a change of holder (CR-1) is made in `NOTICE` and propagated with `--apply`. CI runs `--check`. Out of scope, never edited:
 
 - committed migrations and bootstrap files, because installed databases depend on their exact bytes; new migrations carry the header from the start;
-- `db/history` and the `tests/sql` fixtures;
+- `db/history`, the `tests/sql` fixtures and the frozen reference oracles in `tests/oracle`, whose sha256 AT-R28-GOLD pins;
 - `EVIDENCE`;
 - reviewer reports, which others wrote;
 - JSON and lock files, which have no comments.

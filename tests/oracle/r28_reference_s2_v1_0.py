@@ -1,5 +1,3 @@
-# Copyright 2026 Walter Luo
-# SPDX-License-Identifier: Apache-2.0
 """
 R28 intra-household loan reference engine (design oracle checker).
 Exact decimal arithmetic; rounding only at declared rounding events.

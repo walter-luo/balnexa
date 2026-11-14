@@ -14,7 +14,8 @@ usage:  license_headers.py --check     exit 1 if a file in scope lacks the heade
         license_headers.py --apply     add or update the header in place
 
 Out of scope, never touched: committed migrations and bootstrap files (db/migrations up to 9039, db/bootstrap: installed
-databases depend on their exact bytes; migrations from 9040 on are in scope), historical material (db/history), test fixtures (tests/sql), evidence records (EVIDENCE),
+databases depend on their exact bytes; migrations from 9040 on are in scope), historical material (db/history), test fixtures (tests/sql), frozen reference oracles (tests/oracle: AT-R28-GOLD pins
+their sha256), evidence records (EVIDENCE),
 reviewer reports (docs/s4/reviews/g0: written by others), and file types without comments (JSON, lock files).
 """
 import argparse
@@ -27,7 +28,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SPDX = "SPDX-License-Identifier: Apache-2.0"
 STYLE = {".py": "#", ".sh": "#", ".yml": "#", ".yaml": "#", ".toml": "#",
          ".js": "//", ".mjs": "//", ".sql": "--", ".css": "/*", ".html": "<!--"}
-EXCLUDE = ("EVIDENCE/", "docs/s4/reviews/g0/", "db/migrations/", "db/bootstrap/", "db/history/", "tests/sql/")
+EXCLUDE = ("EVIDENCE/", "docs/s4/reviews/g0/", "db/migrations/", "db/bootstrap/", "db/history/", "tests/sql/", "tests/oracle/")
 
 
 def holder_line():

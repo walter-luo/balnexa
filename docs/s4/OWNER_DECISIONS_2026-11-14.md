@@ -16,4 +16,4 @@ Recorded from the Owner's message of 2026-11-14 06:20: "CR-1以后再说，CR-2�
 |---|---|---|
 | OD-LIC-2 | **CR-1 deferred:** the notice keeps naming the author | — |
 | OD-LIC-3 | **CR-2: inbound = outbound** (Apache-2.0 §5); no CLA | `Copyright_and_Contributions.md` §3 |
-| OD-LIC-4 | **CR-3: license headers in source files** | `tools/s4/license_headers.py`, the CI step `license headers`, and headers in 107 files; committed migrations and bootstrap files excluded |
+| OD-LIC-4 | **CR-3: license headers in source files** | `tools/s4/license_headers.py`, the CI step `license headers`, and headers in 105 files; committed migrations, bootstrap files and the frozen reference oracles excluded |
