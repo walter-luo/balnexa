@@ -1,0 +1,790 @@
+{
+ "_about": "L-R2-1 NULL-guard sweep dispositions (tools/s4/null_guard_sweep.py). One entry per (function, key path) the sweep saw accepted with the key absent, null or empty. Verdicts: must_refuse (a defect; the check fails while it is still accepted), optional (a documented default or an optional field), fail_closed (accepted, but the result is a hold, FAIL or reject later), limitation (accepted for now, listed for Owner review). Synthetic data only; no values. DRAFT until the Owner confirms.",
+ "_not_exercised": {
+  "cmd_confirm_posting_date": "static review: journal_id absent -> NOT_FOUND; posting_date absent -> NOT NULL violation (refused, raw code)",
+  "cmd_revoke_session": "static review: reads no field of its JSON argument",
+  "wrk_ack_index_record": "static review: index_ack validates the status and the record version",
+  "wrk_audit_sin_refusal": "static review: guards are NULL-safe (coalesce)",
+  "wrk_onboarding_step": "static review: its jsonb argument is a free detail object"
+ },
+ "cmd_accept_instance_config": {
+  "reason": {
+   "verdict": "optional",
+   "reason": "reason is a free-text note; the decision is carried by the other fields"
+  }
+ },
+ "cmd_approve_ai_connection": {
+  "resource": {
+   "verdict": "limitation",
+   "reason": "L-NULL-1: no resource stores NULL and the B7 resource check is skipped (legacy connections by design); Owner review"
+  }
+ },
+ "cmd_correct_transaction": {
+  "reason": {
+   "verdict": "optional",
+   "reason": "reason is optional text; no replacement means reverse only"
+  },
+  "replacement": {
+   "verdict": "optional",
+   "reason": "reason is optional text; no replacement means reverse only"
+  }
+ },
+ "cmd_create_account": {
+  "region_scope": {
+   "verdict": "optional",
+   "reason": "region_scope and visibility have documented defaults"
+  },
+  "visibility": {
+   "verdict": "optional",
+   "reason": "region_scope and visibility have documented defaults"
+  }
+ },
+ "cmd_create_category": {
+  "name_zh": {
+   "verdict": "optional",
+   "reason": "name_zh is optional (name_en is required)"
+  }
+ },
+ "cmd_create_import_plan": {
+  "date_from": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  },
+  "date_to": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  },
+  "evidence_file_ids": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "items[0].amount": {
+   "verdict": "optional",
+   "reason": "a typed item's amount is replaced by its plan account line (never the caller's figure)"
+  },
+  "items[0].currency": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "items[0].needs_review": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "items[0].source_fingerprint": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "items[0].transaction_date": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  },
+  "kind": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "require_fingerprints": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  "statement": {
+   "verdict": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  }
+ },
+ "cmd_create_report_snapshot": {
+  "account_currency_ids": {
+   "verdict": "optional",
+   "reason": "as_of defaults to today; no account_currency_ids means all visible"
+  },
+  "as_of": {
+   "verdict": "optional",
+   "reason": "as_of defaults to today; no account_currency_ids means all visible"
+  }
+ },
+ "cmd_declare_financial_policy": {
+  "household_timezone": {
+   "verdict": "optional",
+   "reason": "an absent key keeps the current policy value"
+  },
+  "reporting_currency": {
+   "verdict": "optional",
+   "reason": "an absent key keeps the current policy value"
+  }
+ },
+ "cmd_declare_loan": {
+  "due_date": {
+   "verdict": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  },
+  "payable_account_currency_id": {
+   "verdict": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  },
+  "receivable_account_currency_id": {
+   "verdict": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  }
+ },
+ "cmd_draft_create_transaction": {
+  "amount": {
+   "verdict": "optional",
+   "reason": "typed drafts take the amount from the lines (never the caller's figure)"
+  },
+  "description": {
+   "verdict": "optional",
+   "reason": "description defaults to the economic type"
+  },
+  "lines[0].currency": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  }
+ },
+ "cmd_handoff_import": {
+  "account_currency_id": {
+   "verdict": "optional",
+   "reason": "account_currency_id is needed only for PROPOSAL and REVERSAL blocks, which check it"
+  }
+ },
+ "cmd_handoff_prepare": {
+  "note": {
+   "verdict": "optional",
+   "reason": "note is optional text"
+  }
+ },
+ "cmd_invite_member": {
+  "display_name": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  },
+  "google_sub": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  }
+ },
+ "cmd_link_loan_payment": {
+  "event": {
+   "verdict": "optional",
+   "reason": "event defaults to the payment event"
+  }
+ },
+ "cmd_post_transaction": {
+  "description": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  },
+  "settled_rate": {
+   "verdict": "optional",
+   "reason": "settled_rate is optional (cross-currency postings only)"
+  }
+ },
+ "cmd_prepare_config_draft": {
+  "deployment_mode": {
+   "verdict": "optional",
+   "reason": "deployment_mode defaults to the current mode"
+  }
+ },
+ "cmd_propose_institution_candidate": {
+  "evidence": {
+   "verdict": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  "evidence[0].doc": {
+   "verdict": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  "evidence[0].kind": {
+   "verdict": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  "jurisdiction": {
+   "verdict": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  "name_en": {
+   "verdict": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  }
+ },
+ "cmd_reassign_account_institution": {
+  "reason": {
+   "verdict": "optional",
+   "reason": "reason is optional text"
+  }
+ },
+ "cmd_record_card_fee_event": {
+  "as_of": {
+   "verdict": "optional",
+   "reason": "as_of defaults to today"
+  }
+ },
+ "cmd_record_investment_lot": {
+  "source_journal_id": {
+   "verdict": "optional",
+   "reason": "source_journal_id is an optional link"
+  }
+ },
+ "cmd_record_lot_disposal": {
+  "supersedes_disposal_id": {
+   "verdict": "optional",
+   "reason": "supersedes_disposal_id is set only on a correction"
+  }
+ },
+ "cmd_record_observation": {
+  "revision_of": {
+   "verdict": "optional",
+   "reason": "revision_of is set only on a revision"
+  }
+ },
+ "cmd_record_ownership": {
+  "events": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  }
+ },
+ "cmd_register_evidence": {
+  "name": {
+   "verdict": "optional",
+   "reason": "name is optional (withheld names are allowed)"
+  }
+ },
+ "cmd_register_index_source": {
+  "enabled": {
+   "verdict": "optional",
+   "reason": "enabled defaults to true"
+  }
+ },
+ "cmd_register_mail_source": {
+  "credential_state": {
+   "verdict": "optional",
+   "reason": "credential_state defaults to pending"
+  }
+ },
+ "cmd_run_reconciliation": {
+  "accept_stage1_fail": {
+   "verdict": "optional",
+   "reason": "accept_stage1_fail defaults to false"
+  }
+ },
+ "cmd_set_cost_policy": {
+  "exec_allocation": {
+   "verdict": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  },
+  "spend_cap_variant": {
+   "verdict": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  },
+  "vault_allocation": {
+   "verdict": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  }
+ },
+ "cmd_set_grant": {
+  "can_post": {
+   "verdict": "optional",
+   "reason": "can_view and can_post default to false"
+  },
+  "can_view": {
+   "verdict": "optional",
+   "reason": "can_view and can_post default to false"
+  }
+ },
+ "cmd_set_import_mapping": {
+  "mapping_id": {
+   "verdict": "optional",
+   "reason": "no mapping_id creates a new mapping"
+  }
+ },
+ "cmd_set_mail_route": {
+  "effective_from": {
+   "verdict": "optional",
+   "reason": "effective_from defaults to now"
+  }
+ },
+ "cmd_set_payment_attribute": {
+  "payment_method": {
+   "verdict": "optional",
+   "reason": "either payment_method or payment_network is enough (the table CHECK requires one)"
+  },
+  "payment_network": {
+   "verdict": "optional",
+   "reason": "either payment_method or payment_network is enough (the table CHECK requires one)"
+  }
+ },
+ "cmd_set_reconciliation_exception_state": {
+  "note": {
+   "verdict": "optional",
+   "reason": "note is optional text"
+  }
+ },
+ "cmd_verify_institution": {
+  "kind": {
+   "verdict": "optional",
+   "reason": "kind defaults to bank"
+  }
+ },
+ "wrk_admission_decide": {
+  "estimated_instance_seconds": {
+   "verdict": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  "gib": {
+   "verdict": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  "now": {
+   "verdict": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  "planned_items": {
+   "verdict": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  }
+ },
+ "wrk_audit_verified": {
+  "anchor_hash": {
+   "verdict": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  "anchor_seq": {
+   "verdict": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  "result": {
+   "verdict": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  "source": {
+   "verdict": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  "tool_version": {
+   "verdict": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  }
+ },
+ "wrk_backup_due": {
+  "now": {
+   "verdict": "optional",
+   "reason": "now defaults to now()"
+  }
+ },
+ "wrk_backup_key_pruned": {
+  "now": {
+   "verdict": "optional",
+   "reason": "now defaults to now()"
+  }
+ },
+ "wrk_capacity_update": {
+  "now": {
+   "verdict": "optional",
+   "reason": "now defaults to now(); ok absent means a failed probe (provider_capped)"
+  },
+  "ok": {
+   "verdict": "optional",
+   "reason": "now defaults to now(); ok absent means a failed probe (provider_capped)"
+  },
+  "threshold_pct": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02"
+  }
+ },
+ "wrk_cloud_usage_record": {
+  "cu_hours": {
+   "verdict": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  "egress_bytes": {
+   "verdict": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  "gross_estimate": {
+   "verdict": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  "phase": {
+   "verdict": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  "storage_bytes": {
+   "verdict": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  }
+ },
+ "wrk_exec_due": {
+  "limit": {
+   "verdict": "optional",
+   "reason": "limit defaults to 50"
+  }
+ },
+ "wrk_issue_exec_lease": {
+  "item_id": {
+   "verdict": "optional",
+   "reason": "item_id is optional per job kind; exec_work_order refuses an order that needs one"
+  }
+ },
+ "wrk_record_identity_signal": {
+  "closing_balance": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "holder_names": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "institution_id": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "masked_reference": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "opening_balance": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "period_end": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "period_start": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "reference_fingerprint": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  "uploaded_by": {
+   "verdict": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  }
+ },
+ "wrk_snapshot_artifact": {
+  "warnings": {
+   "verdict": "optional",
+   "reason": "warnings default to none"
+  }
+ },
+ "wrk_stage_completion:backup_recorded": {
+  "destination": {
+   "verdict": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  "ended_at": {
+   "verdict": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  "header": {
+   "verdict": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  "retain_until": {
+   "verdict": "optional",
+   "reason": "read only for a VERIFIED result: since 9040 a VERIFIED result without it is REJECTED (RETENTION; AT-BKP-REC case 'retention absent'); a FAILED result does not read it (the 9039 sweep's accepted VERIFIED calls are gone)"
+  },
+  "sizes": {
+   "verdict": "optional",
+   "reason": "sizes are optional facts"
+  },
+  "started_at": {
+   "verdict": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  "tools": {
+   "verdict": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  }
+ },
+ "wrk_stage_completion:doc_archived": {
+  "head_revision_id": {
+   "verdict": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  "mail_message_id": {
+   "verdict": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  "md5": {
+   "verdict": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  "mime_part": {
+   "verdict": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  "source_file_id": {
+   "verdict": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  }
+ },
+ "wrk_stage_completion:doc_discovered": {
+  "head_revision_id": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02 (empty string; absent and null were already refused)"
+  },
+  "mail_message_id": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02 (empty string; absent and null were already refused)"
+  },
+  "md5": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02 (empty string; absent and null were already refused)"
+  },
+  "mime_part": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02 (empty string; absent and null were already refused)"
+  },
+  "module": {
+   "verdict": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  "original_name": {
+   "verdict": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  "period_key": {
+   "verdict": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  "size_bytes": {
+   "verdict": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  "source_file_id": {
+   "verdict": "must_refuse",
+   "reason": "fixed in 9040; AT-NULL-02 (empty string; absent and null were already refused)"
+  },
+  "source_mtime": {
+   "verdict": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  }
+ },
+ "wrk_stage_completion:doc_validated": {
+  "class_uncertain": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "doc_class": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].kind": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].length": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].offset": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].page": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].part": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "locators[0].revision": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "rule_codes": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  "sin_bearing": {
+   "verdict": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  }
+ },
+ "wrk_stage_completion:index_consumed": {
+  "availability": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "coverage": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "header": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "open_items": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "open_items[0].key": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Current Name": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Document Date": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Domain": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].File ID": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Notes": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Original Name": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Processed Date": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Record Path": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Related Open Item": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Sensitivity": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Source": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Status": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Summary": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Tags": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "records[0].Type": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  "run_log": {
+   "verdict": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  }
+ },
+ "wrk_stage_completion:mail_fetched": {
+  "attachments_expected": {
+   "verdict": "limitation",
+   "reason": "L-NULL-4: absent counts mean 0, so a result without counts is FETCHED; Owner review"
+  },
+  "attachments_fetched": {
+   "verdict": "limitation",
+   "reason": "L-NULL-4: absent counts mean 0; Owner review"
+  },
+  "canonical_key_sha256": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "content_class": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "evidence_sha256": {
+   "verdict": "limitation",
+   "reason": "L-NULL-4: a FETCHED mail item may be recorded without a body evidence hash (the column is nullable); Owner review"
+  },
+  "folder_ref": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "message_id": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "ok": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "op": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "provider_message_id": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "received_at": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  "sender_domain": {
+   "verdict": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  }
+ },
+ "wrk_stage_completion:render_done": {
+  "coverage": {
+   "verdict": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  },
+  "rendered_at": {
+   "verdict": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  },
+  "warnings": {
+   "verdict": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  }
+ },
+ "wrk_stage_completion:restore_drill_recorded": {
+  "cleanup_verified": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  "failure_reason": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  "kind": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  "restored_header": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  "target": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  "tools": {
+   "verdict": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  }
+ }
+}

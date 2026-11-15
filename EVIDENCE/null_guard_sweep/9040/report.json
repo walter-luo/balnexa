@@ -1,0 +1,1838 @@
+{
+ "migration_head": "9040",
+ "not_exercised": [],
+ "reviewed_statically": {
+  "cmd_confirm_posting_date": "static review: journal_id absent -> NOT_FOUND; posting_date absent -> NOT NULL violation (refused, raw code)",
+  "cmd_revoke_session": "static review: reads no field of its JSON argument",
+  "wrk_ack_index_record": "static review: index_ack validates the status and the record version",
+  "wrk_audit_sin_refusal": "static review: guards are NULL-safe (coalesce)",
+  "wrk_onboarding_step": "static review: its jsonb argument is a free detail object"
+ },
+ "calls_on_older_versions_skipped": 68,
+ "functions_exercised": 89,
+ "calls_swept": 2823,
+ "pairs_tried": 455,
+ "pairs_accepted": 155,
+ "undisposed": [],
+ "must_refuse_still_accepted": [],
+ "functions": [
+  "cmd_accept_instance_config",
+  "cmd_approve_ai_connection",
+  "cmd_approve_plan",
+  "cmd_assign_evidence",
+  "cmd_audit_replay_snapshot",
+  "cmd_authorize_restore",
+  "cmd_backup_key_mark_compromised",
+  "cmd_backup_key_register",
+  "cmd_correct_transaction",
+  "cmd_create_account",
+  "cmd_create_category",
+  "cmd_create_import_plan",
+  "cmd_create_party",
+  "cmd_create_report_snapshot",
+  "cmd_cross_source_match",
+  "cmd_decide_match",
+  "cmd_declare_financial_policy",
+  "cmd_declare_loan",
+  "cmd_declare_loan_terms",
+  "cmd_doc_declare_redacted",
+  "cmd_doc_tag_sin_bearing",
+  "cmd_draft_create_transaction",
+  "cmd_draft_create_transfer",
+  "cmd_draft_revise",
+  "cmd_draft_validate",
+  "cmd_draft_withdraw",
+  "cmd_fx_override",
+  "cmd_handoff_import",
+  "cmd_handoff_mark_sent",
+  "cmd_handoff_prepare",
+  "cmd_invite_member",
+  "cmd_link_loan_payment",
+  "cmd_match_clearing",
+  "cmd_match_source_rows",
+  "cmd_notification_read",
+  "cmd_onboarding_add_file",
+  "cmd_onboarding_create_job",
+  "cmd_onboarding_history",
+  "cmd_onboarding_job_event",
+  "cmd_post_transaction",
+  "cmd_prepare_config_draft",
+  "cmd_propose_account",
+  "cmd_propose_institution_candidate",
+  "cmd_reassign_account_institution",
+  "cmd_record_card_fee_event",
+  "cmd_record_fx_quote",
+  "cmd_record_investment_lot",
+  "cmd_record_lot_disposal",
+  "cmd_record_observation",
+  "cmd_record_ownership",
+  "cmd_record_valuation",
+  "cmd_register_evidence",
+  "cmd_register_index_source",
+  "cmd_register_mail_source",
+  "cmd_resolve_account_proposal",
+  "cmd_revoke_ai_connection",
+  "cmd_run_reconciliation",
+  "cmd_set_account_scope",
+  "cmd_set_card_fee_policy",
+  "cmd_set_cost_policy",
+  "cmd_set_grant",
+  "cmd_set_household_setting",
+  "cmd_set_import_mapping",
+  "cmd_set_mail_route",
+  "cmd_set_member_state",
+  "cmd_set_opening",
+  "cmd_set_payment_attribute",
+  "cmd_set_reconciliation_exception_state",
+  "cmd_validate_plan",
+  "cmd_verify_institution",
+  "cmd_withdraw_plan",
+  "wrk_admission_decide",
+  "wrk_audit_verified",
+  "wrk_backup_due",
+  "wrk_backup_key_pruned",
+  "wrk_capacity_update",
+  "wrk_cloud_usage_record",
+  "wrk_exec_due",
+  "wrk_issue_exec_lease",
+  "wrk_record_identity_signal",
+  "wrk_snapshot_artifact",
+  "wrk_stage_completion:backup_recorded",
+  "wrk_stage_completion:doc_archived",
+  "wrk_stage_completion:doc_discovered",
+  "wrk_stage_completion:doc_validated",
+  "wrk_stage_completion:index_consumed",
+  "wrk_stage_completion:mail_fetched",
+  "wrk_stage_completion:render_done",
+  "wrk_stage_completion:restore_drill_recorded"
+ ],
+ "accepted": [
+  {
+   "function": "cmd_accept_instance_config",
+   "path": "reason",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "reason is a free-text note; the decision is carried by the other fields"
+  },
+  {
+   "function": "cmd_approve_ai_connection",
+   "path": "resource",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 6,
+   "disposition": "limitation",
+   "reason": "L-NULL-1: no resource stores NULL and the B7 resource check is skipped (legacy connections by design); Owner review"
+  },
+  {
+   "function": "cmd_correct_transaction",
+   "path": "reason",
+   "accepted_modes": {
+    "absent": 8,
+    "null": 8,
+    "empty": 8
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "reason is optional text; no replacement means reverse only"
+  },
+  {
+   "function": "cmd_correct_transaction",
+   "path": "replacement",
+   "accepted_modes": {
+    "absent": 6
+   },
+   "tried": 12,
+   "disposition": "optional",
+   "reason": "reason is optional text; no replacement means reverse only"
+  },
+  {
+   "function": "cmd_create_account",
+   "path": "region_scope",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 189,
+   "disposition": "optional",
+   "reason": "region_scope and visibility have documented defaults"
+  },
+  {
+   "function": "cmd_create_account",
+   "path": "visibility",
+   "accepted_modes": {
+    "absent": 52,
+    "null": 52
+   },
+   "tried": 156,
+   "disposition": "optional",
+   "reason": "region_scope and visibility have documented defaults"
+  },
+  {
+   "function": "cmd_create_category",
+   "path": "name_zh",
+   "accepted_modes": {
+    "absent": 129,
+    "null": 129,
+    "empty": 129
+   },
+   "tried": 387,
+   "disposition": "optional",
+   "reason": "name_zh is optional (name_en is required)"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "evidence_file_ids",
+   "accepted_modes": {
+    "absent": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "items[0].amount",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 52,
+   "disposition": "optional",
+   "reason": "a typed item's amount is replaced by its plan account line (never the caller's figure)"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "items[0].currency",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "items[0].needs_review",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "items[0].source_fingerprint",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "kind",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "require_fingerprints",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_import_plan",
+   "path": "statement",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "optional plan or item keys (evidence_file_ids, statement, require_fingerprints, needs_review, source_fingerprint; V-06 holds a plan without fingerprints when they are required); kind defaults to import; the item currency is the plan account's"
+  },
+  {
+   "function": "cmd_create_report_snapshot",
+   "path": "account_currency_ids",
+   "accepted_modes": {
+    "absent": 7,
+    "empty": 7
+   },
+   "tried": 21,
+   "disposition": "optional",
+   "reason": "as_of defaults to today; no account_currency_ids means all visible"
+  },
+  {
+   "function": "cmd_create_report_snapshot",
+   "path": "as_of",
+   "accepted_modes": {
+    "absent": 20,
+    "null": 20
+   },
+   "tried": 60,
+   "disposition": "optional",
+   "reason": "as_of defaults to today; no account_currency_ids means all visible"
+  },
+  {
+   "function": "cmd_declare_financial_policy",
+   "path": "household_timezone",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "an absent key keeps the current policy value"
+  },
+  {
+   "function": "cmd_declare_financial_policy",
+   "path": "reporting_currency",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "an absent key keeps the current policy value"
+  },
+  {
+   "function": "cmd_declare_loan",
+   "path": "due_date",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  },
+  {
+   "function": "cmd_declare_loan",
+   "path": "payable_account_currency_id",
+   "accepted_modes": {
+    "absent": 35,
+    "null": 35
+   },
+   "tried": 108,
+   "disposition": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  },
+  {
+   "function": "cmd_declare_loan",
+   "path": "receivable_account_currency_id",
+   "accepted_modes": {
+    "absent": 35,
+    "null": 35
+   },
+   "tried": 111,
+   "disposition": "optional",
+   "reason": "due_date and the counterpart account currencies are optional by loan kind; the required ones are checked per kind"
+  },
+  {
+   "function": "cmd_draft_create_transaction",
+   "path": "amount",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 33,
+   "disposition": "optional",
+   "reason": "typed drafts take the amount from the lines (never the caller's figure)"
+  },
+  {
+   "function": "cmd_draft_create_transaction",
+   "path": "description",
+   "accepted_modes": {
+    "absent": 6,
+    "null": 6
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "description defaults to the economic type"
+  },
+  {
+   "function": "cmd_handoff_import",
+   "path": "account_currency_id",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 12,
+   "disposition": "optional",
+   "reason": "account_currency_id is needed only for PROPOSAL and REVERSAL blocks, which check it"
+  },
+  {
+   "function": "cmd_handoff_prepare",
+   "path": "note",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "note is optional text"
+  },
+  {
+   "function": "cmd_link_loan_payment",
+   "path": "event",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3
+   },
+   "tried": 12,
+   "disposition": "optional",
+   "reason": "event defaults to the payment event"
+  },
+  {
+   "function": "cmd_post_transaction",
+   "path": "settled_rate",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "settled_rate is optional (cross-currency postings only)"
+  },
+  {
+   "function": "cmd_prepare_config_draft",
+   "path": "deployment_mode",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "deployment_mode defaults to the current mode"
+  },
+  {
+   "function": "cmd_propose_institution_candidate",
+   "path": "evidence",
+   "accepted_modes": {
+    "absent": 126,
+    "null": 126,
+    "empty": 126
+   },
+   "tried": 378,
+   "disposition": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  {
+   "function": "cmd_propose_institution_candidate",
+   "path": "evidence[0].doc",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  {
+   "function": "cmd_propose_institution_candidate",
+   "path": "evidence[0].kind",
+   "accepted_modes": {
+    "absent": 125,
+    "null": 125
+   },
+   "tried": 250,
+   "disposition": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  {
+   "function": "cmd_propose_institution_candidate",
+   "path": "jurisdiction",
+   "accepted_modes": {
+    "absent": 130,
+    "null": 130
+   },
+   "tried": 390,
+   "disposition": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  {
+   "function": "cmd_propose_institution_candidate",
+   "path": "name_en",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 397,
+   "disposition": "optional",
+   "reason": "evidence and jurisdiction are optional; a name in either language is required and checked"
+  },
+  {
+   "function": "cmd_reassign_account_institution",
+   "path": "reason",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "reason is optional text"
+  },
+  {
+   "function": "cmd_record_card_fee_event",
+   "path": "as_of",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "as_of defaults to today"
+  },
+  {
+   "function": "cmd_record_investment_lot",
+   "path": "source_journal_id",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "source_journal_id is an optional link"
+  },
+  {
+   "function": "cmd_record_lot_disposal",
+   "path": "supersedes_disposal_id",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "supersedes_disposal_id is set only on a correction"
+  },
+  {
+   "function": "cmd_record_observation",
+   "path": "revision_of",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "revision_of is set only on a revision"
+  },
+  {
+   "function": "cmd_register_evidence",
+   "path": "name",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5,
+    "empty": 5
+   },
+   "tried": 15,
+   "disposition": "optional",
+   "reason": "name is optional (withheld names are allowed)"
+  },
+  {
+   "function": "cmd_register_index_source",
+   "path": "enabled",
+   "accepted_modes": {
+    "absent": 7,
+    "null": 7
+   },
+   "tried": 14,
+   "disposition": "optional",
+   "reason": "enabled defaults to true"
+  },
+  {
+   "function": "cmd_register_mail_source",
+   "path": "credential_state",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "credential_state defaults to pending"
+  },
+  {
+   "function": "cmd_run_reconciliation",
+   "path": "accept_stage1_fail",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "accept_stage1_fail defaults to false"
+  },
+  {
+   "function": "cmd_set_cost_policy",
+   "path": "exec_allocation",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  },
+  {
+   "function": "cmd_set_cost_policy",
+   "path": "spend_cap_variant",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  },
+  {
+   "function": "cmd_set_cost_policy",
+   "path": "vault_allocation",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "merge semantics: an absent key keeps the current policy value"
+  },
+  {
+   "function": "cmd_set_grant",
+   "path": "can_post",
+   "accepted_modes": {
+    "absent": 76,
+    "null": 76
+   },
+   "tried": 152,
+   "disposition": "optional",
+   "reason": "can_view and can_post default to false"
+  },
+  {
+   "function": "cmd_set_grant",
+   "path": "can_view",
+   "accepted_modes": {
+    "absent": 21,
+    "null": 21
+   },
+   "tried": 152,
+   "disposition": "optional",
+   "reason": "can_view and can_post default to false"
+  },
+  {
+   "function": "cmd_set_import_mapping",
+   "path": "mapping_id",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "no mapping_id creates a new mapping"
+  },
+  {
+   "function": "cmd_set_mail_route",
+   "path": "effective_from",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "effective_from defaults to now"
+  },
+  {
+   "function": "cmd_set_payment_attribute",
+   "path": "payment_method",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "either payment_method or payment_network is enough (the table CHECK requires one)"
+  },
+  {
+   "function": "cmd_set_payment_attribute",
+   "path": "payment_network",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "either payment_method or payment_network is enough (the table CHECK requires one)"
+  },
+  {
+   "function": "cmd_set_reconciliation_exception_state",
+   "path": "note",
+   "accepted_modes": {
+    "absent": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "note is optional text"
+  },
+  {
+   "function": "cmd_verify_institution",
+   "path": "kind",
+   "accepted_modes": {
+    "absent": 126,
+    "null": 126
+   },
+   "tried": 378,
+   "disposition": "optional",
+   "reason": "kind defaults to bank"
+  },
+  {
+   "function": "wrk_admission_decide",
+   "path": "estimated_instance_seconds",
+   "accepted_modes": {
+    "absent": 21,
+    "null": 21
+   },
+   "tried": 42,
+   "disposition": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  {
+   "function": "wrk_admission_decide",
+   "path": "gib",
+   "accepted_modes": {
+    "absent": 21,
+    "null": 21
+   },
+   "tried": 42,
+   "disposition": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  {
+   "function": "wrk_admission_decide",
+   "path": "now",
+   "accepted_modes": {
+    "absent": 21,
+    "null": 21
+   },
+   "tried": 63,
+   "disposition": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  {
+   "function": "wrk_admission_decide",
+   "path": "planned_items",
+   "accepted_modes": {
+    "absent": 21,
+    "null": 21
+   },
+   "tried": 42,
+   "disposition": "limitation",
+   "reason": "L-NULL-2: absent sizing inputs default to zero (worker-trusted, no app callers); Owner review before admission is enforced"
+  },
+  {
+   "function": "wrk_audit_verified",
+   "path": "anchor_hash",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 6,
+   "disposition": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  {
+   "function": "wrk_audit_verified",
+   "path": "anchor_seq",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 4,
+   "disposition": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  {
+   "function": "wrk_audit_verified",
+   "path": "result",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 6,
+   "disposition": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  {
+   "function": "wrk_audit_verified",
+   "path": "source",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  {
+   "function": "wrk_audit_verified",
+   "path": "tool_version",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "fail_closed",
+   "reason": "absent fields record the audit verification as failed"
+  },
+  {
+   "function": "wrk_backup_due",
+   "path": "now",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5
+   },
+   "tried": 15,
+   "disposition": "optional",
+   "reason": "now defaults to now()"
+  },
+  {
+   "function": "wrk_backup_key_pruned",
+   "path": "now",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "now defaults to now()"
+  },
+  {
+   "function": "wrk_capacity_update",
+   "path": "now",
+   "accepted_modes": {
+    "absent": 6,
+    "null": 6
+   },
+   "tried": 18,
+   "disposition": "optional",
+   "reason": "now defaults to now(); ok absent means a failed probe (provider_capped)"
+  },
+  {
+   "function": "wrk_capacity_update",
+   "path": "ok",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "now defaults to now(); ok absent means a failed probe (provider_capped)"
+  },
+  {
+   "function": "wrk_cloud_usage_record",
+   "path": "cu_hours",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  {
+   "function": "wrk_cloud_usage_record",
+   "path": "egress_bytes",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  {
+   "function": "wrk_cloud_usage_record",
+   "path": "gross_estimate",
+   "accepted_modes": {
+    "absent": 7,
+    "null": 7
+   },
+   "tried": 21,
+   "disposition": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  {
+   "function": "wrk_cloud_usage_record",
+   "path": "phase",
+   "accepted_modes": {
+    "absent": 8,
+    "null": 8
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  {
+   "function": "wrk_cloud_usage_record",
+   "path": "storage_bytes",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 2,
+   "disposition": "optional",
+   "reason": "usage measures default to 0 or NULL by meter; started_at and the identity are required"
+  },
+  {
+   "function": "wrk_exec_due",
+   "path": "limit",
+   "accepted_modes": {
+    "absent": 9,
+    "null": 9
+   },
+   "tried": 18,
+   "disposition": "optional",
+   "reason": "limit defaults to 50"
+  },
+  {
+   "function": "wrk_issue_exec_lease",
+   "path": "item_id",
+   "accepted_modes": {
+    "absent": 252,
+    "null": 42,
+    "empty": 39
+   },
+   "tried": 372,
+   "disposition": "optional",
+   "reason": "item_id is optional per job kind; exec_work_order refuses an order that needs one"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "closing_balance",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "holder_names",
+   "accepted_modes": {
+    "absent": 11,
+    "empty": 11
+   },
+   "tried": 33,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "institution_id",
+   "accepted_modes": {
+    "absent": 9,
+    "null": 9
+   },
+   "tried": 27,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "masked_reference",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5,
+    "empty": 5
+   },
+   "tried": 15,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "opening_balance",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "period_end",
+   "accepted_modes": {
+    "absent": 6,
+    "null": 6
+   },
+   "tried": 18,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "period_start",
+   "accepted_modes": {
+    "absent": 11,
+    "null": 11
+   },
+   "tried": 33,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "reference_fingerprint",
+   "accepted_modes": {
+    "absent": 4,
+    "null": 4
+   },
+   "tried": 12,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_record_identity_signal",
+   "path": "uploaded_by",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "a statement may show any subset of identity facts; columns are nullable by design; the masked reference keeps at most 4 digits"
+  },
+  {
+   "function": "wrk_snapshot_artifact",
+   "path": "warnings",
+   "accepted_modes": {
+    "absent": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "warnings default to none"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "destination",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 75,
+   "disposition": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "ended_at",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 78,
+   "disposition": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "header",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 48,
+   "disposition": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "retain_until",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 75,
+   "disposition": "optional",
+   "reason": "read only for a VERIFIED result: since 9040 a VERIFIED result without it is REJECTED (RETENTION; AT-BKP-REC case 'retention absent'); a FAILED result does not read it (the 9039 sweep's accepted VERIFIED calls are gone)"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "sizes",
+   "accepted_modes": {
+    "absent": 24
+   },
+   "tried": 48,
+   "disposition": "optional",
+   "reason": "sizes are optional facts"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "started_at",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 78,
+   "disposition": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  {
+   "function": "wrk_stage_completion:backup_recorded",
+   "path": "tools",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 48,
+   "disposition": "optional",
+   "reason": "refused at promotion for BACKUP leases; the accepted calls are EVIDENCE_VERIFY leases, which do not read the field"
+  },
+  {
+   "function": "wrk_stage_completion:doc_archived",
+   "path": "head_revision_id",
+   "accepted_modes": {
+    "absent": 14,
+    "null": 14,
+    "empty": 14
+   },
+   "tried": 42,
+   "disposition": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  {
+   "function": "wrk_stage_completion:doc_archived",
+   "path": "mail_message_id",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  {
+   "function": "wrk_stage_completion:doc_archived",
+   "path": "md5",
+   "accepted_modes": {
+    "absent": 14,
+    "null": 14,
+    "empty": 14
+   },
+   "tried": 42,
+   "disposition": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  {
+   "function": "wrk_stage_completion:doc_archived",
+   "path": "mime_part",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  {
+   "function": "wrk_stage_completion:doc_archived",
+   "path": "source_file_id",
+   "accepted_modes": {
+    "absent": 14,
+    "null": 14,
+    "empty": 14
+   },
+   "tried": 42,
+   "disposition": "fail_closed",
+   "reason": "identity is compared with IS DISTINCT FROM: a missing field returns the document to DISCOVERED (IDENTITY_CHANGED)"
+  },
+  {
+   "function": "wrk_stage_completion:doc_discovered",
+   "path": "module",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3,
+    "empty": 3
+   },
+   "tried": 165,
+   "disposition": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  {
+   "function": "wrk_stage_completion:doc_discovered",
+   "path": "original_name",
+   "accepted_modes": {
+    "absent": 55,
+    "null": 55,
+    "empty": 54
+   },
+   "tried": 164,
+   "disposition": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  {
+   "function": "wrk_stage_completion:doc_discovered",
+   "path": "period_key",
+   "accepted_modes": {
+    "absent": 39,
+    "null": 39,
+    "empty": 39
+   },
+   "tried": 117,
+   "disposition": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  {
+   "function": "wrk_stage_completion:doc_discovered",
+   "path": "size_bytes",
+   "accepted_modes": {
+    "absent": 55,
+    "null": 55
+   },
+   "tried": 110,
+   "disposition": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  {
+   "function": "wrk_stage_completion:doc_discovered",
+   "path": "source_mtime",
+   "accepted_modes": {
+    "absent": 53,
+    "null": 53,
+    "empty": 3
+   },
+   "tried": 159,
+   "disposition": "optional",
+   "reason": "size, mtime, period and name are optional facts; the name is withheld when absent"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "class_uncertain",
+   "accepted_modes": {
+    "absent": 49,
+    "null": 49
+   },
+   "tried": 98,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "doc_class",
+   "accepted_modes": {
+    "absent": 49,
+    "null": 37,
+    "empty": 37
+   },
+   "tried": 123,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators",
+   "accepted_modes": {
+    "absent": 49,
+    "empty": 11
+   },
+   "tried": 109,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].kind",
+   "accepted_modes": {
+    "absent": 11
+   },
+   "tried": 22,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].length",
+   "accepted_modes": {
+    "absent": 11
+   },
+   "tried": 22,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].offset",
+   "accepted_modes": {
+    "absent": 11
+   },
+   "tried": 22,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].page",
+   "accepted_modes": {
+    "absent": 10
+   },
+   "tried": 20,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].part",
+   "accepted_modes": {
+    "absent": 11
+   },
+   "tried": 22,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "locators[0].revision",
+   "accepted_modes": {
+    "absent": 3
+   },
+   "tried": 6,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "rule_codes",
+   "accepted_modes": {
+    "absent": 49,
+    "empty": 14
+   },
+   "tried": 112,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:doc_validated",
+   "path": "sin_bearing",
+   "accepted_modes": {
+    "absent": 49,
+    "null": 49
+   },
+   "tried": 98,
+   "disposition": "fail_closed",
+   "reason": "absent class means uncertain; absent rule codes and locators mean none; sin_bearing absent falls back to doc_needs_declaration"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "availability",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "coverage",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "header",
+   "accepted_modes": {
+    "absent": 1,
+    "empty": 1
+   },
+   "tried": 36,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "open_items",
+   "accepted_modes": {
+    "absent": 3,
+    "empty": 3
+   },
+   "tried": 9,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "open_items[0].key",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records",
+   "accepted_modes": {
+    "absent": 12,
+    "empty": 12,
+    "null": 1
+   },
+   "tried": 36,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Current Name",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Document Date",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Domain",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].File ID",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Notes",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Original Name",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Processed Date",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Record Path",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Related Open Item",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Sensitivity",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Source",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Status",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Summary",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Tags",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "records[0].Type",
+   "accepted_modes": {
+    "absent": 12,
+    "null": 12
+   },
+   "tried": 24,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:index_consumed",
+   "path": "run_log",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "an absent list consumes nothing; a sparse record is weak or blocked by the consumer"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "attachments_expected",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5
+   },
+   "tried": 10,
+   "disposition": "limitation",
+   "reason": "L-NULL-4: absent counts mean 0, so a result without counts is FETCHED; Owner review"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "attachments_fetched",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5
+   },
+   "tried": 10,
+   "disposition": "limitation",
+   "reason": "L-NULL-4: absent counts mean 0; Owner review"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "canonical_key_sha256",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2,
+    "empty": 2
+   },
+   "tried": 21,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "content_class",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "evidence_sha256",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5,
+    "empty": 5
+   },
+   "tried": 15,
+   "disposition": "limitation",
+   "reason": "L-NULL-4: a FETCHED mail item may be recorded without a body evidence hash (the column is nullable); Owner review"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "folder_ref",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3,
+    "empty": 3
+   },
+   "tried": 9,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "message_id",
+   "accepted_modes": {
+    "empty": 5,
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 15,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "ok",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "op",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 9,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "provider_message_id",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1,
+    "empty": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "received_at",
+   "accepted_modes": {
+    "absent": 1,
+    "null": 1
+   },
+   "tried": 3,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:mail_fetched",
+   "path": "sender_domain",
+   "accepted_modes": {
+    "absent": 5,
+    "null": 5,
+    "empty": 5
+   },
+   "tried": 15,
+   "disposition": "optional",
+   "reason": "an absent sender domain is unverified (EXCEPTION); folder, provider id, received_at, class and ok are informational"
+  },
+  {
+   "function": "wrk_stage_completion:render_done",
+   "path": "coverage",
+   "accepted_modes": {
+    "absent": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  },
+  {
+   "function": "wrk_stage_completion:render_done",
+   "path": "rendered_at",
+   "accepted_modes": {
+    "absent": 2,
+    "null": 2
+   },
+   "tried": 6,
+   "disposition": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  },
+  {
+   "function": "wrk_stage_completion:render_done",
+   "path": "warnings",
+   "accepted_modes": {
+    "absent": 2
+   },
+   "tried": 4,
+   "disposition": "optional",
+   "reason": "rendered_at, coverage and warnings are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "cleanup_verified",
+   "accepted_modes": {
+    "absent": 27,
+    "null": 27
+   },
+   "tried": 54,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "failure_reason",
+   "accepted_modes": {
+    "absent": 3,
+    "null": 3,
+    "empty": 3
+   },
+   "tried": 9,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "kind",
+   "accepted_modes": {
+    "absent": 26,
+    "null": 26
+   },
+   "tried": 81,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "restored_header",
+   "accepted_modes": {
+    "absent": 24,
+    "null": 24
+   },
+   "tried": 48,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "target",
+   "accepted_modes": {
+    "absent": 26,
+    "null": 26
+   },
+   "tried": 81,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  },
+  {
+   "function": "wrk_stage_completion:restore_drill_recorded",
+   "path": "tools",
+   "accepted_modes": {
+    "absent": 27,
+    "null": 27
+   },
+   "tried": 54,
+   "disposition": "fail_closed",
+   "reason": "absent cleanup_verified or restored_header records the drill as FAIL; tools and failure_reason are informational"
+  }
+ ]
+}

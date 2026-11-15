@@ -376,6 +376,7 @@ def t_backup_recorded(server, ev):
             ("size in bytes", {"sizes": {"compressed_bytes": 5_000_000}}, "UNKNOWN_FIELD"),
             ("tier mismatch", {"tier": "MONTHLY" if tier(H, now)["tier"] != "MONTHLY" else "DAILY"}, "TIER_MISMATCH"),
             ("retention shorter", {"retain_until": iso(now + dt.timedelta(days=1))}, "RETENTION_SHORT"),
+            ("retention absent", {"retain_until": None}, "RETENTION"),                                                # 9040
             ("pg_dump 16 on server 17", {"tools": {"pg_dump": "16.4", "pg_restore": "16.4", "server": "17.11"}}, "TOOL_MAJOR"),
             ("pg_restore of another major", {"tools": {"pg_dump": "17.2", "pg_restore": "16.4", "server": "17.11"}}, "TOOL_MAJOR"),
             ("not re-downloaded", {"verify": {"redownload_sha256_equal": False, "pg_restore_list_ok": True, "decrypted_with": "drill-2026a"}}, "NOT_VERIFIED"),
