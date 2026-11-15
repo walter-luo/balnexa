@@ -20,9 +20,13 @@ Balnexa is an open-development project for a bilingual (English/Chinese), indepe
 
 Architecture, implementation, integration, and independent acceptance testing are in progress. The features above describe project objectives, not verified completed functionality.
 
+## Problems, ideas and releases
+
+Users record problems and ideas in the public [issue tracker](https://github.com/walter-luo/balnexa/issues/new/choose), using one of its forms. The tracker is public, so use made-up values only. Never post a SIN, a card or account number, or a statement. The Owner groups the fixes into releases; each release is listed in [CHANGELOG.md](CHANGELOG.md). How issues become releases: [docs/s4/Issue_and_Release_Process.md](docs/s4/Issue_and_Release_Process.md).
+
 ## Security
 
-Never commit real financial statements, account credentials, personal financial records, API keys, or production secrets to this repository.
+Report a security problem privately; see [SECURITY.md](SECURITY.md). Never commit real financial statements, account credentials, personal financial records, API keys, or production secrets to this repository.
 
 ## License
 

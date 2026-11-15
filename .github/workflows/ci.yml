@@ -30,6 +30,8 @@ jobs:
         run: python3 tools/s4/sin_repo_scan.py --all-history
       - name: payment-card numbers in tracked files and history (D-PAN-1)
         run: python3 tools/s4/pan_repo_scan.py --all-history
+      - name: public tracker privacy guard (issue-guard self-test; synthetic values built at run time)
+        run: python3 tools/s4/issue_guard.py --self-test
       - name: license headers (CR-3; holder from NOTICE)
         run: python3 tools/s4/license_headers.py --check
       - name: release manifest (INS-1; deploy rule, N-1 range, immutable migrations)

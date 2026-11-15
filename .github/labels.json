@@ -1,0 +1,21 @@
+{
+ "_about": "Labels of the public tracker (docs/s4/Issue_and_Release_Process.md §3). Applied with tools/s4/sync_labels.py --apply; nothing is deleted.",
+ "labels": [
+  {"name": "type:problem", "color": "d73a4a", "description": "Something does not work as described"},
+  {"name": "type:false-refusal", "color": "e99695", "description": "A SIN or card-number guard refused ordinary data"},
+  {"name": "type:idea", "color": "a2eeef", "description": "An improvement or a new capability"},
+  {"name": "type:question", "color": "d876e3", "description": "How to install, use or upgrade"},
+  {"name": "status:triage", "color": "fbca04", "description": "New; the Owner has not looked at it yet"},
+  {"name": "status:needs-info", "color": "fef2c0", "description": "Waiting for the reporter"},
+  {"name": "status:accepted", "color": "0e8a16", "description": "Will be fixed or built; not yet assigned to a release"},
+  {"name": "status:planned", "color": "1d76db", "description": "Assigned to a release milestone"},
+  {"name": "status:released", "color": "5319e7", "description": "Fixed in a published release (see the milestone)"},
+  {"name": "status:wontfix", "color": "ffffff", "description": "Not changed; the reason is in the last comment"},
+  {"name": "status:duplicate", "color": "cfd3d7", "description": "Same as another issue (linked)"},
+  {"name": "impact:blocker", "color": "b60205", "description": "An essential task cannot be done"},
+  {"name": "impact:wrong-result", "color": "d93f0b", "description": "A figure, balance or report is wrong"},
+  {"name": "impact:workaround", "color": "f9d0c4", "description": "A workaround exists"},
+  {"name": "impact:cosmetic", "color": "c5def5", "description": "Wording, layout or translation"},
+  {"name": "privacy:redacted", "color": "000000", "description": "The privacy guard or the Owner removed a sensitive value"}
+ ]
+}

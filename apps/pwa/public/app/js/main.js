@@ -10,6 +10,7 @@ import { h, renderForm, renderTable, renderDetail, renderResult } from './render
 
 const { t } = i18n;
 const TIER = { owner: 3, admin: 3, member: 2, viewer: 1 };
+const TRACKER = 'https://github.com/walter-luo/balnexa';   // the public project's issue tracker
 const S = { navigated: false, me: null, tier: 0, cat: new Map(), menu: null, ledger: null, rows: new Map(), cfg: null };
 const main = () => document.getElementById('view');
 const today = () => new Date().toLocaleDateString('en-CA');           // the viewer's calendar day, ISO
@@ -571,6 +572,12 @@ async function settings() {
   const it = S.menu.items.find((x) => x.id === 'settings');
   const tasks = it.tasks.filter((fn) => entry(fn) && fn !== 'bnx.q_config_status');
   if (tasks.length) kids.push(h('ul', { class: 'links' }, tasks.map((fn) => h('li', {}, h('a', { href: `#/${DEDICATED[fn] || `task/${fn}`}` }, t(`task.${fn}`))))));
+  // Version and the public tracker (docs/s4/Issue_and_Release_Process.md): a plain link; nothing is sent from the page
+  const rel = S.cfg && S.cfg.release;
+  kids.push(h('h2', {}, t('settings.about')), h('p', {}, `${t('settings.version')}: ${rel || '?'}`),
+    h('p', {}, h('a', { href: `${TRACKER}/issues/new?template=1_problem.yml${rel ? `&release=${encodeURIComponent(rel)}` : ''}`,
+                        target: '_blank', rel: 'noopener noreferrer', id: 'report-problem' }, t('settings.report'))),
+    h('p', { class: 'note' }, t('settings.report_note')));
   screen('settings.title', ...kids);
 }
 

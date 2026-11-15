@@ -1,0 +1,33 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
+name: Idea or improvement
+description: Something Balnexa should do, or do differently.
+title: "[Idea] "
+labels: ["type:idea", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: This tracker is **public**. Explain the need with synthetic examples; never real financial data.
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need, and why
+      description: The household task you want to do, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How it could work (optional)
+  - type: input
+    id: release
+    attributes:
+      label: Release you use (optional)
+      placeholder: "0.9.9-p2"
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This idea contains no SIN, no full card or account number and no personal financial figures.
+          required: true
