@@ -6,7 +6,9 @@ The release string is `<major>.<minor>.<patch>-p2` (S4 phase 2). A release suppo
 
 ## Unreleased
 
-Nothing yet.
+- **Idle cron ticks no longer touch the database** (#52). The cron handler decides from KV first and runs the binding check only on a tick that will read the database (work hinted, or a backstop tick every 3 hours). Before, the binding check queried the database on nearly every one-minute tick, so a Neon compute never suspended: about 6 CU-hours a day at 0.25 CU, which uses up the Free plan's 100 CU-hours per project in about 16 days. New test BB-PLAN-03.
+- Migrations: none. Schema range unchanged.
+- **Operator action:** deploy the Worker.
 
 ## 0.9.9-p2 — public issue record
 

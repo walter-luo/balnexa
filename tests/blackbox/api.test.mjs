@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeDb, makeKv, makeR2, serve, worker } from '../../apps/worker/node/adapter.mjs';
 import { validate } from '../../apps/worker/src/schema.js';
+import { resetBindings } from '../../apps/worker/src/binding.js';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -252,6 +253,24 @@ test('BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop
   assert.equal(r.neon, true); assert.equal(r.processed, 1); assert.equal(r.backstop, true);
   const q = await call('/api/v1/queries/balances', { body: { as_of: '2026-12-31' }, cookie: S.owner });
   assert.equal(q.json.balances[0].amount, '440.0000');
+});
+
+test('BB-PLAN-03 an idle tick on a fresh isolate makes no database call; a tick with work checks the bindings first', async () => {
+  // Free-tier compute (Neon suspends an idle compute): the dispatcher contract is "a tick reads Neon iff hint > drained, or a
+  // backstop tick". The binding check is a database query, so it must not run on an idle tick either (it did before).
+  await env.KV.put('bnx:hint', String(await env.KV.get('bnx:drained')));     // nothing to do
+  const real = env.db.one; let calls = 0;
+  env.db.one = async (...a) => { calls++; return real.apply(env.db, a); };
+  try {
+    resetBindings(env);                                                      // a fresh isolate: no cached binding facts
+    const idle = await worker.scheduled({ scheduledTime: new Date('2026-10-30T13:50:00Z').getTime() }, env, null);
+    assert.equal(idle.neon, false);
+    assert.equal(calls, 0, 'an idle tick must not query the database');
+    resetBindings(env);
+    const back = await worker.scheduled({ scheduledTime: new Date('2026-10-30T18:00:00Z').getTime() }, env, null);
+    assert.equal(back.neon, true); assert.equal(back.backstop, true);
+    assert.ok(calls >= 2, 'a backstop tick checks the bindings, then claims work');
+  } finally { env.db.one = real; }
 });
 
 test('BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)', async () => {
