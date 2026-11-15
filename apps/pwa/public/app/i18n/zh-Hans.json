@@ -79,6 +79,7 @@
  "error.NOT_FOUND": "未找到。",
  "error.NOT_POSTABLE": "您不能批准：您无权记入其全部账户。",
  "error.ORIGIN": "请求被拒绝（来源）。",
+ "error.PAN_CANDIDATE": "发现了完整的银行卡号。请只填写卡号末 4 位；未保存任何内容。",
  "error.PLAN_HELD": "草稿被校验规则暂停。",
  "error.PLAN_STALE": "草稿已变化，请刷新后重新查看。",
  "error.UNAUTHENTICATED": "会话已结束，请重新登录。",

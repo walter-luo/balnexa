@@ -1,0 +1,4 @@
+# Published payment-card test numbers allowed by tools/s4/pan_repo_scan.py. One entry per line:
+#   <SHA-256 of the digits>   # scheme and where the number is published
+# A real card number is never added here: rule D-PAN-1 is that a full card number is never stored.
+9bbef19476623ca56c17da75fd57734dbf82530686043a6e491c6d71befe8f6e   # Visa test number 4111…1111 (scheme test cards); EVIDENCE/g0_08/ai_entry_verify.log

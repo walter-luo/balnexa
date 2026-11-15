@@ -39,3 +39,5 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-14 18:36 | `f8ccb75` | `s4/data-convention-integrity` | 471 | 0 | 3 | [2026-11-14_f8ccb75](2026-11-14_f8ccb75/INDEX.md) |
 | 2026-11-15 02:42 | `8df073d` | `s4/null-guard-sweep` | 473 | 0 | 3 | [2026-11-15_8df073d](2026-11-15_8df073d/INDEX.md) |
 | 2026-11-15 03:27 | `cdc0b76` | `s4/null-guard-sweep` | 473 | 0 | 3 | [2026-11-15_cdc0b76](2026-11-15_cdc0b76/INDEX.md) |
+| 2026-11-15 04:19 | `b7bdd06` | `s4/pan-guard` | 475 | 2 | 3 | [2026-11-15_b7bdd06](2026-11-15_b7bdd06/INDEX.md) |
+| 2026-11-15 04:54 | `71cd45d` | `s4/pan-guard` | 477 | 0 | 3 | [2026-11-15_71cd45d](2026-11-15_71cd45d/INDEX.md) |
