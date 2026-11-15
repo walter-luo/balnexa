@@ -48,6 +48,7 @@
 | 9039 | `9039_s4_null_safe_guards.sql` | MODIFY `wrk_restore_drill_recorded`, `wrk_backup_recorded`, `wrk_evidence_state` (9016), `install_activate_config` (9029), `plan_create` (9010), `cmd_create_account` (9006); no catalog delta | — | — | G0 remediation | NULL-safe guards (G0 re-run R2-01 and the author's audit); PR from `s4/g0-remediation-2` |
 | 9040 | `9040_s4_null_guard_sweep.sql` | MODIFY `plan_create`, `wrk_backup_recorded` (9039), `cmd_invite_member`, `cmd_record_ownership`, `cmd_post_transaction` (0106), `wrk_capacity_update` (9016), `wrk_doc_discovered` (9011); no catalog delta | — | — | L-R2-1 | NULL-guard sweep: the 15 defective pairs (docs/s4/S4_L-R2-1_NULL_Guard_Sweep_2026-11-14.md); PR from `s4/null-guard-sweep` |
 | 9041 | `9041_s4_pan_guard.sql` | NEW `pan_*` detector functions (9); MODIFY `idem_begin` (0106), `audit`, `stage_write` (9011); no catalog delta | — | — | D-PAN-1 | payment-card number guard; PR from `s4/pan-guard` |
+| 9042 | `9042_s4_pan_debit_prefixes.sql` | MODIFY `pan_scheme_ok`, `pan_json_has`, `pan_mask_json` (9041); no catalog delta | — | — | OD-PAN-1 | detector v1.1.0: any prefix for 16–19 digits; machine-generation keys exempt; PR from `s4/pan-debit` |
 
 ## 3. Proposed disposition rows
 
@@ -60,8 +61,9 @@
 | 9027 | **Accept** | none |
 | 9029 | **Accept** | none |
 | 9038, 9039 | **Accept** as G0 remediation | none beyond confirming the rows |
-| 9040 | **Accept** as the L-R2-1 follow-up of 9039 | the limitations L-NULL-1, L-NULL-2 and L-NULL-4 in the sweep notes |
-| 9041 | **Accept** as the card-number guard | confirm D-PAN-1 (scope, the scheme table, the fail-closed false-positive rate) |
+| 9040 | **Accepted** by the Owner 2026-11-15 (OD-REG-1) as the L-R2-1 follow-up of 9039 | none; L-NULL-1, L-NULL-2 and L-NULL-4 accepted as they are (OD-NULL-1) |
+| 9041 | **Accepted** by the Owner 2026-11-15 (OD-REG-1) as the card-number guard | none; D-PAN-1 confirmed as OD-PAN-1 with the debit change in 9042 |
+| 9042 | **Accept** as the OD-PAN-1 change | none beyond confirming the row |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row

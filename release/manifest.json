@@ -319,9 +319,15 @@
    "min_worker_release": "0.9.7-p2",
    "sha256": "176af67cf97295a68d64720728855d2f5b4d78160a556e639b0a8306e25bfa9d",
    "version": "9041"
+  },
+  {
+   "file": "9042_s4_pan_debit_prefixes.sql",
+   "min_worker_release": "0.9.8-p2",
+   "sha256": "438afb75835355874382e9e5fa4771c9a24357e4b063085df31e5d6be4ba856c",
+   "version": "9042"
   }
  ],
- "pwa_shell": "bnx-shell-0.9.7-p2",
+ "pwa_shell": "bnx-shell-0.9.8-p2",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -512,11 +518,11 @@
     "0109"
    ],
    "extension": [
-    "9040",
-    "9041"
+    "9041",
+    "9042"
    ]
   },
-  "version": "0.9.7-p2",
+  "version": "0.9.8-p2",
   "work_kinds": [
    "plan.execute",
    "staging.promote"

@@ -1,12 +1,12 @@
 # Copyright 2026 Walter Luo
 # SPDX-License-Identifier: Apache-2.0
-"""Payment-card number (PAN) candidate detector, reference implementation (Python). Rule D-PAN-1 (2026-11-14): a full card
+"""Payment-card number (PAN) candidate detector, reference implementation (Python). Rule OD-PAN-1 (Owner 2026-11-15, was D-PAN-1): a full card
 number is never stored, logged or displayed; only the last 4 digits are kept.
 
-The database implements the same algorithm (bnx.pan_scan, migration 9041); tests/py compares the two on a generated corpus.
+The database implements the same algorithm (bnx.pan_*, migrations 9041 and 9042); tests/py compares the two on a generated corpus.
 Values are never logged or returned: a hit is (start, end) in code-point positions of the NFKC-normalized text.
 
-Algorithm v1 (docs/s4/S4_PAN_Guard_2026-11-14.md):
+Algorithm v1.1 (docs/s4/S4_PAN_Guard_2026-11-14.md):
 1. Normalize with NFKC (full-width digits become ASCII; a no-break space becomes a space).
 2. Groups are maximal runs of ASCII digits. A group touching an ASCII letter on either side, or a decimal point or comma that
    touches another digit ("0.3000…04", "1234.50"), is "attached" (hex digests, identifiers such as "a1234…", decimal numbers)
@@ -14,12 +14,13 @@ Algorithm v1 (docs/s4/S4_PAN_Guard_2026-11-14.md):
 3. A chain is a sequence of free groups joined by exactly one space or hyphen.
 4. Candidates: a single free group of 13-19 digits, or consecutive groups of a chain with the printed layouts 4-4-4-4,
    4-4-4-4-3, 4-6-5 or 4-6-4.
-5. A candidate is a PAN when it passes the Luhn check and its prefix and length match a card scheme in SCHEMES.
+5. A candidate is a PAN when it passes the Luhn check and its prefix and length match a card scheme in SCHEMES. Any 16-19
+   digit number qualifies whatever its prefix (debit cards, OD-PAN-1); the prefix table decides only for 13-15 digits.
 """
 import re
 import unicodedata
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 LAYOUTS = ((4, 4, 4, 4), (4, 4, 4, 4, 3), (4, 6, 5), (4, 6, 4))
 # (prefix low, prefix high, prefix digits, allowed lengths); the ranges are inclusive
 SCHEMES = (
@@ -36,10 +37,9 @@ SCHEMES = (
     ("diners", 300, 305, 3, (14, 15, 16, 17, 18, 19)),
     ("diners", 36, 36, 2, (14, 15, 16, 17, 18, 19)),
     ("diners", 38, 39, 2, (14, 15, 16, 17, 18, 19)),
-    ("debit", 50, 50, 2, (16, 17, 18, 19)),
-    ("debit", 56, 58, 2, (16, 17, 18, 19)),
-    ("debit", 63, 63, 2, (16, 17, 18, 19)),
-    ("debit", 67, 67, 2, (16, 17, 18, 19)),
+    # OD-PAN-1 (Owner 2026-11-15): debit card prefixes differ by bank and are not fixed, so any 16-19 digit number that
+    # passes the Luhn check counts (v1.1.0; v1.0.0 listed the debit prefixes 50, 56-58, 63 and 67)
+    ("other", 0, 9, 1, (16, 17, 18, 19)),
 )
 _GROUP = re.compile("[0-9]+")
 _LETTER = re.compile("[A-Za-z]")
@@ -123,9 +123,19 @@ def mask(text):
     return "".join(n)
 
 
+# Machine identifiers that are 16-19 digit numbers by construction: a storage object generation is the creation time in
+# microseconds (16 digits). Since v1.1.0 any 16-19 digit Luhn number counts, so a scalar directly under one of these keys is
+# not scanned (one in ten generations would otherwise pass the Luhn check). The key itself is still scanned.
+EXEMPT_KEYS = ("generation", "object_generation")
+
+
+def _scalar(v):
+    return not isinstance(v, (dict, list))
+
+
 def json_has(v):
     if isinstance(v, dict):
-        return any(has(k) or json_has(x) for k, x in v.items())
+        return any(has(k) or (not (k in EXEMPT_KEYS and _scalar(x)) and json_has(x)) for k, x in v.items())
     if isinstance(v, list):
         return any(json_has(x) for x in v)
     if isinstance(v, bool) or v is None:
@@ -137,7 +147,7 @@ def json_has(v):
 
 def mask_json(v):
     if isinstance(v, dict):
-        return {mask(k): mask_json(x) for k, x in v.items()}
+        return {mask(k): (x if k in EXEMPT_KEYS and _scalar(x) else mask_json(x)) for k, x in v.items()}
     if isinstance(v, list):
         return [mask_json(x) for x in v]
     if isinstance(v, str):

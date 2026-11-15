@@ -56,7 +56,7 @@ Every changed line in 9040 is marked `-- 9040`; the rest of each body is the lat
 - **AT-NULL-02** (core18): 14 refused commands and worker calls, and 3 refused discovery results. Before 9040, 8 of the 14 were accepted outright. 3 more failed only with `SCOPE_CLAIM_CONFLICT`, against the unbounded claim the first accepted plan had left. 2 were refused with a raw constraint error instead of `VALIDATION_FAILED`, and 1 (`date_from` after `date_to`) was already refused. All 3 discoveries were promoted. The test checks that nothing is stored (plans, members, ledger version, capacity events, discoveries). It also runs control calls that include the field and must be accepted.
 - **AT-BKP-REC** (core13): new case "retention absent", expected `RETENTION`.
 
-## Limitations listed for Owner review (accepted for now)
+## Limitations (accepted by the Owner as they are, 2026-11-15, OD-NULL-1)
 
 | Id | Function / key | Behaviour | Why it is not changed here |
 |---|---|---|---|
