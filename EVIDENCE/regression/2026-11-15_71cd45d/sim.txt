@@ -1,0 +1,62 @@
+{
+ "seed": 20261030,
+ "model": {
+  "KV_LAG_s": 60,
+  "TICK_MINUTES": 5,
+  "BACKSTOP_HOURS": 3,
+  "LEASE_min": 10,
+  "outage_h": 2
+ },
+ "adversarial": {
+  "runs": 200,
+  "items": 12000,
+  "p_lost_or_stale_hint": 0.36000000000000004,
+  "p_dispatcher_crash_after_claim": 0.1,
+  "r1_lost_items": 0,
+  "r1_bound_violations": 0,
+  "r1_worst_delay_min_no_crash": 179.9,
+  "analytic_bound_min": 316,
+  "r1_worst_delay_min_any": 876,
+  "r1_max_consecutive_crashes": 4,
+  "bound_formula": "delay <= BACKSTOP + TICK + outage + LEASE + KV_LAG + crashes*BACKSTOP",
+  "draft04_lost_items": 57
+ },
+ "cu_hours_per_month": {
+  "idle": {
+   "dispatcher_wakes": 241,
+   "cu_hours": 5.02
+  },
+  "normal": {
+   "dispatcher_wakes": 334,
+   "cu_hours": 6.96
+  },
+  "onboarding": {
+   "dispatcher_wakes": 1128,
+   "cu_hours": 23.5
+  },
+  "note": "dispatcher-only (backstop + hinted ticks); member traffic is additional and modelled in the Cost Model §6.4"
+ },
+ "unknown_kind_rollback": {
+  "r1": {
+   "items": 400,
+   "lost": 13,
+   "open": 0,
+   "rollback_items": 13,
+   "worst_after_redeploy_h": 0
+  },
+  "core7": {
+   "items": 400,
+   "lost": 0,
+   "open": 0,
+   "rollback_items": 13,
+   "worst_after_redeploy_h": 2.75
+  },
+  "core7_bound_after_redeploy_h": 6.083333333333333,
+  "production_kinds": {
+   "plan.execute": true,
+   "staging.promote": true,
+   "doc.process": false
+  }
+ },
+ "result": "PASS"
+}
