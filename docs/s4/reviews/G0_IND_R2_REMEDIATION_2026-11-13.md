@@ -53,7 +53,7 @@ The author searched every migration for guards of the form `jsonb_typeof(…) <>
 
 Every changed line in 9039 is marked `-- 9039`, and the rest of each body is the latest definition unchanged. 9039 makes no catalog change and no data change.
 
-**Residual (not done here).** The audit was a pattern search plus probes. It was not a proof over every expression. A systematic check, such as calling every `cmd_*` with each top-level key removed in turn, would give stronger assurance. It is listed as follow-up **L-R2-1**.
+**Residual (not done here).** The audit was a pattern search plus probes. It was not a proof over every expression. A systematic check, such as calling every `cmd_*` with each top-level key removed in turn, would give stronger assurance. It is listed as follow-up **L-R2-1**. *(2026-11-14: done on `s4/null-guard-sweep`, migration 9040; see `docs/s4/S4_L-R2-1_NULL_Guard_Sweep_2026-11-14.md`.)*
 
 ## Tests (each fails without the fix and passes with it)
 

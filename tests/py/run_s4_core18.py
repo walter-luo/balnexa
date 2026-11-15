@@ -417,6 +417,57 @@ def t_null_guards(server, ev):
             f"({sorted(set(v[1] for v in out.values()))}); the same account with currencies is created")
 
 
+@test("AT-NULL-02", "L-R2-1; 9040 (the NULL-guard sweep's must_refuse pairs: absent, null or empty fields are refused, nothing stored)")
+def t_null_sweep_fixes(server, ev):
+    import run_s4_core5 as C5
+    H = C4.v2_full(server, "bnx_c18ns2")
+    ac, la = H.cad["account_currency_id"], H.cad["ledger_account_id"]
+    it = C4.item(H, "2026-04-10", "-5.00")
+    typed = {"transaction_date": "2026-04-11", "description": "typed", "economic_type": "consumption_expense",
+             "lines": [{"ledger_account_id": la, "currency": "CAD", "amount": "-7.00"}, {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "7.00"}]}
+    no_cur = {**typed, "lines": [{"ledger_account_id": la, "amount": "-7.00"}, typed["lines"][1]]}
+    plan = lambda **kw: C4.err(H.cmd, H.owner, "create_import_plan", **{"account_currency_id": ac, "date_from": "2026-04-01", "date_to": "2026-04-30", "items": [it], **kw})
+    counts = lambda: [C2s(H, q) for q in ("select count(*) from bnx.posting_plan", "select count(*) from bnx.member", "select version from bnx.ledger_state",
+                                          "select count(*) from bnx.capacity_event", "select count(*) from bnx_doc.document_discovery")]
+    c0 = counts()
+    out = {
+        "plan without date_from": plan(date_from=None),
+        "plan without date_to": C4.err(H.cmd, H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", items=[it]),
+        "plan with date_from after date_to": plan(date_from="2026-05-01"),
+        "plan item without transaction_date": plan(items=[{k: v for k, v in it.items() if k != "transaction_date"}]),
+        "plan typed line without currency": plan(items=[no_cur]),
+        "draft typed line without currency": C4.err(H.cmd, H.owner, "draft_create_transaction", account_currency_id=ac, transaction_date="2026-04-12",
+                                                    economic_type="consumption_expense", lines=no_cur["lines"], amount="-7.00"),
+        "invite with empty display_name": C4.err(H.cmd, H.owner, "invite_member", display_name="", role="member", google_sub="g-ns2-a"),
+        "invite with empty google_sub": C4.err(H.cmd, H.owner, "invite_member", display_name="Member NS2", role="member", google_sub=""),
+        "invite without role": C4.err(H.cmd, H.owner, "invite_member", display_name="Member NS2", google_sub="g-ns2-b"),
+        "ownership without events": C4.err(H.cmd, H.owner, "record_ownership", account_id=H.acc),
+        "ownership with events []": C4.err(H.cmd, H.owner, "record_ownership", account_id=H.acc, events=[]),
+        "posting with blank description": C4.err(H.cmd, H.owner, "post_transaction", economic_type="consumption_expense", transaction_date="2026-04-13",
+                                                 description="  ", lines=[{"ledger_account_id": la, "currency": "CAD", "amount": "-3.00"},
+                                                                          {"ledger_account_id": H.groceries, "currency": "CAD", "amount": "3.00"}]),
+        "budget notification without threshold": C4.err(H.worker.call, "wrk_capacity_update", {"scope": "bnx-exec", "signal": "budget_notification"}),
+        "budget notification at 70 %": C4.err(H.worker.call, "wrk_capacity_update", {"scope": "bnx-exec", "signal": "budget_notification", "threshold_pct": 70}),
+    }
+    c1 = counts()
+    disc = {"source_kind": "DRIVE_INBOX", "source_file_id": "f-ns2-1", "head_revision_id": "r1", "md5": "0" * 32, "size_bytes": 10,
+            "source_mtime": "2026-04-01T10:00:00Z", "module": "FINANCE", "period_key": "2026-04", "original_name": "Synthetic.pdf"}
+    rej = {k: C5.promote(H, "DOC_DISCOVER", "doc_discovered", {**disc, k: ""}) for k in ("source_file_id", "head_revision_id", "md5")}
+    c2 = counts()
+    good = {"plan": H.cmd(H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30", items=[it, typed])["plan_id"],
+            "member": H.cmd(H.owner, "invite_member", display_name="Member NS2", role="member", google_sub="g-ns2-c")["member_id"],
+            "capacity": H.worker.call("wrk_capacity_update", {"scope": "bnx-exec", "signal": "budget_notification", "threshold_pct": 50})["state"],
+            "discovery": C5.promote(H, "DOC_DISCOVER", "doc_discovered", disc).get("status")}
+    H.close()
+    json.dump({"refused": out, "doc_discovered": rej, "counts": [c0, c1, c2], "control": good}, open(os.path.join(ev, "AT-NULL-02.json"), "w"), indent=1, default=str)
+    check(all(v[0] == "VALIDATION_FAILED" for v in out.values()), f"{out}")
+    check(all(r.get("status") == "REJECTED" and r.get("reason") == "VALIDATION_FAILED" for r in rej.values()), f"{rej}")
+    check(c0 == c1 == c2, f"something was stored: {c0} {c1} {c2}")
+    check(good["discovery"] == "PROMOTED" and good["plan"] and good["member"], f"{good}")
+    return (f"{len(out)} commands and {len(rej)} discovery results with an absent, null, empty or blank required field are refused and "
+            f"nothing is stored (plans, members, ledger version, capacity events, discoveries unchanged); the same calls with the field are accepted")
+
+
 def C2s(H, q):
     import run_s4_core2 as C2c
     return C2c.sql(H, q)[0][0]

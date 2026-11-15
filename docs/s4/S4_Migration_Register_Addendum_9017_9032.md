@@ -46,6 +46,7 @@
 | 9037 | `9037_s4_output_schemas_report_rows_2.sql` | catalog delta (3; MODIFY of the 9032 entries for R09, R30, R31) | — | — | D-SCH-1, D-OUT-1…3 | 2.8 part 8: field-level rows of R09, R30 and R31; PR from `s4/report-rows-2` |
 | 9038 | `9038_s4_collation_independence.sql` | MODIFY `config_modules_valid` (9003), `cmd_propose_institution_candidate` (9006); no catalog delta | — | — | G0 remediation | collation independence (first independent G0 run, G0-IND-01); PR from `s4/g0-remediation` |
 | 9039 | `9039_s4_null_safe_guards.sql` | MODIFY `wrk_restore_drill_recorded`, `wrk_backup_recorded`, `wrk_evidence_state` (9016), `install_activate_config` (9029), `plan_create` (9010), `cmd_create_account` (9006); no catalog delta | — | — | G0 remediation | NULL-safe guards (G0 re-run R2-01 and the author's audit); PR from `s4/g0-remediation-2` |
+| 9040 | `9040_s4_null_guard_sweep.sql` | MODIFY `plan_create`, `wrk_backup_recorded` (9039), `cmd_invite_member`, `cmd_record_ownership`, `cmd_post_transaction` (0106), `wrk_capacity_update` (9016), `wrk_doc_discovered` (9011); no catalog delta | — | — | L-R2-1 | NULL-guard sweep: the 15 defective pairs (docs/s4/S4_L-R2-1_NULL_Guard_Sweep_2026-11-14.md); PR from `s4/null-guard-sweep` |
 
 ## 3. Proposed disposition rows
 
@@ -58,6 +59,7 @@
 | 9027 | **Accept** | none |
 | 9029 | **Accept** | none |
 | 9038, 9039 | **Accept** as G0 remediation | none beyond confirming the rows |
+| 9040 | **Accept** as the L-R2-1 follow-up of 9039 | the limitations L-NULL-1, L-NULL-2 and L-NULL-4 in the sweep notes |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row
