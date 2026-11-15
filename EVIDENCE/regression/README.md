@@ -42,3 +42,4 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-15 04:19 | `b7bdd06` | `s4/pan-guard` | 475 | 2 | 3 | [2026-11-15_b7bdd06](2026-11-15_b7bdd06/INDEX.md) |
 | 2026-11-15 04:54 | `71cd45d` | `s4/pan-guard` | 477 | 0 | 3 | [2026-11-15_71cd45d](2026-11-15_71cd45d/INDEX.md) |
 | 2026-11-15 12:32 | `9261579` | `s4/pan-debit` | 477 | 0 | 3 | [2026-11-15_9261579](2026-11-15_9261579/INDEX.md) |
+| 2026-11-15 14:41 | `6e2e7a3` | `s4/issue-intake` | 475 | 2 | 3 | [2026-11-15_6e2e7a3](2026-11-15_6e2e7a3/INDEX.md) |
