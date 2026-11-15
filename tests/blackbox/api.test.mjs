@@ -374,7 +374,8 @@ test('BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answer
         assert.deepEqual([r.status, r.json.error], [503, error]);
       }
     });
-    const tick = await worker.scheduled({ scheduledTime: Date.now() }, e, null);
+    await e.KV.put('bnx:hint', '1');                                        // work is hinted, so the tick would read Neon (#52)
+    const tick = await worker.scheduled({ scheduledTime: new Date('2026-10-30T13:30:00Z').getTime() }, e, null);
     assert.deepEqual([tick.neon, tick.binding], [false, error], 'the dispatcher refuses too');
   }
   const good = await call('/api/v1/health', { method: 'GET' });
