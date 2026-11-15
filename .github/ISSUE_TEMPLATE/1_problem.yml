@@ -1,0 +1,84 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
+name: Problem report
+description: Something in Balnexa does not work as described (a wrong result, an error, a screen that fails).
+title: "[Problem] "
+labels: ["type:problem", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This tracker is **public**. Use synthetic or redacted examples only.
+        - Never paste a SIN, a full card or account number, a real statement, a name with an amount, or a screenshot that shows them. A guard redacts SIN-like and card numbers, but the original stays in the edit history and in e-mail notifications.
+        - A security problem or a privacy leak goes to a private report (Security tab), not here.
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: "Shown in Settings → Version, or as `release` in `/app/config.json` of your instance."
+      placeholder: "0.9.9-p2"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Sign-in, members and grants
+        - Accounts, currencies and balances
+        - Transactions, import and evidence
+        - Drafts and approval
+        - Reconciliation and matching
+        - Reports and snapshots
+        - Documents, mail and the data folder
+        - AI assistant connection (MCP)
+        - Backup and restore
+        - Install, upgrade and deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: The message or error code shown (for example `VALIDATION_FAILED`, `PAN_CANDIDATE`), and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: With synthetic values. Describe a real value by its shape (digits, grouping, currency), never by the value itself.
+      placeholder: |
+        1. Menu → 3. Transactions → Import plan
+        2. One item dated 2026-04-10, amount -5.00, description "Synthetic store"
+        3. Submit
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - "Blocker: I cannot use Balnexa or an essential task"
+        - "Wrong result: a figure, balance or report is wrong"
+        - "Workaround exists"
+        - "Cosmetic: wording, layout, translation"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment (optional)
+      description: Browser and device, or the AI assistant host, if relevant.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This report contains no SIN, no full card or account number, no real statement and no personal financial figures.
+          required: true

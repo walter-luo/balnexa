@@ -524,6 +524,12 @@ test('AT-AIH-10 consent screen (AIH-1): an AI host is allowed only the scopes an
   // Settings -> AI connections: listed with the ticked account, revoked there; the next MCP request is refused
   await fresh();
   await p.goto(`${S.base}/app/#/settings`);
+  // Settings shows the release and a plain link to the public tracker form with the release prefilled; nothing is requested
+  const rel = (await S.call('/app/config.json', { method: 'GET' })).json.release;
+  await p.waitForSelector('#report-problem');
+  assert.equal(await p.getAttribute('#report-problem', 'href'), `https://github.com/walter-luo/balnexa/issues/new?template=1_problem.yml&release=${encodeURIComponent(rel)}`);
+  assert.equal(await p.getAttribute('#report-problem', 'rel'), 'noopener noreferrer');
+  assert.match(await p.textContent('main'), new RegExp(`Version: ${rel.replace(/\./g, '\\.')}`));
   await p.click('a[href="#/connections"]');
   await p.waitForSelector('button[data-connection]');
   assert.match(await p.textContent('main table'), /Claude[\s\S]*finance\.read, offline_access, reports\.read[\s\S]*Joint chequing · CAD/);

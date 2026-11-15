@@ -1,0 +1,25 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
+name: Question
+description: How to install, use or upgrade Balnexa.
+title: "[Question] "
+labels: ["type:question", "status:triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Release you use (optional)
+      placeholder: "0.9.9-p2"
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This question contains no SIN, no full card or account number and no personal financial figures.
+          required: true

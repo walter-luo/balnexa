@@ -1,0 +1,30 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
+# Public-tracker privacy guard (docs/s4/Issue_and_Release_Process.md §4): a SIN or a full card number is redacted from new
+# and edited issues and comments. It runs the guard from the default branch on the event file only; it never checks out
+# or runs anything an issue contains.
+name: issue-guard
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+permissions:
+  issues: write
+  contents: read
+concurrency:
+  group: issue-guard-${{ github.event.issue.number }}
+  cancel-in-progress: false
+jobs:
+  guard:
+    if: ${{ !github.event.issue.pull_request }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: redact SIN and card numbers
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/s4/issue_guard.py

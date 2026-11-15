@@ -1,0 +1,11 @@
+# Copyright 2026 Walter Luo
+# SPDX-License-Identifier: Apache-2.0
+# Balnexa public issue tracker (docs/s4/Issue_and_Release_Process.md). Every issue starts from a form.
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem or a privacy leak (private report)
+    url: https://github.com/walter-luo/balnexa/security/advisories/new
+    about: A vulnerability, a way around the SIN or card-number guards, or data that should never have been shown. Report it privately, never as a public issue.
+  - name: How Balnexa works (documentation)
+    url: https://github.com/walter-luo/balnexa/tree/main/docs/s4
+    about: Design notes, the deployment runbook and the upgrade procedure.
