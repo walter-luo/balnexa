@@ -311,7 +311,7 @@
   {
    "file": "9040_s4_null_guard_sweep.sql",
    "min_worker_release": "0.9.6-p2",
-   "sha256": "72ad1284226deda0c9a45b0b45016377f96000cc5b9b32e65e4fa0c1cb7c889d",
+   "sha256": "132eb23477a91e4a95298ebfa82ce8683bbf98375ebaec29268c51cc35e980d9",
    "version": "9040"
   }
  ],

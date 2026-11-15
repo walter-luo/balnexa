@@ -1,3 +1,5 @@
+-- Copyright 2026 Walter Luo
+-- SPDX-License-Identifier: Apache-2.0
 -- 9040_s4_null_guard_sweep.sql -- L-R2-1: systematic NULL-guard sweep (follow-up to 9039).
 -- 9039 fixed six guards found by reading. L-R2-1 replaces reading with a mechanical sweep: tools/s4/null_guard_sweep.py
 -- runs every suite with BNX_NULL_SWEEP set; tests/py/harness.py then repeats each cmd_*/wrk_* call in a rolled-back
