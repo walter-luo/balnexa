@@ -28,6 +28,8 @@ jobs:
           fi
       - name: SIN/ITN candidates in tracked files and history (guard C6, Addendum A1 Rev 1)
         run: python3 tools/s4/sin_repo_scan.py --all-history
+      - name: payment-card numbers in tracked files and history (D-PAN-1)
+        run: python3 tools/s4/pan_repo_scan.py --all-history
       - name: license headers (CR-3; holder from NOTICE)
         run: python3 tools/s4/license_headers.py --check
       - name: release manifest (INS-1; deploy rule, N-1 range, immutable migrations)

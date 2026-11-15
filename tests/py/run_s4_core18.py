@@ -468,6 +468,131 @@ def t_null_sweep_fixes(server, ev):
             f"nothing is stored (plans, members, ledger version, capacity events, discoveries unchanged); the same calls with the field are accepted")
 
 
+def synthetic_pan(prefix, n, seed):
+    """a Luhn-valid synthetic card number built at run time (no card number literal is committed)"""
+    import random
+    sys.path.insert(0, os.path.join(h.ROOT, "apps", "executor"))
+    from bnx_exec import pan_detector as P
+    r = random.Random(seed)
+    d = prefix + "".join(r.choice("0123456789") for _ in range(n - len(prefix) - 1))
+    return next(d + c for c in "0123456789" if P.luhn(d + c))
+
+
+@test("AT-PAN-01", "D-PAN-1 card-number rule; 9041 (a full card number is refused in commands, audits and staging; index records keep the last 4)")
+def t_pan_guard(server, ev):
+    import run_s4_core5 as C5
+    H = C4.v2_full(server, "bnx_c18pan")
+    ac = H.cad["account_currency_id"]
+    visa, amex, mc = synthetic_pan("4", 16, 1), synthetic_pan("37", 15, 2), synthetic_pan("2221", 16, 3)
+    spaced = " ".join(visa[i:i + 4] for i in range(0, 16, 4))
+    amex_p = f"{amex[:4]} {amex[4:10]} {amex[10:]}"
+    wide = mc.translate(str.maketrans("0123456789", "０１２３４５６７８９"))
+    it = lambda desc: C4.item(H, "2026-04-10", "-5.00", description=desc)
+    plan = lambda desc: C4.err(H.cmd, H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30", items=[it(desc)])
+    counts = lambda: [C2s(H, q) for q in ("select count(*) from bnx.posting_plan", "select count(*) from bnx.evidence_file", "select version from bnx.ledger_state",
+                                          "select count(*) from bnx_audit.audit_event", "select count(*) from bnx_intake.staging_payload")]
+    c0 = counts()
+    out = {
+        "plan item description, 4-4-4-4": plan("Card " + spaced + " purchase"),
+        "plan item description, Amex 4-6-5": plan("Card " + amex_p),
+        "plan item description, full-width digits": plan("卡号 " + wide),
+        "plan item description, one run": plan("ref " + visa),
+        "draft description": C4.err(H.cmd, H.owner, "draft_create_transaction", account_currency_id=ac, transaction_date="2026-04-12",
+                                    economic_type="consumption_expense", amount="-12.00", counter_ledger_account_id=H.groceries, description="paid " + spaced),
+        "evidence name (left out of the audit entry)": C4.err(H.cmd, H.owner, "register_evidence", size=2048, sha256_declared=hashlib.sha256(b"pan").hexdigest(),
+                                                              name=f"statement {visa}.pdf"),
+        "handoff text (left out of the audit entry)": C4.err(H.cmd, H.owner, "handoff_import", text="card " + spaced, account_currency_id=ac),
+        "idempotency key": C4.err(H.cmd, H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="K", currencies=["CAD"],
+                                  key="k-" + visa),
+        "number value": C4.err(H.cmd, H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="N", currencies=["CAD"],
+                               note=int(mc)),
+        "object key": C4.err(H.cmd, H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="O", currencies=["CAD"],
+                             extra={visa: "x"}),
+    }
+    stage = {"doc_discovered original_name": C4.err(C4.stage, H, "DOC_DISCOVER", "doc_discovered",
+                                                    {"source_kind": "DRIVE_INBOX", "source_file_id": "f-pan-1", "head_revision_id": "r1", "md5": "0" * 32,
+                                                     "module": "FINANCE", "original_name": f"Bank {spaced} statement.pdf"})}
+    with H.definer() as cx:
+        try:
+            cx.execute("select bnx.audit(row(null, null, 'worker', null, null)::bnx.actor, 'synthetic', %s::jsonb, '{}'::jsonb, null)",
+                       (json.dumps({"ref": spaced}),))
+            audit_direct = ("accepted", "")
+        except psycopg.Error as e:
+            audit_direct = (e.diag.message_primary, e.diag.message_detail)
+    c1 = counts()
+    every = {**out, **stage, "audit subject (direct)": audit_direct}
+    leaked = [k for k, v in every.items() if any(x in f"{v[0]} {v[1]}" for x in (visa, amex, mc, visa[-8:], wide))]
+    # index records keep the last 4 digits only; the rest of the payload is unchanged
+    st = C4.stage(H, "INDEX_CONSUME", "index_consumed", {"source_id": "idx-pan-01", "header": ["Notes"],
+                                                          "records": [{"Notes": f"card {spaced} ok", "Summary": "ref 4417 amount 12.34"}]})
+    stored = C4.one(H, "select payload from bnx_intake.staging_payload where id = %s", (st["staging_id"],))[0]
+    notes = stored["records"][0]["Notes"]
+    # not card numbers: masked last 4, a 23-digit reference, a decimal, a hex digest, a UUID, a date, a phone number, the last 4
+    ok = H.cmd(H.owner, "create_import_plan", account_currency_id=ac, date_from="2026-04-01", date_to="2026-04-30",
+               items=[it("Card **** **** **** " + visa[-4:]), it("ref 2026111412345678901234 Interac"), it("fx 0.30000000000000004 rate"),
+                      it("sha " + hashlib.sha256(visa.encode()).hexdigest()), it("id 3b1f6c2e-1234-4567-8901-234567890123"),
+                      it("2026-04-10 416-555-0199 card ending " + visa[-4:])])["plan_id"]
+    H.close()
+    json.dump({"refused": {k: v[0] for k, v in every.items()}, "index_notes_masked": notes.translate(str.maketrans("0123456789", "#" * 10)),
+               "counts": [c0, c1], "control_plan": bool(ok)}, open(os.path.join(ev, "AT-PAN-01.json"), "w"), indent=1)
+    check(all(v[0] == "PAN_CANDIDATE" for v in every.values()), f"{ {k: v[0] for k, v in every.items()} }")
+    check(not leaked, f"a refusal echoed the number: {leaked}")
+    check(c0 == c1, f"something was stored: {c0} {c1}")
+    check(notes == "card **** **** **** " + visa[-4:] + " ok" and stored["records"][0]["Summary"] == "ref 4417 amount 12.34", "index record not masked to the last 4")
+    check(bool(ok), "control plan refused")
+    return (f"{len(every)} paths with a synthetic card number (4-4-4-4, Amex 4-6-5, full-width, one run, a number value, a key) -> PAN_CANDIDATE, "
+            "nothing stored, the value never echoed; an index record keeps only the last 4; masked numbers, references, decimals, digests, "
+            "UUIDs, dates and phone numbers pass")
+
+
+@test("AT-PAN-02", "9041 (the database detector and the Python reference agree on a generated corpus)")
+def t_pan_parity(server, ev):
+    import random
+    sys.path.insert(0, os.path.join(h.ROOT, "apps", "executor"))
+    from bnx_exec import pan_detector as P
+    H = C4.v2_full(server, "bnx_c18pa2")
+    r = random.Random(20261114)
+    pre = ["4", "51", "55", "2221", "2720", "34", "37", "6011", "645", "65", "3528", "62", "300", "36", "38", "50", "57", "63", "67", "1", "7", "99", "20"]
+    noise = ["", " ", "-", ".", ",", "a", "Z", "#", ":", "\u00a0", "0.", "card ", " ref ", "\n", "/", "2026-11-14", "①", "¹"]
+
+    def num():
+        p = r.choice(pre); n = r.randint(12, 20)
+        d = p + "".join(r.choice("0123456789") for _ in range(max(0, n - len(p) - 1)))
+        d = next(d + c for c in "0123456789" if P.luhn(d + c))
+        x = r.random()
+        if len(d) == 16 and x < .3:
+            return r.choice(" -").join(d[i:i + 4] for i in range(0, 16, 4))
+        if len(d) == 15 and x < .4:
+            return f"{d[:4]} {d[4:10]} {d[10:]}"
+        return d.translate(str.maketrans("0123456789", "０１２３４５６７８９")) if x < .45 else d
+    corpus = []
+    for _ in range(2000):
+        parts = []
+        for _ in range(r.randint(1, 4)):
+            c = r.random()
+            parts.append(num() if c < .5 else "".join(r.choice("0123456789") for _ in range(r.randint(1, 24))) if c < .75
+                         else " ".join("".join(r.choice("0123456789") for _ in range(r.choice([3, 4, 4, 5, 6]))) for _ in range(r.randint(2, 6))) if c < .85
+                         else r.choice(["deadbeef", "Payment", "0x1f"]))
+            parts.append(r.choice(noise))
+        corpus.append("".join(parts))
+    diff = hits = 0
+    with H.definer() as cx:
+        for t in corpus:
+            py = {(a + 1, b) for a, b in P.scan(t)}
+            sq = {tuple(x) for x in cx.execute("select a, b from bnx.pan_spans(%s)", (t,)).fetchall()}
+            m = cx.execute("select bnx.pan_mask(%s)", (t,)).fetchone()[0]
+            hits += bool(py)
+            diff += py != sq or m != P.mask(t)
+        docs = [{"k": t, t[:5]: [t, 12]} for t in corpus[:400]]
+        jdiff = sum(P.json_has(d) != cx.execute("select bnx.pan_json_has(%s::jsonb)", (json.dumps(d),)).fetchone()[0] for d in docs)
+        mdiff = sum(json.loads(json.dumps(P.mask_json(d))) != cx.execute("select bnx.pan_mask_json(%s::jsonb)", (json.dumps(d),)).fetchone()[0] for d in docs)
+    H.close()
+    json.dump({"corpus": len(corpus), "with_candidates": hits, "span_or_mask_differences": diff, "json_has_differences": jdiff,
+               "mask_json_differences": mdiff, "detector": P.VERSION}, open(os.path.join(ev, "AT-PAN-02.json"), "w"), indent=1)
+    check(diff == jdiff == mdiff == 0 and hits > 100, f"differences {diff} {jdiff} {mdiff}, candidates {hits}")
+    return f"{len(corpus)} generated texts ({hits} with candidates) and {len(docs)} JSON documents: spans, masks, has and mask_json identical"
+
+
 def C2s(H, q):
     import run_s4_core2 as C2c
     return C2c.sql(H, q)[0][0]

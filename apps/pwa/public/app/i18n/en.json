@@ -79,6 +79,7 @@
  "error.NOT_FOUND": "Not found.",
  "error.NOT_POSTABLE": "You cannot approve this: you cannot post to all of its accounts.",
  "error.ORIGIN": "Request refused (origin).",
+ "error.PAN_CANDIDATE": "A card number was found. Enter only its last 4 digits; nothing was saved.",
  "error.PLAN_HELD": "The draft is held by a validation rule.",
  "error.PLAN_STALE": "The draft changed; reload and review it again.",
  "error.UNAUTHENTICATED": "Your session has ended. Sign in again.",
