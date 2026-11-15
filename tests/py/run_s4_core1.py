@@ -615,6 +615,9 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.q_onboarding_jobs",
     # 9028 mail routes (D-MRT-1)
     "bnx.cmd_set_mail_route", "bnx.q_mail_routes",
+    # 9041 card-number guard (D-PAN-1; register row 9041, docs/s4/S4_PAN_Guard_2026-11-14.md)
+    "bnx.pan_luhn", "bnx.pan_scheme_ok", "bnx.pan_is", "bnx.pan_letter", "bnx.pan_spans", "bnx.pan_has", "bnx.pan_mask",
+    "bnx.pan_json_has", "bnx.pan_mask_json",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
