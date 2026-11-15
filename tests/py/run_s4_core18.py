@@ -478,12 +478,13 @@ def synthetic_pan(prefix, n, seed):
     return next(d + c for c in "0123456789" if P.luhn(d + c))
 
 
-@test("AT-PAN-01", "D-PAN-1 card-number rule; 9041 (a full card number is refused in commands, audits and staging; index records keep the last 4)")
+@test("AT-PAN-01", "OD-PAN-1 card-number rule; 9041, 9042 (a full card number is refused in commands, audits and staging; index records keep the last 4)")
 def t_pan_guard(server, ev):
     import run_s4_core5 as C5
     H = C4.v2_full(server, "bnx_c18pan")
     ac = H.cad["account_currency_id"]
     visa, amex, mc = synthetic_pan("4", 16, 1), synthetic_pan("37", 15, 2), synthetic_pan("2221", 16, 3)
+    debit = synthetic_pan("9", 16, 4)          # OD-PAN-1: debit prefixes differ by bank; any 16-19 digit prefix counts (9042)
     spaced = " ".join(visa[i:i + 4] for i in range(0, 16, 4))
     amex_p = f"{amex[:4]} {amex[4:10]} {amex[10:]}"
     wide = mc.translate(str.maketrans("0123456789", "０１２３４５６７８９"))
@@ -497,6 +498,7 @@ def t_pan_guard(server, ev):
         "plan item description, Amex 4-6-5": plan("Card " + amex_p),
         "plan item description, full-width digits": plan("卡号 " + wide),
         "plan item description, one run": plan("ref " + visa),
+        "plan item description, debit card with an unlisted prefix": plan("debit " + debit),
         "draft description": C4.err(H.cmd, H.owner, "draft_create_transaction", account_currency_id=ac, transaction_date="2026-04-12",
                                     economic_type="consumption_expense", amount="-12.00", counter_ledger_account_id=H.groceries, description="paid " + spaced),
         "evidence name (left out of the audit entry)": C4.err(H.cmd, H.owner, "register_evidence", size=2048, sha256_declared=hashlib.sha256(b"pan").hexdigest(),
@@ -521,7 +523,11 @@ def t_pan_guard(server, ev):
             audit_direct = (e.diag.message_primary, e.diag.message_detail)
     c1 = counts()
     every = {**out, **stage, "audit subject (direct)": audit_direct}
-    leaked = [k for k, v in every.items() if any(x in f"{v[0]} {v[1]}" for x in (visa, amex, mc, visa[-8:], wide))]
+    leaked = [k for k, v in every.items() if any(x in f"{v[0]} {v[1]}" for x in (visa, amex, mc, debit, visa[-8:], wide))]
+    # 9042: a machine generation (microseconds, 16 digits) directly under generation/object_generation is not scanned
+    with H.definer() as cx:
+        gen = [cx.execute("select bnx.pan_json_has(%s::jsonb)", (json.dumps(d),)).fetchone()[0] for d in
+               ({"object": {"generation": debit}}, {"object_generation": int(debit)}, {"generation_note": debit}, {"generation": [debit]})]
     # index records keep the last 4 digits only; the rest of the payload is unchanged
     st = C4.stage(H, "INDEX_CONSUME", "index_consumed", {"source_id": "idx-pan-01", "header": ["Notes"],
                                                           "records": [{"Notes": f"card {spaced} ok", "Summary": "ref 4417 amount 12.34"}]})
@@ -540,6 +546,7 @@ def t_pan_guard(server, ev):
     check(c0 == c1, f"something was stored: {c0} {c1}")
     check(notes == "card **** **** **** " + visa[-4:] + " ok" and stored["records"][0]["Summary"] == "ref 4417 amount 12.34", "index record not masked to the last 4")
     check(bool(ok), "control plan refused")
+    check(gen == [False, False, True, True], f"generation exemption: {gen}")
     return (f"{len(every)} paths with a synthetic card number (4-4-4-4, Amex 4-6-5, full-width, one run, a number value, a key) -> PAN_CANDIDATE, "
             "nothing stored, the value never echoed; an index record keeps only the last 4; masked numbers, references, decimals, digests, "
             "UUIDs, dates and phone numbers pass")
@@ -552,7 +559,7 @@ def t_pan_parity(server, ev):
     from bnx_exec import pan_detector as P
     H = C4.v2_full(server, "bnx_c18pa2")
     r = random.Random(20261114)
-    pre = ["4", "51", "55", "2221", "2720", "34", "37", "6011", "645", "65", "3528", "62", "300", "36", "38", "50", "57", "63", "67", "1", "7", "99", "20"]
+    pre = ["4", "51", "55", "2221", "2720", "34", "37", "6011", "645", "65", "3528", "62", "300", "36", "38", "50", "57", "63", "67", "1", "7", "99", "20", "9"]
     noise = ["", " ", "-", ".", ",", "a", "Z", "#", ":", "\u00a0", "0.", "card ", " ref ", "\n", "/", "2026-11-14", "①", "¹"]
 
     def num():
@@ -583,7 +590,7 @@ def t_pan_parity(server, ev):
             m = cx.execute("select bnx.pan_mask(%s)", (t,)).fetchone()[0]
             hits += bool(py)
             diff += py != sq or m != P.mask(t)
-        docs = [{"k": t, t[:5]: [t, 12]} for t in corpus[:400]]
+        docs = [{"k": t, t[:5]: [t, 12], "o": {"generation": t, "object_generation": [t]}} for t in corpus[:400]]
         jdiff = sum(P.json_has(d) != cx.execute("select bnx.pan_json_has(%s::jsonb)", (json.dumps(d),)).fetchone()[0] for d in docs)
         mdiff = sum(json.loads(json.dumps(P.mask_json(d))) != cx.execute("select bnx.pan_mask_json(%s::jsonb)", (json.dumps(d),)).fetchone()[0] for d in docs)
     H.close()

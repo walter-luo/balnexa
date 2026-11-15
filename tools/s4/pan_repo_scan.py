@@ -6,8 +6,9 @@ public). Scans every tracked text file, and with --all-history every blob reacha
 detector (apps/executor/bnx_exec/pan_detector.py). Prints file:line:scheme for each hit, never the value. Exit 1 on any hit,
 2 when the scan itself could not run. Binary files (NUL byte) and files larger than 5 MiB are skipped and counted.
 
-Published test numbers (for example the scheme test numbers used by guard tests) are allowed by the SHA-256 of their digits
-in tools/s4/pan_repo_scan_allow.txt, so the allowlist itself holds no card number. Tests build their synthetic numbers at
+Published test numbers (for example the scheme test numbers used by guard tests) and synthetic machine numbers that are
+not card numbers are allowed by the SHA-256 of their digits in tools/s4/pan_repo_scan_allow.txt, so the allowlist itself
+holds no card number. Tests build their synthetic numbers at
 run time; no literal is committed."""
 import hashlib, os, subprocess, sys
 
@@ -68,7 +69,7 @@ def main():
     for o in sorted(set(out)):
         print(o)
     print(f"pan_repo_scan: detector {P.VERSION}, {scanned} files scanned, {skipped} skipped (binary or > 5 MiB), {len(set(out))} hit(s), "
-          f"{len(set(ALLOWED))} published test number(s) allowed")
+          f"{len(set(ALLOWED))} allowed number(s) (published test numbers, synthetic machine numbers)")
     return 1 if out else 0
 
 

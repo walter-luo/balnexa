@@ -1,4 +1,6 @@
-# Published payment-card test numbers allowed by tools/s4/pan_repo_scan.py. One entry per line:
+# Numbers allowed by tools/s4/pan_repo_scan.py: published payment-card test numbers, and synthetic machine numbers that
+# match the detector but are not card numbers. One entry per line:
 #   <SHA-256 of the digits>   # scheme and where the number is published
 # A real card number is never added here: rule D-PAN-1 is that a full card number is never stored.
 9bbef19476623ca56c17da75fd57734dbf82530686043a6e491c6d71befe8f6e   # Visa test number 4111…1111 (scheme test cards); EVIDENCE/g0_08/ai_entry_verify.log
+2ca9bda28aadd6a75b4da5812af7f808a552a4657c0eb59e280b741d5b08b38b   # synthetic storage object generation (microseconds, 16 digits; any-prefix rule OD-PAN-1); tests/py/run_s4_core13.py backup_payload
