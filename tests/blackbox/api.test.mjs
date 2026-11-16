@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeDb, makeKv, makeR2, serve, worker } from '../../apps/worker/node/adapter.mjs';
 import { validate } from '../../apps/worker/src/schema.js';
+import { resetBindings } from '../../apps/worker/src/binding.js';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -254,6 +255,24 @@ test('BB-PLAN-02 lost KV hint: work is still found by the unconditional backstop
   assert.equal(q.json.balances[0].amount, '440.0000');
 });
 
+test('BB-PLAN-03 an idle tick on a fresh isolate makes no database call; a tick with work checks the bindings first', async () => {
+  // Free-tier compute (Neon suspends an idle compute): the dispatcher contract is "a tick reads Neon iff hint > drained, or a
+  // backstop tick". The binding check is a database query, so it must not run on an idle tick either (it did before).
+  await env.KV.put('bnx:hint', String(await env.KV.get('bnx:drained')));     // nothing to do
+  const real = env.db.one; let calls = 0;
+  env.db.one = async (...a) => { calls++; return real.apply(env.db, a); };
+  try {
+    resetBindings(env);                                                      // a fresh isolate: no cached binding facts
+    const idle = await worker.scheduled({ scheduledTime: new Date('2026-10-30T13:50:00Z').getTime() }, env, null);
+    assert.equal(idle.neon, false);
+    assert.equal(calls, 0, 'an idle tick must not query the database');
+    resetBindings(env);
+    const back = await worker.scheduled({ scheduledTime: new Date('2026-10-30T18:00:00Z').getTime() }, env, null);
+    assert.equal(back.neon, true); assert.equal(back.backstop, true);
+    assert.ok(calls >= 2, 'a backstop tick checks the bindings, then claims work');
+  } finally { env.db.one = real; }
+});
+
 test('BB-EXEC-01 Executor lease: pinned job identity, one-time nonce, staging only, Worker promotion (AT-EXEC-01)', async () => {
   const reg = await cmd('register_index_source', { source_id: 'idx-bb-01', adapter: 'GSHEET', location_secret_ref: 'sm://synthetic/bb-index', enabled: true },
     S.owner, { 'idempotency-key': 'bb-idx-0001' });
@@ -355,7 +374,8 @@ test('BB-ISO-04 binding checks B1/B2/B8 fail closed with 503; only health answer
         assert.deepEqual([r.status, r.json.error], [503, error]);
       }
     });
-    const tick = await worker.scheduled({ scheduledTime: Date.now() }, e, null);
+    await e.KV.put('bnx:hint', '1');                                        // work is hinted, so the tick would read Neon (#52)
+    const tick = await worker.scheduled({ scheduledTime: new Date('2026-10-30T13:30:00Z').getTime() }, e, null);
     assert.deepEqual([tick.neon, tick.binding], [false, error], 'the dispatcher refuses too');
   }
   const good = await call('/api/v1/health', { method: 'GET' });

@@ -13,7 +13,7 @@
 // catalog read from the Core (unknown -> 404; schema-qualified dispatch) and the body is validated against its
 // input_schema before the database call (VALIDATION_FAILED, the database's own code).
 import { verifyGoogleIdToken, verifyJobToken, jwksResolver, AuthError } from './jwt.js';
-import { dispatch } from './dispatch.js';
+import { dispatch, shouldReadNeon } from './dispatch.js';
 import { scanJson, scrub } from './sin_detector.js';
 import { bindings } from './binding.js';
 import { validate } from './schema.js';
@@ -323,10 +323,15 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
+    const now = event.scheduledTime || Date.now();
+    // AUD-046: a tick reads Neon iff hint > drained, or on a backstop tick. The binding check is itself a database query, so
+    // an idle tick decides from KV alone and never wakes the database (a Neon compute then suspends; free-tier compute).
+    const decision = await shouldReadNeon(env.KV, now);
+    if (!decision.run) return { ...decision, neon: false, processed: 0 };
     // ISO-4: a Worker whose bindings fail never dispatches against the database it is connected to
-    const b = await bindings(env, event.scheduledTime || Date.now());
+    const b = await bindings(env, now);
     if (!b.ok) { log('dispatch_refused', b.error, b.failed); return { neon: false, processed: 0, binding: b.error }; }
-    const work = dispatch(env, event.scheduledTime || Date.now());
+    const work = dispatch(env, now);
     if (ctx && ctx.waitUntil) ctx.waitUntil(work);
     return work;
   },
