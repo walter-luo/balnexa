@@ -15,7 +15,7 @@ body:
     attributes:
       label: Release
       description: "Settings → Version, or `release` in `/app/config.json`."
-      placeholder: "0.9.9-p2"
+      placeholder: "V1.0-R02"
     validations:
       required: true
   - type: dropdown

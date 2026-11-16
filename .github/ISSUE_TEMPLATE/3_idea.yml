@@ -23,7 +23,7 @@ body:
     id: release
     attributes:
       label: Release you use (optional)
-      placeholder: "0.9.9-p2"
+      placeholder: "V1.0-R02"
   - type: checkboxes
     id: privacy
     attributes:

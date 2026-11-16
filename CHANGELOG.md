@@ -2,9 +2,15 @@
 
 Each release lists its changes with the issue numbers they fix (`#n`), the migrations it adds, and any action an operator must take. The process is described in `docs/s4/Issue_and_Release_Process.md`. Releases up to 0.9.9-p2 came before the public issue record, so they reference design items instead of issues.
 
-The release string is `<major>.<minor>.<patch>-p2` (S4 phase 2). A release supports the schema range in `apps/worker/src/release.js` and has the migration digests in `release/manifest.json`.
+The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16); before that it was `0.<minor>.<patch>-p2` (S4 phase 2). A release supports the schema range in `apps/worker/src/release.js` and has the migration digests in `release/manifest.json`.
 
 ## Unreleased
+
+Nothing yet.
+
+## V1.0-R02 — 2026-11-16
+
+First release under the release naming of 2026-11-16: `V<major>.<minor>-R<nn>`. R counts releases, and V changes only when the Owner decides on a larger functional step. Releases up to 0.9.9-p2 keep their old names.
 
 - **Idle cron ticks no longer touch the database** (#52). The cron handler decides from KV first and runs the binding check only on a tick that will read the database (work hinted, or a backstop tick every 3 hours). Before, the binding check queried the database on nearly every one-minute tick, so a Neon compute never suspended: about 6 CU-hours a day at 0.25 CU, which uses up the Free plan's 100 CU-hours per project in about 16 days. New test BB-PLAN-03.
 - Migrations: none. Schema range unchanged.

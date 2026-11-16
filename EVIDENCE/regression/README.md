@@ -46,3 +46,4 @@ One row per full local regression run kept in the repository (Owner instruction 
 | 2026-11-15 15:15 | `7dcde43` | `s4/issue-intake` | 477 | 0 | 3 | [2026-11-15_7dcde43](2026-11-15_7dcde43/INDEX.md) |
 | 2026-11-15 21:33 | `736c790` | `s4/idle-tick` | 477 | 1 | 3 | [2026-11-15_736c790](2026-11-15_736c790/INDEX.md) |
 | 2026-11-15 22:04 | `04fc9b4` | `s4/idle-tick` | 478 | 0 | 3 | [2026-11-15_04fc9b4](2026-11-15_04fc9b4/INDEX.md) |
+| 2026-11-16 11:22 | `289fb13` | `s4/release-v1.0-r02` | 478 | 0 | 3 | [2026-11-16_289fb13](2026-11-16_289fb13/INDEX.md) |
