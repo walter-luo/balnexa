@@ -36,7 +36,7 @@ The labels are defined in `.github/labels.json` and applied with `tools/s4/sync_
 | Impact (set at triage, from the form) | `impact:blocker`, `impact:wrong-result`, `impact:workaround`, `impact:cosmetic` |
 | Privacy | `privacy:redacted`: the guard or the Owner removed a sensitive value |
 
-**One milestone per release**, named by its release string (for example `0.9.9-p2`). An issue with `status:planned` belongs to exactly one milestone. Whatever is in the milestone when the Owner publishes it is in the release.
+**One milestone per release**, named by its release string (for example `V1.0-R02`). An issue with `status:planned` belongs to exactly one milestone. Whatever is in the milestone when the Owner publishes it is in the release.
 
 ## 4. Privacy on a public tracker
 
@@ -66,7 +66,7 @@ The repository is public, so whatever reporters write can be read by anyone.
 4. **Release** (only on the Owner's explicit request):
    1. All PRs of the milestone are merged; CI is green on `main`.
    2. `CHANGELOG.md`: the release's section lists each change with its issue number, the migrations, and any action an operator must take.
-   3. Tag `v<release>` on the `main` commit, and publish a GitHub Release with the CHANGELOG section. `release/manifest.json` records the migration digests. The milestone is closed, and its issues get `status:released`.
+   3. Tag the `main` commit with the release string itself (for example `V1.0-R02`; OD-REL-1), and publish a GitHub Release with the CHANGELOG section. `release/manifest.json` records the migration digests. The milestone is closed, and its issues get `status:released`.
 5. **Upgrade:** instance operators follow the upgrade procedure in `docs/s4/M0A_Deployment_Runbook.md`. The release notes say which migrations run and whether the Worker must be deployed with them. B3 refuses a Worker whose schema range does not cover the database.
 
 ## 6. What the Owner decides

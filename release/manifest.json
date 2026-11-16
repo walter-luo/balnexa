@@ -327,7 +327,7 @@
    "version": "9042"
   }
  ],
- "pwa_shell": "bnx-shell-0.9.9-p2",
+ "pwa_shell": "bnx-shell-V1.0-R02",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -522,7 +522,7 @@
     "9042"
    ]
   },
-  "version": "0.9.9-p2",
+  "version": "V1.0-R02",
   "work_kinds": [
    "plan.execute",
    "staging.promote"
