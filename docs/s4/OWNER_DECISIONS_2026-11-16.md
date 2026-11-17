@@ -7,3 +7,16 @@ On 2026-11-15 the Owner asked what the release number means and why it read `0.9
 | ID | Decision | Effect |
 |---|---|---|
 | OD-REL-1 | The release string is **`V<major>.<minor>-R<nn>`**; the first release under it is **V1.0-R02** (the fix for #52). R counts releases; V changes only when the Owner decides on a larger functional step | `apps/worker/src/release.js`, PWA shell `bnx-shell-V1.0-R02`, `release/manifest.json`, issue-form placeholders, `CHANGELOG.md`. The git tag is the release string itself, `V1.0-R02` (the process said `v<release>`; changed). Releases up to 0.9.9-p2 keep their names; earlier `min_worker_release` values in the manifest are unchanged |
+
+## Direction: AI-first (later on 2026-11-16, America/Toronto)
+
+The Owner's messages of 14:09, 14:15, 14:21, 17:15 and 22:04 set the direction. The design that follows from them is in `docs/s4/S4_AI_First_Workflows_Design_2026-11-16.md`.
+
+| ID | Decision |
+|---|---|
+| OD-AI-1 | Balnexa is **AI-first**. AI reads documents, reconciles, writes reports and runs the workflows. The database and the data folder are the permanent stores, and the PWA is developed further |
+| OD-AI-2 | The architecture is unchanged. Whatever an AI with a skill can do is not programmed. Programs are for the database, validation and the transaction flow. Reports are produced by AI |
+| OD-AI-3 | The functions are delivered through AI skills: statement reconciliation, transactions of a period, and so on. Balnexa supports entering and verifying historical data |
+| B1–B4 | B1: report figures come from database queries. B2: the database keeps its integrity rules. B3: C-04 stays (AI drafts, a member approves). B4: every AI report is saved with its queries |
+| Q1 | A statement may be approved while its evidence hash is pending, for synthetic testing; this is decided again before real data |
+| Q2 | Skills live in the household's data folder (loadable by AI hosts without native skills, such as ChatGPT), in the member's Claude account, and as a generic copy in this repository |

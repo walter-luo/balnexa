@@ -26,6 +26,10 @@ These Owner decisions of 2026-11-16 govern the design.
 | B3 | C-04 stays: the AI drafts, and a member approves in the PWA. The AI never posts or approves |
 | B4 | Every AI report is saved to the data folder together with the queries or report snapshots it used, so that it can be checked and reproduced |
 
+**OD-AI-3** (Owner, 2026-11-16 22:04):
+- The project's functions are delivered through AI skills: reconciling a statement, finding the transactions of a period, and so on.
+- Balnexa supports **entering and verifying historical data**: years of past statements per account, not only new ones (W6).
+
 **Withdrawn by OD-AI-1:**
 - the Executor's document and import handlers (`DOC_*`, `IMPORT_PARSE`);
 - a statement parser;
@@ -37,7 +41,7 @@ The functions already built stay, and the AI uses them as tools.
 
 | Part | Role |
 |---|---|
-| **AI host** (Claude, Pro plan) with **skills** | Runs every workflow. It reads documents from Drive or from an upload, extracts the content, calls Balnexa tools through the custom connector, writes reports, and files documents. A skill is the written procedure and checklist for one workflow |
+| **AI host** (Claude, or ChatGPT through its MCP connector) with **skills** | Runs every workflow. It reads documents from Drive or from an upload, extracts the content, calls Balnexa tools through the custom connector, writes reports, and files documents. A skill is the written procedure and checklist for one workflow |
 | **Balnexa Gateway + database** | Tools (MCP and REST), validation, drafts, approval, posting, the audit trail and the guards. No document parsing and no report logic |
 | **PWA** | Viewing, the approval queue, manual entry and settings. It contains no AI (AI in the PWA would need the paid API) |
 | **Drive data folder** | Originals in `20-Inbox` (the data owner's), processed copies in `30-Processed`, the index in `10-Index`, and AI reports in `40-Exports` (`Data_Folder_Convention.md`) |
@@ -76,7 +80,7 @@ Each workflow becomes one skill. The steps marked **[DB]** are program checks; e
 2. **Explain each exception, citing evidence.** For each exception the AI gives the likely cause and a proposed action, and it cites the evidence through `q_evidence_trace`.
 3. **Decide.** The member sets the exception states and decides the matches in the PWA, which already has these commands. A later step may add AI proposals for exception states (G6).
 
-### W4 Reports (monthly, annual, ad hoc)
+### W4 Reports and questions (monthly, annual, ad hoc, "what did we spend on X between …")
 
 1. **Choose the content.** The AI decides what the report needs: balances, income and expense, net worth, cards, investments, or a question the member asked.
 2. **Fetch every figure through read tools (B1):**
@@ -86,6 +90,32 @@ Each workflow becomes one skill. The steps marked **[DB]** are program checks; e
 4. **Save (B4).** The AI saves the report in `40-Exports/<year>/`, with an appendix listing every tool call (name, arguments) and the snapshot ids. A snapshot can be replayed with `q_replay_snapshot`.
 
 No report program is added.
+
+### W6 Historical data: entry and verification (OD-AI-3)
+
+A household that starts using Balnexa brings years of past statements per account. W6 is W1 run over a whole history, oldest first, with checks across the full chain.
+
+1. **Inventory.** The AI lists, per account, every original it has (institution, last 4 digits, period). It reports:
+   - the earliest and latest periods;
+   - multi-month statements;
+   - card reissues: a new card number on the same account, as shown by a carried-over balance;
+   - possible duplicates.
+
+   The member confirms the account list.
+2. **Opening point.** For each account, the opening balance of the earliest statement becomes the account's opening (`cmd_set_opening`, approved by the member).
+3. **Statements in order.** The AI submits each statement through W1, oldest first, so that each one's continuity check runs against its predecessor.
+4. **[DB] Chain checks** across the whole history: balance continuity, gaps between periods, overlapping periods, and duplicate statements or lines.
+5. **Gaps.** For each gap the AI reports what the neighbouring statements show. The member decides the case:
+   - no activity, so no statement was issued: the gap is recorded as explained (e.g. a card with a previous balance of 0.00);
+   - a statement is missing: the member uploads it later;
+   - an account was opened or closed.
+6. **Batch approval.** Statements whose checks all pass can be approved together per account in the PWA (G7). Statements with findings are approved one by one. C-04 still holds: the member approves; only the number of clicks changes.
+7. **Verification report.** For each account, the AI writes a history report (W4 rules, B1/B4). It covers:
+   - the coverage from the first to the last statement;
+   - the explained and open gaps;
+   - every continuity break and how it was resolved;
+   - the duplicates found;
+   - the opening and current balances, read from the database.
 
 ### W5 Filing and the index
 
@@ -101,36 +131,55 @@ The AI keeps the folder structure, the copies in `30-Processed` and the index sh
 | **G4** | **Read tools for the AI:** expose `q_ledger_accounts`, `q_review_queue`, `q_intake_exceptions` and `q_notifications` on MCP (read scopes). These are catalog and scope rows only | migration (small) | small |
 | **G5** | **Connector setup guide** for the member: add the Balnexa connector in Claude (web, once); use it on the phone | doc | small |
 | G6 | Later: AI proposals for reconciliation exception states and match decisions (RC-DRAFT) | migration | later |
+| **G7** | **History support (W6):**
+- statement drafts may be submitted for any past period;
+- the continuity check uses the nearest earlier **approved or pending** statement of the account-currency, so that a batch submitted oldest-first is checked in order;
+- a gap can be recorded as explained (no activity / account opened or closed), with the member's reason;
+- the PWA approves all clean statement drafts of one account in one action (each approval is still audited per statement);
+- a read tool lists the statement chain of an account with its gaps and breaks | migration + PWA | medium |
 
 **Not needed:** a statement parser, an import job, report programs, or an AI inside the PWA.
 
-## 5. Skills
+## 5. Skills and how they are distributed
 
 | Skill | Workflow | Writes |
 |---|---|---|
 | `balnexa-statement-intake` | W1 | statement drafts; after approval, filing (W5) |
+| `balnexa-history` | W6 | inventory, opening proposals, ordered statement drafts, gap notes, the history report |
 | `balnexa-entry` | W2 | transaction and transfer drafts |
 | `balnexa-reconcile` | W3 | an explanation for the member; no writes |
-| `balnexa-report` | W4 | a report and an appendix in `40-Exports` |
+| `balnexa-report` | W4 | reports and answers; a report and its appendix in `40-Exports` |
 | `balnexa-filing` | W5 | `30-Processed`, the index |
 
 Each skill states:
 - the tools it calls;
 - the checks it expects from the database;
-- what it must never do (compute report figures, post, approve, store a full card number or a SIN, change `20-Inbox`).
+- what it must never do: compute report figures, post or approve, store a full card number or a SIN, or change `20-Inbox`.
 
-The repository keeps a generic copy of each skill under `skills/` for every Balnexa user. Each member saves them to their own Claude account.
+**Distribution (Owner decision Q2, 2026-11-16).** The same skill text exists in three places:
+
+1. **The household's data folder (the instance copy).** Any AI host can load it, including one that cannot install native skills, such as ChatGPT. The layout follows the Drive-hosted skill index the Owner already uses in his other projects:
+   - `00-Governance/BALNEXA-AI-ENTRY.md`: the entry an AI reads first. It holds the folder map, the access rules, the Balnexa instance and connector, the B1–B4/C-04 rules, and pointers to the skill index;
+   - `50-Skills/Active/<skill>/SKILL.md`: published skills only;
+   - `50-Skills/Validation/`: candidates that are not yet published;
+   - `10-Index/Skill-Index`: one row per published skill, with name, version, path and SHA-256.
+
+   An AI host without native skills reads the entry, then the skill index, then the `SKILL.md` it needs. It checks the SHA-256 against the index before using the skill.
+2. **The member's Claude account (native skills).** Claude proposes each skill and the member saves it from the review card. The text is identical to the Drive copy.
+3. **This repository, under `skills/`.** This is a generic copy for every Balnexa user and holds no instance details. Instance values (folder ids, the instance URL) live only in the entry file in the data folder.
+
+A skill is written as a candidate in `50-Skills/Validation/`. It moves to `Active` only when the member publishes it (AI output stays a draft until a person approves it). The data folder convention gains `50-Skills` and the entry file.
 
 ## 6. Order
 
-1. G4 and G1 (one migration), with their tests (refusals, the balance and continuity checks, the duplicate checks, guard parity) and the full regression.
-2. G3 in the PWA, with tests.
-3. The `balnexa-statement-intake` skill. An end-to-end run on **synthetic** statements on the test instance, once it is upgraded and connected (G5).
+1. G4, G1 and the database part of G7 (one migration), with their tests (refusals, the balance, continuity and chain checks, the duplicate checks, guard parity) and the full regression.
+2. G3 and the batch approval of G7 in the PWA, with tests.
+3. The data-folder entry and `50-Skills` layout, then the `balnexa-statement-intake` and `balnexa-history` skills. An end-to-end run on **synthetic** statements on the test instance, once it is upgraded and connected (G5).
 4. G2, then `balnexa-entry`, `balnexa-report`, `balnexa-reconcile` and `balnexa-filing`.
 
-## 7. Open questions for the Owner
+## 7. Owner decisions on the open questions (2026-11-16 22:04)
 
-| Id | Question | Recommendation |
+| Id | Question | Decision |
 |---|---|---|
-| Q1 | G2: may a statement be approved while its evidence is still `unverified` (hash pending)? | Yes for synthetic testing. Decide again before real data |
-| Q2 | Where do skills live: only in the Owner's Claude account, or also as a public copy in the repository? | Both. The public copy is generic, with no instance details |
+| Q1 | G2: may a statement be approved while its evidence is still `unverified` (hash pending)? | **Yes** for synthetic testing; decided again before real data |
+| Q2 | Where do skills live? | **The household's data folder (Drive), the member's Claude account, and a generic copy in this repository** (§5). The Drive copy is required because some AI hosts (ChatGPT Plus) cannot use native skills, but can load one from Drive |
