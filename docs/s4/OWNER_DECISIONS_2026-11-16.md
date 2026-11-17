@@ -20,3 +20,10 @@ The Owner's messages of 14:09, 14:15, 14:21, 17:15 and 22:04 set the direction. 
 | B1–B4 | B1: report figures come from database queries. B2: the database keeps its integrity rules. B3: C-04 stays (AI drafts, a member approves). B4: every AI report is saved with its queries |
 | Q1 | A statement may be approved while its evidence hash is pending, for synthetic testing; this is decided again before real data |
 | Q2 | Skills live in the household's data folder (loadable by AI hosts without native skills, such as ChatGPT), in the member's Claude account, and as a generic copy in this repository |
+
+## 2026-11-17 06:51 (America/Toronto)
+
+| ID | Decision |
+|---|---|
+| OD-AI-4 | Balnexa is a project that runs on an AI platform: system functions depend on the AI and AI skills, and the database work is done by code the AI calls. **Dual AI:** the household chooses the runtime AI platform; the other platform serves as **reviewer**, chosen by the Owner. The PWA (phone, offline or web) is only for data work: queries, data entry and viewing reports |
+| OD-DRV-1 | Balnexa keeps its own Drive directory. Other projects' folders may serve as reference only and are never changed |

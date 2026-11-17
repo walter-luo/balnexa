@@ -39,11 +39,25 @@ The functions already built stay, and the AI uses them as tools.
 
 ## 2. Roles
 
+**What Balnexa is (Owner, 2026-11-17 06:51).** Balnexa is not a traditional app. It is a project that **runs on an AI platform**:
+- its functions depend on the AI and on AI skills;
+- the database work is done by code that the AI calls.
+
+**Two AI platforms (dual AI):**
+- **Runtime AI:** the platform the household chooses to run Balnexa on (Claude or ChatGPT). It runs the workflows.
+- **Reviewer AI:** the other platform, chosen by the Owner. It reviews and never runs the workflows:
+  - its connection is consented with read scopes only;
+  - it reads drafts, reports and the history checks through the same tools;
+  - it writes its findings as review notes in the data folder;
+  - it cannot draft, post or approve.
+
+
 | Part | Role |
 |---|---|
-| **AI host** (Claude, or ChatGPT through its MCP connector) with **skills** | Runs every workflow. It reads documents from Drive or from an upload, extracts the content, calls Balnexa tools through the custom connector, writes reports, and files documents. A skill is the written procedure and checklist for one workflow |
+| **Runtime AI** (Claude or ChatGPT, the household's choice) with **skills** | Runs every workflow. It reads documents from Drive or from an upload, extracts the content, calls Balnexa tools through the custom connector, writes reports, and files documents. A skill is the written procedure and checklist for one workflow |
 | **Balnexa Gateway + database** | Tools (MCP and REST), validation, drafts, approval, posting, the audit trail and the guards. No document parsing and no report logic |
-| **PWA** | Viewing, the approval queue, manual entry and settings. It contains no AI (AI in the PWA would need the paid API) |
+| **Reviewer AI** (the other platform, the Owner's choice) | Read-only review of drafts, reports and history checks; review notes in the data folder |
+| **PWA** (phone, including offline, and web) | Only data work: queries, data entry and viewing reports. The approval of AI drafts counts as data entry (to be confirmed by the Owner). It contains no AI |
 | **Drive data folder** | Originals in `20-Inbox` (the data owner's), processed copies in `30-Processed`, the index in `10-Index`, and AI reports in `40-Exports` (`Data_Folder_Convention.md`) |
 | **Member (Owner)** | Uploads originals, asks the AI, and approves in the PWA |
 
@@ -180,7 +194,7 @@ Each skill states:
 
 **Distribution (Owner decision Q2, 2026-11-16).** The same skill text exists in three places:
 
-1. **The household's data folder (the instance copy).** Any AI host can load it, including one that cannot install native skills, such as ChatGPT. The layout follows the Drive-hosted skill index the Owner already uses in his other projects:
+1. **The household's data folder, which is Balnexa's own Drive directory (the instance copy).** Any AI host can load it, including one that cannot install native skills, such as ChatGPT. The pattern is a Drive-hosted entry and skill index. Balnexa keeps it entirely inside its own folder and never reads or writes the folder of another project:
    - `00-Governance/BALNEXA-AI-ENTRY.md`: the entry an AI reads first. It holds the folder map, the access rules, the Balnexa instance and connector, the B1–B4/C-04 rules, and pointers to the skill index;
    - `50-Skills/Active/<skill>/SKILL.md`: published skills only;
    - `50-Skills/Validation/`: candidates that are not yet published;
