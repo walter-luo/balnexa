@@ -27,3 +27,5 @@ The Owner's messages of 14:09, 14:15, 14:21, 17:15 and 22:04 set the direction. 
 |---|---|
 | OD-AI-4 | Balnexa is a project that runs on an AI platform: system functions depend on the AI and AI skills, and the database work is done by code the AI calls. **Dual AI:** the household chooses the runtime AI platform; the other platform serves as **reviewer**, chosen by the Owner. The PWA (phone, offline or web) is only for data work: queries, data entry and viewing reports |
 | OD-DRV-1 | Balnexa keeps its own Drive directory. Other projects' folders may serve as reference only and are never changed |
+| OD-DRV-2 (06:59) | The household data folder is Balnexa's own Drive directory. The entry file, `50-Skills` and the skill index go there. Balnexa material that had been stored inside another project's folder was moved back into it on 2026-11-17 |
+| OD-APR-1 (06:59) | The approval of AI drafts counts as data entry and is done in the PWA |

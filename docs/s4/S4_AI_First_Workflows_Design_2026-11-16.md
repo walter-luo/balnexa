@@ -57,7 +57,7 @@ The functions already built stay, and the AI uses them as tools.
 | **Runtime AI** (Claude or ChatGPT, the household's choice) with **skills** | Runs every workflow. It reads documents from Drive or from an upload, extracts the content, calls Balnexa tools through the custom connector, writes reports, and files documents. A skill is the written procedure and checklist for one workflow |
 | **Balnexa Gateway + database** | Tools (MCP and REST), validation, drafts, approval, posting, the audit trail and the guards. No document parsing and no report logic |
 | **Reviewer AI** (the other platform, the Owner's choice) | Read-only review of drafts, reports and history checks; review notes in the data folder |
-| **PWA** (phone, including offline, and web) | Only data work: queries, data entry and viewing reports. The approval of AI drafts counts as data entry (to be confirmed by the Owner). It contains no AI |
+| **PWA** (phone, including offline, and web) | Only data work: queries, data entry and viewing reports. The approval of AI drafts counts as data entry and happens here (Owner, 2026-11-17). It contains no AI |
 | **Drive data folder** | Originals in `20-Inbox` (the data owner's), processed copies in `30-Processed`, the index in `10-Index`, and AI reports in `40-Exports` (`Data_Folder_Convention.md`) |
 | **Member (Owner)** | Uploads originals, asks the AI, and approves in the PWA |
 
