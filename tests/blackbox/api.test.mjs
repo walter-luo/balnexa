@@ -732,7 +732,7 @@ test('AT-CONF-04 AIH-4 card: one display-only MCP App resource; draft tools name
   // the catalog binds the card to the draft tools only
   const tools = (await rpcAt(S.bearer, 'tools/list')).json.result.tools;
   const withCard = tools.filter((t) => t._meta && t._meta.ui).map((t) => t.name).sort();
-  assert.deepEqual(withCard, ['fin_draft_create_transaction', 'fin_draft_create_transfer', 'fin_draft_get_for_confirmation', 'fin_draft_revise',
+  assert.deepEqual(withCard, ['fin_draft_create_statement', 'fin_draft_create_transaction', 'fin_draft_create_transfer', 'fin_draft_get_for_confirmation', 'fin_draft_revise',
     'fin_draft_validate', 'fin_draft_withdraw'].filter((n) => tools.some((t) => t.name === n)));
   const dt = tools.find((t) => t.name === 'fin_draft_create_transaction');
   assert.deepEqual(dt._meta, { ui: { resourceUri: 'ui://balnexa/cards/v1' }, 'openai/outputTemplate': 'ui://balnexa/cards/v1', 'openai/widgetAccessible': false });

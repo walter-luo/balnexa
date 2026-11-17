@@ -219,3 +219,44 @@ A skill is written as a candidate in `50-Skills/Validation/`. It moves to `Activ
 |---|---|---|
 | Q1 | G2: may a statement be approved while its evidence is still `unverified` (hash pending)? | **Yes** for synthetic testing; decided again before real data |
 | Q2 | Where do skills live? | **The household's data folder (Drive), the member's Claude account, and a generic copy in this repository** (§5). The Drive copy is required because some AI hosts (ChatGPT Plus) cannot use native skills, but can load one from Drive |
+
+## 8. Implementation status
+
+### 9043 (`9043_s4_statement_drafts.sql`, release V1.0-R03 proposed)
+
+| Item | Built |
+|---|---|
+| G1 | **`cmd_draft_statement`** (MCP `fin.draft.create_statement`, scope `finance.draft`; PWA as an import plan for a member with `can_post`) |
+| G4 | **`q_ledger_accounts`** on MCP (`fin.ledger.accounts`, scope `finance.read`) |
+| G7 (database part) | **`q_statement_chain`** (`fin.statements.chain`); **`cmd_explain_statement_gap`** (PWA only, tier 2); continuity measured against pending predecessors |
+
+**How `cmd_draft_statement` works:**
+1. It takes the header and the lines **as printed**.
+2. It turns owed-positive statements (cards and loans) to the ledger sign.
+3. It computes each line's fingerprint itself (account, date, amount, description or bank reference, occurrence number).
+4. It creates one plan with the statement in its scope. A corrected statement may replace the caller's own open statement draft (`supersedes_plan_id`).
+
+**Checks.** The existing checks V-01…V-10 run: V-03 duplicates, V-04 opening + lines = closing, V-05 coverage, V-07 economic type and V-09 review. New in `intake_validate`:
+
+| Check | Result |
+|---|---|
+| **V-11 continuity** | The opening balance against the closing balance of the nearest earlier live statement. `first`, `ok`, `gap` (a finding), `break` (hold `BALANCE_BREAK` until a member records an explanation) or `explained` |
+| **V-12 opening anchor** | An item before the opening anchor of an account it touches holds the plan (`BEFORE_OPENING`). Until now such a plan was approved and then failed in the posting worker (`POSTINGS_BEFORE_ANCHOR`). For history (W6) the anchor first moves to the start of the earliest statement |
+
+**Tests:** `tests/py/run_s4_core20.py`, three suites.
+
+| Test | What it covers |
+|---|---|
+| AT-STM-01 | The statement path end to end, the holds, an owed-positive card, 7 refusals, the consent boundary, the chain over MCP |
+| AT-STM-02 | History submitted oldest first, `BEFORE_OPENING`, overlap |
+| AT-OUT-04 | The curated output schemas of the three tools |
+
+**Limitations:**
+
+| Id | Limitation |
+|---|---|
+| L-STM-1 | A statement with no lines cannot be submitted (a plan has at least one item). A no-activity period is handled as a gap instead |
+| L-STM-2 | Every line needs a classification (a category, or typed lines). An unsure line carries `needs_review` and holds the plan (V-09) until revised |
+| L-STM-3 | The statement is not linked to an evidence object yet (G2; Q1). The Drive file id is kept in the plan scope |
+| L-STM-4 | A gap explanation applies to every statement plan of the account-currency whose boundary its dates overlap |
+| L-STM-5 | The NULL-guard sweep (`tools/s4/null_guard_sweep.py`) has not been re-run for the three new functions. They check their inputs explicitly; a sweep run is due with the next sweep |

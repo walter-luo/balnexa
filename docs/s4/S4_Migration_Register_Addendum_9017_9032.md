@@ -49,6 +49,7 @@
 | 9040 | `9040_s4_null_guard_sweep.sql` | MODIFY `plan_create`, `wrk_backup_recorded` (9039), `cmd_invite_member`, `cmd_record_ownership`, `cmd_post_transaction` (0106), `wrk_capacity_update` (9016), `wrk_doc_discovered` (9011); no catalog delta | — | — | L-R2-1 | NULL-guard sweep: the 15 defective pairs (docs/s4/S4_L-R2-1_NULL_Guard_Sweep_2026-11-14.md); PR from `s4/null-guard-sweep` |
 | 9041 | `9041_s4_pan_guard.sql` | NEW `pan_*` detector functions (9); MODIFY `idem_begin` (0106), `audit`, `stage_write` (9011); no catalog delta | — | — | D-PAN-1 | payment-card number guard; PR from `s4/pan-guard` |
 | 9042 | `9042_s4_pan_debit_prefixes.sql` | MODIFY `pan_scheme_ok`, `pan_json_has`, `pan_mask_json` (9041); no catalog delta | — | — | OD-PAN-1 | detector v1.1.0: any prefix for 16–19 digits; machine-generation keys exempt; PR from `s4/pan-debit` |
+| 9043 | `9043_s4_statement_drafts.sql` | NEW table `statement_gap_note`; NEW `statement_fingerprint`, `statement_continuity`, `cmd_draft_statement`, `q_statement_chain`, `cmd_explain_statement_gap`; MODIFY `intake_validate` (9010, V-11); `function_scope` rows; catalog delta (4) | — | — | OD-AI-1…4 | AI-first statement intake (G1, G4, G7 of `S4_AI_First_Workflows_Design_2026-11-16.md`); PR from `s4/statement-draft` |
 
 ## 3. Proposed disposition rows
 
@@ -64,6 +65,7 @@
 | 9040 | **Accepted** by the Owner 2026-11-15 (OD-REG-1) as the L-R2-1 follow-up of 9039 | none; L-NULL-1, L-NULL-2 and L-NULL-4 accepted as they are (OD-NULL-1) |
 | 9041 | **Accepted** by the Owner 2026-11-15 (OD-REG-1) as the card-number guard | none; D-PAN-1 confirmed as OD-PAN-1 with the debit change in 9042 |
 | 9042 | **Accept** as the OD-PAN-1 change | none beyond confirming the row |
+| 9043 | **Accept** as the database part of the AI-first statement intake | none beyond confirming the row |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row

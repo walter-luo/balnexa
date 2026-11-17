@@ -36,6 +36,8 @@ from jsonschema_lite import validate  # noqa: E402,F401 (shared with the harness
 OUT_9035 = ["q_account_proposals", "q_balance_observations", "q_card_fee_progress", "q_evidence_access", "q_investment_position",
             "q_onboarding_job", "q_r28_loan_position", "q_reconciliation_coverage", "q_reconciliation_exceptions", "q_replay_snapshot",
             "q_snapshot_artifact", "q_transfer_matching"]
+# 9043 tools: their output schemas are checked by AT-OUT-04 (run_s4_core20.py)
+OUT_9043 = ["cmd_draft_statement", "q_statement_chain", "q_ledger_accounts"]
 
 
 def catalog_entry(H, fn):
@@ -50,7 +52,8 @@ def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
     # field-level schemas of 9032/9033 are called here; the 9035 ones (the 9034 tools made field-level) by AT-OUT-03; every
     # suite checks all of them through the harness output contract (AT-OUT-02)
-    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v and v["output"].get("required") and k not in OUT_9035)
+    curated = sorted(k for k, v in ovr["schemas"].items() if "output" in v and v["output"].get("required") and k not in OUT_9035
+                     and k not in OUT_9043)
     H = C4.v2_full(server, "bnx_c19out")
     cad = H.cad["account_currency_id"]
     sav = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Savings", currencies=["CAD"])["account_currencies"][0]

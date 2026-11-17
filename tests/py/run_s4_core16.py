@@ -21,9 +21,12 @@ def test(tid, ref):
     return deco
 
 
-@test("AT-PWA-LA-01", "UA V1.2 §12.1; Draft-04 C1 W-M01…W-M03 (Quick Entry ledger accounts: visibility, can_post, categories; PWA only)")
+@test("AT-PWA-LA-01", "UA V1.2 §12.1; Draft-04 C1 W-M01…W-M03 (Quick Entry ledger accounts: visibility, can_post, categories); "
+                      "9043 (MCP read tool fin.ledger.accounts: finance.read, consented account subset only)")
 def t_ledger(server, ev):
     H = C4.household(server, "bnx_c16la")
+    sav = H.cmd(H.owner, "create_account", kind="bank_deposit", **H.inst("Synthetic Bank"), label="Savings",
+                currencies=["CAD"])["account_currencies"][0]["account_currency_id"]
     o = H.q(H.owner, "ledger_accounts")
     d_id = H.cmd(H.owner, "invite_member", display_name="Member D", role="member", google_sub="g-member-d")["member_id"]
     H.cmd(H.owner, "set_grant", member_id=d_id, account_id=H.acc, can_view=True, can_post=False)
@@ -33,17 +36,26 @@ def t_ledger(server, ev):
     H.cmd(H.owner, "set_grant", member_id=v_id, account_id=H.acc, can_view=True, can_post=True)
     V = H.login("g-viewer-v")
     vv = H.q(V, "ledger_accounts")
+    # 9043: an AI connection with finance.read sees only its consented account-currencies; the categories are the household's
     B = C4.bearer(H, ["finance.read"], acs=[H.cad["account_currency_id"]])
-    mcp = expect_err(H.q, "SCOPE_NOT_CONSENTED", B, "ledger_accounts")
+    mcp = H.q(B, "ledger_accounts")
+    # a connection without finance.read is still refused
+    BD = C4.bearer(H, ["finance.draft"], acs=[H.cad["account_currency_id"], sav])
+    mcp_no = expect_err(H.q, "SCOPE_NOT_CONSENTED", BD, "ledger_accounts")
     H.close()
-    json.dump({"owner": o, "member": d, "viewer": vv, "bearer": mcp}, open(os.path.join(ev, "AT-PWA-LA-01.json"), "w"), indent=1)
+    json.dump({"owner": o, "member": d, "viewer": vv, "bearer": mcp, "bearer_without_read": mcp_no},
+              open(os.path.join(ev, "AT-PWA-LA-01.json"), "w"), indent=1)
+    check({a["account_currency_id"] for a in o["accounts"]} >= {H.cad["account_currency_id"], sav}, f"owner sees both: {o['accounts']}")
+    check([a["account_currency_id"] for a in mcp["accounts"]] == [H.cad["account_currency_id"]], f"AI subset only: {mcp['accounts']}")
+    check(mcp["categories"] == o["categories"], f"AI categories: {mcp['categories']}")
     check(o["accounts"] and all(a["can_post"] for a in o["accounts"]) and all(a["ledger_account_id"] for a in o["accounts"]), f"{o}")
     check({a["account_id"] for a in d["accounts"]} == {H.acc} and not any(a["can_post"] for a in d["accounts"]), f"{d}")
     check(not any(a["can_post"] for a in vv["accounts"]), f"viewer never posts even with a can_post grant: {vv}")
     check(any(c["ledger_account_id"] == H.groceries and c["kind"] == "expense" for c in o["categories"]) and d["categories"] == o["categories"], f"{o['categories']}")
     return (f"owner: {len(o['accounts'])} account-currencies, all postable; member without can_post: only the granted account, can_post false; "
             f"viewer: can_post false even with a can_post grant (role rule); {len(o['categories'])} active categories for everyone; an AI bearer "
-            f"is refused ({mcp.split(':')[0]}) - the query is not an MCP tool")
+            f"with finance.read sees only its consented account-currency (1 of {len(o['accounts'])}) and the same categories (9043); "
+            f"one without finance.read is refused ({mcp_no.split(':')[0]})")
 
 
 @test("AT-AUD-TRAIL-01", "OR-U-02 (7); 9020 (audit trail: household for Owner/admin, own events otherwise; filters; paging; PWA only)")

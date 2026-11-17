@@ -1,0 +1,30 @@
+{
+ "server": "pg16",
+ "seconds": 12.0,
+ "pass": 3,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-STM-01",
+   "ref": "G1, G4; 9043 (an AI host submits a statement whole; the database checks the balance chain, duplicates and continuity; the AI cannot approve; the Owner approves in the PWA; refusals; owed-positive statements)",
+   "status": "PASS",
+   "detail": "AI statement draft: balance chain (V-04), duplicates and coverage (V-03/V-05), supersede, break held until explained (V-11), gap as a finding, owed-positive card statement in the ledger sign, 7 refusals incl. a card number, consent boundary, chain and notes read over MCP; the AI cannot approve or explain",
+   "seconds": 4.07
+  },
+  {
+   "id": "AT-STM-02",
+   "ref": "G7, W6; 9043 (history: statements submitted oldest first are checked against their pending predecessors and approved together; a later statement that reopens an approved period is held)",
+   "status": "PASS",
+   "detail": "three months submitted oldest first: each checked against its pending predecessor, all clean, approved and activated; an overlapping later statement is held (COVERAGE)",
+   "seconds": 4.13
+  },
+  {
+   "id": "AT-OUT-04",
+   "ref": "9043; 2.8 output contract (the curated output schemas of fin.draft.create_statement, fin.statements.chain and fin.ledger.accounts hold for the Owner in the PWA and for an AI connection)",
+   "status": "PASS",
+   "detail": "8 calls by the Owner (PWA) and an AI connection (MCP), incl. replays: every result conforms; the catalog carries the overrides' schemas",
+   "seconds": 3.83
+  }
+ ]
+}
