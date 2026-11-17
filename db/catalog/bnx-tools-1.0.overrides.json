@@ -58,7 +58,8 @@
   "cmd_draft_revise": "draft_confirm",
   "cmd_draft_validate": "draft_confirm",
   "q_draft_get_for_confirmation": "draft_confirm",
-  "cmd_draft_withdraw": "status"
+  "cmd_draft_withdraw": "status",
+  "cmd_draft_statement": "draft_confirm"
  },
  "note_ui_cards": "AIH-4 (UA V1.2 §12.3; AIH §8): MCP tools whose result the host renders with the one MCP App resource ui://balnexa/cards/v1, by card profile. Display only: the card opens the sealed PWA link and never calls a tool (in-card approval off, OD-40).",
  "schemas": {
@@ -6172,6 +6173,559 @@
        "object",
        "null"
       ]
+     }
+    }
+   }
+  },
+  "cmd_draft_statement": {
+   "description": "Submit one bank, card or investment statement as read from the document: its period, printed opening and closing balances, and every line. Nothing is posted: Balnexa checks the statement (opening + lines = closing, continuity with the previous statement, duplicates) and a member approves it in the Balnexa app. Copy printed values exactly; never compute figures; never send a full card or account number.",
+   "input": {
+    "type": "object",
+    "required": [
+     "account_currency_id",
+     "period_from",
+     "period_to",
+     "opening_balance",
+     "closing_balance",
+     "sign_convention",
+     "lines"
+    ],
+    "properties": {
+     "account_currency_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The account-currency of the statement (from fin.ledger.accounts)"
+     },
+     "period_from": {
+      "type": "string",
+      "format": "date",
+      "description": "First day of the statement period, as printed"
+     },
+     "period_to": {
+      "type": "string",
+      "format": "date",
+      "description": "Last day of the statement period (statement date), as printed"
+     },
+     "opening_balance": {
+      "type": [
+       "number",
+       "string"
+      ],
+      "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+      "description": "Opening (previous) balance exactly as printed"
+     },
+     "closing_balance": {
+      "type": [
+       "number",
+       "string"
+      ],
+      "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+      "description": "Closing (new) balance exactly as printed"
+     },
+     "sign_convention": {
+      "enum": [
+       "asset_positive",
+       "owed_positive"
+      ],
+      "description": "asset_positive for bank and investment accounts (money in is positive); owed_positive for cards and loans as printed (a purchase or a balance owed is positive)"
+     },
+     "institution": {
+      "type": "string",
+      "maxLength": 80
+     },
+     "account_last4": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$",
+      "description": "Last 4 digits only"
+     },
+     "source_file_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{10,128}$",
+      "description": "Drive file id of the statement"
+     },
+     "supersedes_plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Your own open statement draft that this corrected statement replaces"
+     },
+     "lines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+       "type": "object",
+       "required": [
+        "date",
+        "amount",
+        "description"
+       ],
+       "properties": {
+        "date": {
+         "type": "string",
+         "format": "date",
+         "description": "Posting date as printed"
+        },
+        "amount": {
+         "type": [
+          "number",
+          "string"
+         ],
+         "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+         "description": "Amount in the statement's sign convention, as printed (withdrawals negative on a bank statement)"
+        },
+        "description": {
+         "type": "string",
+         "maxLength": 200,
+         "description": "As printed; no card, account or government ID numbers"
+        },
+        "bank_ref": {
+         "type": "string",
+         "maxLength": 64
+        },
+        "counter_ledger_account_id": {
+         "type": "string",
+         "format": "uuid",
+         "description": "Proposed category or other ledger account (from fin.ledger.accounts); every line needs one or typed lines"
+        },
+        "economic_type": {
+         "enum": [
+          "consumption_expense",
+          "card_spend",
+          "income",
+          "interest_income",
+          "refund",
+          "fee",
+          "interest_expense",
+          "loan_interest",
+          "internal_transfer",
+          "card_repayment",
+          "fx_conversion",
+          "loan_disbursement",
+          "loan_principal_repayment",
+          "loan_lent",
+          "loan_principal_collected",
+          "intra_household_loan",
+          "intra_household_loan_repayment",
+          "investment_subscription",
+          "investment_redemption",
+          "investment_income",
+          "transfer_to_clearing",
+          "clearing_resolution",
+          "opening_balance",
+          "correction_reversal",
+          "correction_replacement",
+          "interledger_transfer"
+         ]
+        },
+        "lines": {
+         "type": "array",
+         "minItems": 2,
+         "maxItems": 20,
+         "items": {
+          "type": "object",
+          "required": [
+           "ledger_account_id",
+           "currency",
+           "amount"
+          ],
+          "properties": {
+           "ledger_account_id": {
+            "type": "string",
+            "format": "uuid"
+           },
+           "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+           },
+           "amount": {
+            "type": [
+             "number",
+             "string"
+            ],
+            "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+            "description": "Signed amount on the account: negative = money out, positive = money in"
+           }
+          }
+         },
+         "description": "Full balanced lines instead of amount + counter_ledger_account_id"
+        },
+        "needs_review": {
+         "type": "boolean",
+         "description": "True when you are unsure of the classification; the member decides"
+        }
+       }
+      }
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "plan_id",
+     "plan_hash",
+     "scope_digest",
+     "kind",
+     "frozen_at_version",
+     "hold_reasons",
+     "validation_result",
+     "replayed",
+     "continuity"
+    ],
+    "properties": {
+     "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The draft (posting plan)"
+     },
+     "plan_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Hash of this exact version; the approval in the Balnexa app binds to it"
+     },
+     "scope_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32,128}$",
+      "description": "Digest of the draft's scope (account-currency, date range, evidence)"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ai_draft",
+       "import"
+      ],
+      "description": "ai_draft when an AI host submitted it; import when a member did in the Balnexa app"
+     },
+     "frozen_at_version": {
+      "type": "integer",
+      "description": "Ledger version the draft was validated against"
+     },
+     "hold_reasons": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Why the draft cannot be approved yet; empty when none"
+     },
+     "validation_result": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Checks V-01…V-11: 'ok', 'n/a', 'first', 'gap', 'explained', 'FINDING:<what>' or 'HOLD:<reason>'. V-04 is opening + lines = closing; V-11 is continuity with the previous statement"
+     },
+     "replayed": {
+      "type": "boolean",
+      "description": "True when this answer replays an earlier call with the same idempotency key"
+     },
+     "continuity": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+       "status"
+      ],
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "first",
+         "ok",
+         "gap",
+         "break",
+         "explained",
+         "n/a"
+        ],
+        "description": "How this statement meets the previous statement of the account"
+       },
+       "previous_plan_id": {
+        "type": "string",
+        "format": "uuid"
+       },
+       "previous_period_to": {
+        "type": "string",
+        "format": "date"
+       },
+       "previous_closing": {
+        "type": "string"
+       },
+       "opening": {
+        "type": "string"
+       },
+       "gap_from": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "format": "date"
+       },
+       "gap_to": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "format": "date"
+       }
+      }
+     }
+    }
+   }
+  },
+  "q_statement_chain": {
+   "description": "The statements of one account-currency in period order: balances, state, holds and continuity (gaps and breaks), and the member's recorded gap explanations. Use it to check a history.",
+   "input": {
+    "type": "object",
+    "required": [
+     "account_currency_id"
+    ],
+    "properties": {
+     "account_currency_id": {
+      "type": "string",
+      "format": "uuid"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "account_currency_id",
+     "statements",
+     "gap_notes"
+    ],
+    "properties": {
+     "account_currency_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "statements": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": true,
+       "required": [
+        "plan_id",
+        "state",
+        "period_from",
+        "period_to",
+        "opening",
+        "closing",
+        "continuity"
+       ],
+       "properties": {
+        "plan_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "kind": {
+         "type": "string"
+        },
+        "state": {
+         "type": "string"
+        },
+        "period_from": {
+         "type": "string",
+         "format": "date"
+        },
+        "period_to": {
+         "type": "string",
+         "format": "date"
+        },
+        "opening": {
+         "type": "string",
+         "description": "Ledger sign"
+        },
+        "closing": {
+         "type": "string",
+         "description": "Ledger sign"
+        },
+        "printed_opening": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "printed_closing": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "sign_convention": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "line_count": {
+         "type": "integer"
+        },
+        "hold_reasons": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "continuity": {
+         "type": "object",
+         "additionalProperties": true,
+         "required": [
+          "status"
+         ],
+         "properties": {
+          "status": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "gap_notes": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": true,
+       "required": [
+        "gap_from",
+        "gap_to",
+        "reason"
+       ],
+       "properties": {
+        "gap_from": {
+         "type": "string",
+         "format": "date"
+        },
+        "gap_to": {
+         "type": "string",
+         "format": "date"
+        },
+        "reason": {
+         "type": "string"
+        },
+        "note": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "q_ledger_accounts": {
+   "description": "The accounts the connection may see (with their ledger account and whether the caller may post) and the household's active income and expense categories. Use the ids to classify statement lines and drafts.",
+   "input": {
+    "type": "object",
+    "properties": {}
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "accounts",
+     "categories"
+    ],
+    "properties": {
+     "accounts": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": true,
+       "required": [
+        "account_currency_id",
+        "ledger_account_id",
+        "currency",
+        "kind"
+       ],
+       "properties": {
+        "account_currency_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "ledger_account_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "account_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "label": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "kind": {
+         "type": "string"
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "state": {
+         "type": "string"
+        },
+        "institution_code": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "institution": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "can_post": {
+         "type": "boolean"
+        }
+       }
+      }
+     },
+     "categories": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": true,
+       "required": [
+        "ledger_account_id",
+        "kind",
+        "currency"
+       ],
+       "properties": {
+        "ledger_account_id": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "kind": {
+         "type": "string",
+         "enum": [
+          "income",
+          "expense"
+         ]
+        },
+        "currency": {
+         "type": "string",
+         "pattern": "^[A-Z]{3}$"
+        },
+        "name_en": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "name_zh": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
      }
     }
    }

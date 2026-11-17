@@ -60,7 +60,7 @@ test('UT-SCHEMA-01 JSON Schema subset: types, formats, patterns, required, addit
 test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8 flags; codes', () => {
   const env = { BNX_PROJECT_ID: 'p1', BNX_INSTANCE_UID: 'u1', BNX_CONFIG_DIGEST: 'd'.repeat(64), BNX_MODULES: '{"Canada":"YES","International":"NO","CRA":"YES"}' };
   const facts = { identity: { project_id: 'p1', instance_uid: 'u1' }, deployable_sha256: ['d'.repeat(64)],
-                  schema_head: { core: '0109', extension: '9042' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
+                  schema_head: { core: '0109', extension: '9043' }, active: { flags: { CRA: 'YES', Canada: 'YES', International: 'NO' } } };
   assert.deepEqual(evaluate(env, facts), { ok: true, failed: [], error: null });
   const cases = [
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],

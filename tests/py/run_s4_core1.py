@@ -618,6 +618,9 @@ HELPERS_NOT_IN_DISPOSITION = {
     # 9041 card-number guard (D-PAN-1; register row 9041, docs/s4/S4_PAN_Guard_2026-11-14.md)
     "bnx.pan_luhn", "bnx.pan_scheme_ok", "bnx.pan_is", "bnx.pan_letter", "bnx.pan_spans", "bnx.pan_has", "bnx.pan_mask",
     "bnx.pan_json_has", "bnx.pan_mask_json",
+    # 9043 AI-first statement drafts (OD-AI-1..4; register row 9043, docs/s4/S4_AI_First_Workflows_Design_2026-11-16.md)
+    "bnx.statement_gap_note", "bnx.statement_fingerprint", "bnx.statement_continuity", "bnx.cmd_draft_statement",
+    "bnx.q_statement_chain", "bnx.cmd_explain_statement_gap",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

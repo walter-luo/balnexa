@@ -6,7 +6,10 @@ The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16
 
 ## Unreleased
 
-Nothing yet.
+- **AI-first statement intake, database part (9043).** The AI submits a statement as printed, with its period, opening and closing balances and every line (`fin.draft.create_statement`). The database checks it: opening + lines = closing, duplicates, coverage, continuity with the previous statement (V-11), and the opening anchor (V-12). A member approves it in the PWA. New read tools for the AI: `fin.statements.chain` and `fin.ledger.accounts`. A member can explain a gap or a balance break (PWA). Design: `docs/s4/S4_AI_First_Workflows_Design_2026-11-16.md`.
+- V-12 holds a plan with an item before the opening anchor, before approval. Before this change, the posting worker refused it after approval.
+- Migrations: 9043. Release string V1.0-R03 (proposed; the Owner decides).
+- **Operator action:** deploy the Worker first, then migrate to 9043.
 
 ## V1.0-R02 — 2026-11-16
 
