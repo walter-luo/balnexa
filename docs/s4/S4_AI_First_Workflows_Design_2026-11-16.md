@@ -140,6 +140,28 @@ The AI keeps the folder structure, the copies in `30-Processed` and the index sh
 
 **Not needed:** a statement parser, an import job, report programs, or an AI inside the PWA.
 
+### 4a. Skills replace the main development (Owner, 2026-11-16 22:07: "skill替代主要代码开发")
+
+The main development effort goes into **skills**, not code. The program work is cut to what an AI cannot do safely or cannot reach:
+
+| Stays code | Why it cannot be a skill | Kept small by |
+|---|---|---|
+| G1 + G7 database part | The AI needs a tool to write a statement at all. The balance, continuity and duplicate checks must hold whatever the AI sends (B2) | One `cmd_draft_statement` tool that writes into the existing `statement`/`source_txn` tables through the existing plan path. The checks are SQL inside the same migration |
+| G3 + G7 batch approval | Approval is the member's (C-04), and the PWA is the only place it happens | Reusing the existing Draft Confirm screen (`#/confirm/<plan>`): a statement draft is a plan, so the screen gains a statement view, not a new screen |
+| G4 | The AI cannot call a function the catalog does not expose | Catalog and scope rows only |
+| G2 | The AI cannot hash a Drive file | Deferred until real data (Q1) |
+
+**Everything else is a skill:**
+- reading and understanding documents;
+- classification;
+- the order of a historical import;
+- explaining gaps and exceptions;
+- reports and answers to questions;
+- filing and the index;
+- the inventory of a history.
+
+**Not built:** parsers, import jobs, report programs, classification rules in code.
+
 ## 5. Skills and how they are distributed
 
 | Skill | Workflow | Writes |
