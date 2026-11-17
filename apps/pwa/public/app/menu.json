@@ -90,7 +90,10 @@
     "bnx.cmd_draft_withdraw",
     "bnx.q_r30_review_queue",
     "bnx.q_intake_exceptions",
-    "bnx.q_intake_coverage"
+    "bnx.q_intake_coverage",
+    "bnx.cmd_draft_statement",
+    "bnx.q_statement_chain",
+    "bnx.cmd_explain_statement_gap"
    ]
   },
   {

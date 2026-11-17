@@ -66,7 +66,7 @@ test('UT-BIND-01 binding evaluation: B1 identity, B2 digest, B3 schema range, B8
     [{ ...env, BNX_PROJECT_ID: 'p2' }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_INSTANCE_UID: undefined }, facts, ['B1'], 'BNX_BINDING_MISMATCH'],
     [{ ...env, BNX_CONFIG_DIGEST: 'e'.repeat(64) }, facts, ['B2'], 'BNX_BINDING_MISMATCH'],
-    [env, { ...facts, schema_head: { core: '0109', extension: '9043' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
+    [env, { ...facts, schema_head: { core: '0109', extension: '9044' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // newer database than this release
     [env, { ...facts, schema_head: { core: '0109', extension: '9016' } }, ['B3'], 'BNX_BINDING_MISMATCH'],       // older than N-1
     [{ ...env, BNX_MODULES: '{"Canada":"YES","International":"YES","CRA":"YES"}' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
     [{ ...env, BNX_MODULES: 'not json' }, facts, ['B8'], 'BNX_FLAG_BINDING_MISMATCH'],
