@@ -1,0 +1,3 @@
+name,version,status,path,size_bytes,sha256
+balnexa-history,0.1.0,candidate,skills/balnexa-history/SKILL.md,5107,48a6f106dbe8f80bc429dbc80b811e1701a0e48cc22c6d4de32fab27e8b2b487
+balnexa-statement-intake,0.1.0,candidate,skills/balnexa-statement-intake/SKILL.md,6273,dfd49119a59e532ad04e668e7edf1f60055bdf913ef75d53fbf1d50c691f0cd4

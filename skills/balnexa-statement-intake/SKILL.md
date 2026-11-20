@@ -72,7 +72,7 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
    |---|---|---|
    | V-04 `HOLD:BALANCE_CHAIN` | Opening + lines ≠ closing | Re-read the statement: a missed or misread line, or a wrong sign. Correct and resubmit with `supersedes_plan_id` |
    | V-03 `HOLD:DUPLICATE`, V-05 `HOLD:COVERAGE` | The statement or some lines are already entered or pending | Tell the member; usually withdraw your draft |
-   | V-11 `HOLD:BALANCE_BREAK` | The opening does not meet the previous closing | Tell the member the dates and both balances. The usual cause is a missing statement. Only a member can record an explanation, in the app |
+   | V-11 `HOLD:BALANCE_BREAK` | The opening does not meet the previous closing | Tell the member the dates and both balances. The usual cause is a missing statement. Only a member can record an explanation, in the app (menu **4. Drafts and approval** → **Explain a statement gap**) |
    | V-11 `FINDING:GAP` | Dates missing between statements, balances match | Usually no activity. Tell the member |
    | V-12 `HOLD:BEFORE_OPENING` | The statement is older than the account's opening | History: use `balnexa-history` |
    | V-09 `HOLD:REVIEW_QUEUE` | Lines marked for review | List them for the member |

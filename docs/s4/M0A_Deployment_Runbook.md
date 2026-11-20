@@ -55,7 +55,14 @@
    npx wrangler@4.161.0 secret bulk ../../secrets.json
    ```
 
-   The secrets file holds `DB_URL_BNX_APP`, `DB_URL_BNX_AUTHN` and `DB_URL_BNX_WORKER`. Delete it after the upload.
+   `wrangler secret bulk` needs a file with exactly the three keys `DB_URL_BNX_APP`, `DB_URL_BNX_AUTHN` and `DB_URL_BNX_WORKER` at the top level. The installer's `~/.balnexa/<project>.secrets.json` is **not** that file: it nests the three connection strings under `runtime` and also holds the role passwords under `passwords`. Uploading it whole would create wrong secrets. Extract the `runtime` object first (Python, so that no BOM or stray whitespace gets in):
+
+   ```bash
+   python3 -c "import json,sys; json.dump(json.load(open(sys.argv[1]))['runtime'], open(sys.argv[2],'w'))" \
+     ~/.balnexa/<project>.secrets.json ../../secrets.json
+   ```
+
+   Delete `secrets.json` after the upload. Keep the installer's file until step 6 is done: `--bind-owner-sub` reads the `bnx_migrator` password from it. If it is lost later, the next install or upgrade run sets new passwords for the four roles, and the three Worker secrets must then be uploaded again.
 6. **Bind the Owner.**
    1. In Google Cloud, add the Worker URL to the OAuth client's Authorized JavaScript origins.
    2. Open `<url>/app/` and sign in. With `BNX_INSTALL_PROBE=1` the page shows "Installer setup … subject". This appears only for a verified Google account that is not yet a member.

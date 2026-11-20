@@ -61,7 +61,7 @@ The member does these in the Balnexa app; you cannot do them:
    - an account opened or closed;
    - other.
 
-   The member records the explanation in the app, and decides whether to look for a missing statement. After that, call `fin.draft.validate` on the held drafts.
+   The member records the explanation in the app (menu **4. Drafts and approval** → **Explain a statement gap**), and decides whether to look for a missing statement. After that, call `fin.draft.validate` on the held drafts.
 7. **Approval.** Tell the member which statements are ready to approve in the app (menu **4. Drafts and approval**) and which still have findings. Approval is theirs.
 8. **History report** per account, by `balnexa-reports` rules: every figure comes from a Balnexa query, and the report is saved with its queries. It covers:
    - the coverage, from the first to the last period;
