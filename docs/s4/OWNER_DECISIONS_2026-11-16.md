@@ -29,3 +29,16 @@ The Owner's messages of 14:09, 14:15, 14:21, 17:15 and 22:04 set the direction. 
 | OD-DRV-1 | Balnexa keeps its own Drive directory. Other projects' folders may serve as reference only and are never changed |
 | OD-DRV-2 (06:59) | The household data folder is Balnexa's own Drive directory. The entry file, `50-Skills` and the skill index go there. Balnexa material that had been stored inside another project's folder was moved back into it on 2026-11-17 |
 | OD-APR-1 (06:59) | The approval of AI drafts counts as data entry and is done in the PWA |
+
+## 2026-11-18 23:31–23:34 (America/Toronto)
+
+The Owner set the input and output design and confirmed the proposed details ("确认").
+
+| ID | Decision |
+|---|---|
+| OD-IO-1 (input, PWA) | Phone and web enter single transactions and query transactions. They also keep the member-only steps: approving AI drafts (OD-APR-1), explaining a statement gap, and setting an account's opening |
+| OD-IO-2 (output, PWA) | Phone and web show a fixed set of real-time reports straight from database queries (B1), working with no AI (O-1). Proposed first set: balances per account; this month's income and expense by category; transactions for a period; card amounts due and due dates; drafts waiting for approval and exceptions |
+| OD-IO-3 (input, AI) | Every file-type input (statements, receipts, slips, history) goes through the AI, which submits drafts that a member approves in the PWA (C-04). The AI may also take a single spoken or typed transaction as a draft. Originals are read only |
+| OD-IO-4 (output, AI, fixed reports) | Fixed reports (fixed period and category) are produced by the AI from database queries and stored on Drive with their queries (B4), under `Balnexa_Data/40-Reports/<year>/<month>/`. Format: Google Sheet for tables, Doc for narrative; Markdown is the generic repository format. The report list and the schedule are to be defined in the reports skill |
+| OD-IO-5 (output, AI, real-time reports) | The AI generates reports on request from database queries and returns them in the conversation. They are saved, as in OD-IO-4, only when the member asks |
+| Boundary | The PWA real-time reports (OD-IO-2) are the only reports defined in code; every other report is produced by the AI (OD-AI-1) |
