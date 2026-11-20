@@ -6,9 +6,17 @@ The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16
 
 ## Unreleased
 
+- **Skills: index, entry template and life cycle** (AI-first design §5). `skills/README.md` describes the three copies of a skill (this repository, the household's data folder, the member's AI account) and the life cycle candidate → active → retired. `skills/INDEX.csv` records version, status, size and SHA-256 per skill; `tools/s4/skill_index.py --check` (in CI) refuses a stale row, a malformed skill or an instance detail in a generic skill. `skills/BALNEXA-AI-ENTRY.template.md` is the template of the entry file an AI reads first in the data folder. Skills `balnexa-statement-intake` and `balnexa-history` 0.1.0 (candidates).
+- Data folder convention: `40-Reports/<year>/<month>/` for AI reports (OD-IO-4), `50-Skills` and the entry file (§7). Input and output design OD-IO-1..5 recorded in `docs/s4/OWNER_DECISIONS_2026-11-16.md`.
+- Runbook: the installer's secrets file nests the Worker connection strings under `runtime`; extract that object before `wrangler secret bulk`.
+- Migrations: none. Schema range unchanged.
+- **Operator action:** none.
+
+## V1.0-R03 — 2026-11-17
+
 - **AI-first statement intake, database part (9043).** The AI submits a statement as printed, with its period, opening and closing balances and every line (`fin.draft.create_statement`). The database checks it: opening + lines = closing, duplicates, coverage, continuity with the previous statement (V-11), and the opening anchor (V-12). A member approves it in the PWA. New read tools for the AI: `fin.statements.chain` and `fin.ledger.accounts`. A member can explain a gap or a balance break (PWA). Design: `docs/s4/S4_AI_First_Workflows_Design_2026-11-16.md`.
 - V-12 holds a plan with an item before the opening anchor, before approval. Before this change, the posting worker refused it after approval.
-- Migrations: 9043. Release string V1.0-R03 (proposed; the Owner decides).
+- Migrations: 9043.
 - **Operator action:** deploy the Worker first, then migrate to 9043.
 
 ## V1.0-R02 — 2026-11-16

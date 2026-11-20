@@ -19,11 +19,13 @@ The roles are a convention. If the AI works through the data owner's own account
 
 | Folder | Managed by | Purpose |
 |---|---|---|
-| `00-Governance` | AI | This instance's README: a pointer to this convention plus any local additions |
-| `10-Index` | AI | The index: one row per original in `20-Inbox` (§4) |
+| `00-Governance` | AI | This instance's README (a pointer to this convention plus any local additions) and the AI entry file `BALNEXA-AI-ENTRY.md` (§7) |
+| `10-Index` | AI | The index: one row per original in `20-Inbox` (§4); the skill index (§7) |
 | `20-Inbox` | **Data owner** | Originals exactly as received. The AI only reads them: it never renames, moves, edits or deletes |
 | `30-Processed` | AI | Byte-identical copies of the originals, renamed and filed (§3) |
-| `40-Exports` | AI | Backups and reports exported from Balnexa |
+| `40-Exports` | AI | Backups and data exported from Balnexa |
+| `40-Reports` | AI | AI reports, `40-Reports/<year>/<month>/`, each with the queries it used (OD-IO-4, B4) |
+| `50-Skills` | AI; the member publishes | `Validation/<skill>/SKILL.md` for candidates and `Active/<skill>/SKILL.md` for published skills (§7) |
 | `90-Review-exchange` | AI | Large review outputs that do not fit in the repository (synthetic data only) |
 
 ## 3. Layout and names
@@ -80,3 +82,12 @@ A size match shows that the copy is complete; it does not prove the bytes are id
 - The folder and its files are never shared by link.
 - An instance's location, its member names and its files are not written in this repository or in any public place.
 - Review exchange files (`90-Review-exchange`) hold synthetic data only.
+
+## 7. AI entry and skills (OD-AI-3, Q2, OD-DRV-2)
+
+An AI host may not have the household's skills installed (some hosts cannot install native skills at all). It finds them in the data folder:
+
+- **`00-Governance/BALNEXA-AI-ENTRY.md`** is the file an AI reads first. It holds the instance values (the Balnexa instance and connector, the folder map with ids, the runtime and reviewer AI), the rules every skill follows, and the loading procedure. The template is `skills/BALNEXA-AI-ENTRY.template.md` in the repository; the filled copy is private.
+- **`50-Skills/`** holds the household copies of the skills, byte-identical to `skills/<skill>/SKILL.md` in the repository: candidates in `Validation/`, published skills in `Active/`. A skill moves to `Active` only when the member publishes it.
+- **The skill index** in `10-Index` has one row per skill version: `name, version, status, path, file_id, size_bytes, sha256, published_by, published_at, notes`. Its SHA-256 equals the one in `skills/INDEX.csv` for the same version. An AI checks the SHA-256 of a skill before using it.
+- **Versions are files.** A new version of a skill or of the entry file is a new file; it never overwrites the old one. The process is in `skills/README.md`.

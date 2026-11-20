@@ -58,7 +58,7 @@ The functions already built stay, and the AI uses them as tools.
 | **Balnexa Gateway + database** | Tools (MCP and REST), validation, drafts, approval, posting, the audit trail and the guards. No document parsing and no report logic |
 | **Reviewer AI** (the other platform, the Owner's choice) | Read-only review of drafts, reports and history checks; review notes in the data folder |
 | **PWA** (phone, including offline, and web) | Only data work: queries, data entry and viewing reports. The approval of AI drafts counts as data entry and happens here (Owner, 2026-11-17). It contains no AI |
-| **Drive data folder** | Originals in `20-Inbox` (the data owner's), processed copies in `30-Processed`, the index in `10-Index`, and AI reports in `40-Exports` (`Data_Folder_Convention.md`) |
+| **Drive data folder** | Originals in `20-Inbox` (the data owner's), processed copies in `30-Processed`, the index in `10-Index`, AI reports in `40-Reports`, and the skills in `50-Skills` (`Data_Folder_Convention.md`) |
 | **Member (Owner)** | Uploads originals, asks the AI, and approves in the PWA |
 
 ## 3. Workflows
@@ -101,7 +101,7 @@ Each workflow becomes one skill. The steps marked **[DB]** are program checks; e
    - `q_f1_balances` … `q_f7_reconciliation`, `q_f2_transactions`, `q_cashflow_statement`;
    - `cmd_create_report_snapshot` for figures that must be reproducible.
 3. **Write the narrative.** The AI writes the report text: findings, changes, unusual items and questions for the member.
-4. **Save (B4).** The AI saves the report in `40-Exports/<year>/`, with an appendix listing every tool call (name, arguments) and the snapshot ids. A snapshot can be replayed with `q_replay_snapshot`.
+4. **Save (B4).** The AI saves the report in `40-Reports/<year>/<month>/` (OD-IO-4: tables in a Google Sheet, narrative in a Doc), with an appendix listing every tool call (name, arguments) and the snapshot ids. A snapshot can be replayed with `q_replay_snapshot`. A real-time report is returned in the conversation and saved only when the member asks (OD-IO-5).
 
 No report program is added.
 
@@ -184,7 +184,7 @@ The main development effort goes into **skills**, not code. The program work is 
 | `balnexa-history` | W6 | inventory, opening proposals, ordered statement drafts, gap notes, the history report |
 | `balnexa-entry` | W2 | transaction and transfer drafts |
 | `balnexa-reconcile` | W3 | an explanation for the member; no writes |
-| `balnexa-report` | W4 | reports and answers; a report and its appendix in `40-Exports` |
+| `balnexa-reports` | W4 | reports and answers; a report and its appendix in `40-Reports` (OD-IO-4/5) |
 | `balnexa-filing` | W5 | `30-Processed`, the index |
 
 Each skill states:
@@ -211,7 +211,7 @@ A skill is written as a candidate in `50-Skills/Validation/`. It moves to `Activ
 1. G4, G1 and the database part of G7 (one migration), with their tests (refusals, the balance, continuity and chain checks, the duplicate checks, guard parity) and the full regression.
 2. G3 and the batch approval of G7 in the PWA, with tests.
 3. The data-folder entry and `50-Skills` layout, then the `balnexa-statement-intake` and `balnexa-history` skills. An end-to-end run on **synthetic** statements on the test instance, once it is upgraded and connected (G5).
-4. G2, then `balnexa-entry`, `balnexa-report`, `balnexa-reconcile` and `balnexa-filing`.
+4. G2, then `balnexa-entry`, `balnexa-reports`, `balnexa-reconcile` and `balnexa-filing`.
 
 ## 7. Owner decisions on the open questions (2026-11-16 22:04)
 
@@ -260,3 +260,13 @@ A skill is written as a candidate in `50-Skills/Validation/`. It moves to `Activ
 | L-STM-3 | The statement is not linked to an evidence object yet (G2; Q1). The Drive file id is kept in the plan scope |
 | L-STM-4 | A gap explanation applies to every statement plan of the account-currency whose boundary its dates overlap |
 | L-STM-5 | The NULL-guard sweep (`tools/s4/null_guard_sweep.py`) has not been re-run for the three new functions. They check their inputs explicitly; a sweep run is due with the next sweep |
+
+### Skills and the data-folder entry (`s4/skills-and-io`)
+
+| Item | State |
+|---|---|
+| `skills/README.md` | The three copies, the life cycle (candidate → active → retired) and how a host loads a skill from the data folder |
+| `skills/INDEX.csv` + `tools/s4/skill_index.py` | Version, status, size and SHA-256 per skill; `--check` and `--self-test` run in CI |
+| `skills/BALNEXA-AI-ENTRY.template.md` | Generic template of `00-Governance/BALNEXA-AI-ENTRY.md` |
+| `balnexa-statement-intake`, `balnexa-history` | 0.1.0, candidates; not yet run against a connected AI host (L-AIH-2) |
+| Report location | `40-Reports/<year>/<month>/` (OD-IO-4) replaces `40-Exports/<year>/` for AI reports; `40-Exports` keeps backups and data exports. The reports skill is named `balnexa-reports` |

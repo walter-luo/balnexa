@@ -34,6 +34,10 @@ jobs:
         run: python3 tools/s4/issue_guard.py --self-test
       - name: license headers (CR-3; holder from NOTICE)
         run: python3 tools/s4/license_headers.py --check
+      - name: skill index (AI-first §5; skills/INDEX.csv matches every SKILL.md, which is well formed and generic)
+        run: |
+          python3 tools/s4/skill_index.py --self-test
+          python3 tools/s4/skill_index.py --check
       - name: release manifest (INS-1; deploy rule, N-1 range, immutable migrations)
         run: python3 tools/s4/release_manifest.py --check
       - name: release files and signature (INS-1; the signature gate is at install, --require-signed; here it is reported)
