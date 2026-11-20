@@ -51,3 +51,11 @@ Found at the first real AI connection (Claude, synthetic test instance). Owner w
 |---|---|
 | OD-CAT-1 | Categories are predefined by the system: a built-in list, modelled on the default lists of common household finance software (Quicken, 随手记 and the like), in English and Chinese, two levels. Members may add their own; they do not have to enter the list |
 | OD-ACC-1 | Accounts may be entered by hand, but mainly come from the AI reading bank statements. **Two-step approval:** the AI proposes the account read from the statement; a member approves it in the app (which also sets the opening balance from that statement); then the AI submits the statement, which the member approves as usual |
+
+## 2026-11-20 10:17–15:53 (America/Toronto)
+
+First end-to-end run of the two-step approval on the synthetic test instance (Claude, synthetic Canadian Tire card statement for October 2026): the account was proposed, approved in the PWA and the statement posted. The run found six issues (F-LIVE-1..6, `S4_9046_Implementation_Notes.md`). Owner word at 15:53: "确认" (to the proposed scope: hold texts, line review in the PWA, skill rules, the opening amount; the tool-list note to the runbook only).
+
+| ID | Decision |
+|---|---|
+| OD-LIVE-1 | Fix F-LIVE-1..5 in one PR (9046, release V1.0-R06), including the PWA line review of statement drafts (G3); F-LIVE-6 is a runbook note |

@@ -35,6 +35,7 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 
 | Tool | Use |
 |---|---|
+| `fin.balances.as_of` | Check that another household account a line touches already exists in Balnexa on that date (status `BEFORE_OPENING` means it does not) |
 | `fin.ledger.accounts` | Find the account-currency of the statement (match institution, currency and the last 4 digits in `reference_display`) and the categories for classification (`parent_id` links a subcategory to its category) |
 | `fin.statements.chain` | See the statements already entered for the account, their periods, balances and continuity |
 | `fin.draft.create_statement` | Submit the statement |
@@ -65,7 +66,8 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 4. **Check the history.** Call `fin.statements.chain` for the account. If this statement is older than the first one entered, or there is a gap before it, say so. History is handled by `balnexa-history`.
 5. **Classify each line.**
    - Give every line a `counter_ledger_account_id` from the categories, or typed `lines` for a transfer between household accounts (for example a card payment from a chequing account: `economic_type` `card_repayment`, both accounts).
-   - Mark a line `needs_review: true` when you are not sure. The member then decides.
+   - **The other account of a transfer must already exist on the line's date.** Call `fin.balances.as_of` for that account on the line's date. If its status is `BEFORE_OPENING` (or the account is not visible to you), do not guess: ask the member which account paid, and tell them it opens later in Balnexa. They can enter that account's earlier statement first, or move its opening date earlier in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**).
+   - Mark a line `needs_review: true` when you are not sure. The member then decides, line by line, in the app.
 6. **Submit.** Call `fin.draft.create_statement` with:
    - `account_currency_id`, `period_from`, `period_to`;
    - `opening_balance` and `closing_balance` as printed;
@@ -74,17 +76,31 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
    - `institution`, `account_last4`, and the Drive `source_file_id`.
 
    For a corrected version of your own open draft, pass `supersedes_plan_id`.
+
+   **Signs, worked example (card, `owed_positive`).** Copy amounts exactly as printed; Balnexa turns them to the ledger sign. A card statement prints purchases positive and payments negative:
+
+   | Printed line | `amount` you send | Classification |
+   |---|---|---|
+   | `LOBLAWS … 85.40` | `"85.40"` | Groceries (`card_spend`) |
+   | `PAYMENT - THANK YOU -250.00` | `"-250.00"` | typed `lines`, `card_repayment`: card `+250.00`, chequing `-250.00` (typed lines are in the **ledger sign**: money into the card account reduces what is owed) |
+
+   With `opening_balance` `250.00` (owed) and `closing_balance` as printed, V-04 checks opening + lines = closing. A bank statement (`asset_positive`) prints deposits positive and withdrawals negative; send them as printed.
+
+   **Submit once.** Do not send trial drafts to find out how signs work: each one is stored and must be withdrawn. If a check fails, its text says where (step 7); fix your reading and resubmit with `supersedes_plan_id`.
 7. **Report the checks** from `validation_result` and `continuity`, in plain words:
 
    | Check | Meaning | What you do |
    |---|---|---|
-   | V-04 `HOLD:BALANCE_CHAIN` | Opening + lines ≠ closing | Re-read the statement: a missed or misread line, or a wrong sign. Correct and resubmit with `supersedes_plan_id` |
+   | V-04 `HOLD:BALANCE_CHAIN (ledger sign: opening … + lines … = …, closing …)` | Opening + lines ≠ closing; the figures are in the ledger sign | Re-read the statement: a missed or misread line, or a wrong sign. Correct and resubmit with `supersedes_plan_id` |
    | V-03 `HOLD:DUPLICATE`, V-05 `HOLD:COVERAGE` | The statement or some lines are already entered or pending | Tell the member; usually withdraw your draft |
    | V-11 `HOLD:BALANCE_BREAK` | The opening does not meet the previous closing | Tell the member the dates and both balances. The usual cause is a missing statement. Only a member can record an explanation, in the app (menu **4. Drafts and approval** → **Explain a statement gap**) |
    | V-11 `FINDING:GAP` | Dates missing between statements, balances match | Usually no activity. Tell the member |
-   | V-12 `HOLD:BEFORE_OPENING` | The statement is older than the account's opening | History: use `balnexa-history` |
-   | V-09 `HOLD:REVIEW_QUEUE` | Lines marked for review | List them for the member |
+   | V-12 `HOLD:BEFORE_OPENING (seq N date before opening D)` | Line N is dated before the opening date D of an account it touches: this account (older statement: use `balnexa-history`) or the other account of a transfer | Tell the member which line and date. For the other account: enter its earlier statement first, or the member moves its opening date earlier in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**); then resubmit |
+   | V-09 `HOLD:REVIEW_QUEUE (seq …)` | Lines marked for review | List them for the member. The member reviews them in the app (**Review the lines** on the draft screen); you need not resubmit |
+   | V-07 `HOLD:ECONOMIC_TYPE (seq …)` | A line's type does not fit its accounts | Check the category or the transfer lines of that line |
 8. **Hand over.** Tell the member the draft is ready to approve in the Balnexa app, with the period, the number of lines, the opening and closing balances as printed, and any finding. Use `fin.draft.get_for_confirmation` if they want the exact content.
+
+   In the app the member may change a line's category or mark it reviewed. That makes a new version, which supersedes yours (`fin.statements.chain` shows it); you can still read it with `fin.draft.get_for_confirmation`. Do not resubmit over a member's review unless they ask.
 9. **File the original** after approval (`balnexa-filing`):
    - copy it to `30-Processed/<person>/<year>/<institution>/<date>_<institution>_<last4>_statement_<period>.<ext>`;
    - add the index row;

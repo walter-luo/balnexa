@@ -52,6 +52,7 @@
 | 9043 | `9043_s4_statement_drafts.sql` | NEW table `statement_gap_note`; NEW `statement_fingerprint`, `statement_continuity`, `cmd_draft_statement`, `q_statement_chain`, `cmd_explain_statement_gap`; MODIFY `intake_validate` (9010, V-11); `function_scope` rows; catalog delta (4) | — | — | OD-AI-1…4 | AI-first statement intake (G1, G4, G7 of `S4_AI_First_Workflows_Design_2026-11-16.md`); PR from `s4/statement-draft` |
 | 9044 | `9044_s4_claude_cimd.sql` | SEED `host_profile_redirect` (9009): Claude CIMD client id, `claude.com` callback; no function, table or catalog change | — | — | OD-AI-4; D-AIH-16 | Claude custom connector (first real connection, 2026-11-19); with the 401 scope hint widened in the Worker; PR from `s4/claude-cimd` |
 | 9045 | `9045_s4_default_categories_account_proposals.sql` | NEW `default_category_tree`, `install_default_categories`, `cmd_propose_account_from_statement`, `ledger_account_display`; ALTER `account_proposal` (suggestion, opening, origin connection); MODIFY `cmd_resolve_account_proposal`, `q_account_proposals` (9010), `q_ledger_accounts` (9019), `q_draft_get_for_confirmation` (9010); `function_scope` row; catalog delta (2) | — | — | OD-CAT-1, OD-ACC-1 | Default categories; accounts proposed by the AI from a statement (two-step approval); draft screen names. PR from `s4/categories-accounts` |
+| 9046 | `9046_s4_hold_details_statement_review.sql` | MODIFY `intake_validate` (9043: V-04, V-09, V-12 texts), `q_draft_get_for_confirmation` (9045: `reviewable_by_me`); NEW `cmd_review_statement_items`; catalog delta (3: the new command; `cmd_set_opening` amount and `cmd_post_transaction` original_amount through the generator's `bnx.dec` keys) | — | — | OD-LIVE-1 | Live-run findings F-LIVE-1, 2, 5: hold texts, PWA line review of statement drafts (G3), opening amount. PR from `s4/live-findings` |
 
 ## 3. Proposed disposition rows
 
@@ -70,6 +71,7 @@
 | 9043 | **Accept** as the database part of the AI-first statement intake | none beyond confirming the row |
 | 9044 | **Accept** as the Claude connection fix | none beyond confirming the row |
 | 9045 | **Accept** as default categories and accounts from statements | confirm the default category list |
+| 9046 | **Accept** as hold texts and line review | confirm D-9046-1..6 |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row

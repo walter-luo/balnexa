@@ -623,6 +623,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.q_statement_chain", "bnx.cmd_explain_statement_gap",
     # 9045 default categories and accounts proposed from a statement (OD-CAT-1, OD-ACC-1; register row 9045)
     "bnx.default_category_tree", "bnx.install_default_categories", "bnx.cmd_propose_account_from_statement", "bnx.ledger_account_display",
+    # 9046 member line review of a statement draft (F-LIVE-2, G3; register row 9046)
+    "bnx.cmd_review_statement_items",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",
