@@ -47,7 +47,8 @@ def catalog_entry(H, fn):
 
 @test("AT-OUT-01", "2.8 part 3; MCP tools outputSchema; 9032 (every tool with a curated output schema returns conforming results "
                    "for an Owner in the PWA and for an AI connection: draft tools incl. replay, transfer, revise, validate, withdraw; "
-                   "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status)")
+                   "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status; 9045 account "
+                   "proposal from a statement)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
     # field-level schemas of 9032/9033 are called here; the 9035 ones (the 9034 tools made field-level) by AT-OUT-03; every
@@ -108,6 +109,14 @@ def t_output_schemas(server, ev):
         run(who, cred, "q_draft_get_for_confirmation", plan_id=t["plan_id"])
         run(who, cred, "cmd_draft_withdraw", key=new_key(), plan_id=t["plan_id"])
         run(who, cred, "q_draft_get_for_confirmation", plan_id=t["plan_id"])            # a withdrawn draft
+        if who == "ai/mcp":                                                               # 9045: an AI connection proposes an account
+            k = new_key()
+            pa = dict(institution_id=H.inst("Synthetic Bank")["institution_id"], kind="credit_card", account_last4="4321",
+                      currency="CAD", holder_names=["SYNTHETIC HOLDER"], period_from="2026-03-01", opening_balance="250.00",
+                      sign_convention="owed_positive")
+            run(who, cred, "cmd_propose_account_from_statement", key=k, **pa)
+            run(who, cred, "cmd_propose_account_from_statement", key=k, **pa)            # replay
+            run(who, cred, "cmd_propose_account_from_statement", **pa)                   # the same account again: existing
     # a member draft revised by its author (draft_revise is the member path)
     md = run("member/pwa", H.member, "cmd_draft_create_transaction", key=new_key(), account_currency_id=cad, transaction_date="2026-03-05",
              economic_type="consumption_expense", amount="-3.00", counter_ledger_account_id=H.groceries, description="member draft")
