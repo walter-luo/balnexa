@@ -796,7 +796,9 @@ test('AT-REV-UI-01 statement line review (9046, F-LIVE-1, F-LIVE-2): holds read 
   await o.locator('#cf-review input[type=checkbox][data-seq="1"]').check();
   await o.locator('#cf-review button.primary').click();
   await o.waitForFunction((old) => location.hash.startsWith('#/confirm/') && !location.hash.includes(old), st.structuredContent.plan_id);
-  await o.waitForSelector('#cf-account');
+  // the hash changes before the new version is rendered: wait until the screen shows a plan hash other than the reviewed one
+  await o.waitForFunction((oldHash) => { const m = document.querySelector('main dd.mono'); return m && m.textContent && m.textContent !== oldHash; },
+    st.structuredContent.plan_hash);
   assert.equal(await o.locator('#cf-holds').count(), 0, 'no hold after the review');
   assert.ok(await o.locator('main button.primary', { hasText: 'Approve' }).isEnabled(), 'approvable after the review');
 });
