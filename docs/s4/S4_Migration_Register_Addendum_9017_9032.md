@@ -50,6 +50,7 @@
 | 9041 | `9041_s4_pan_guard.sql` | NEW `pan_*` detector functions (9); MODIFY `idem_begin` (0106), `audit`, `stage_write` (9011); no catalog delta | — | — | D-PAN-1 | payment-card number guard; PR from `s4/pan-guard` |
 | 9042 | `9042_s4_pan_debit_prefixes.sql` | MODIFY `pan_scheme_ok`, `pan_json_has`, `pan_mask_json` (9041); no catalog delta | — | — | OD-PAN-1 | detector v1.1.0: any prefix for 16–19 digits; machine-generation keys exempt; PR from `s4/pan-debit` |
 | 9043 | `9043_s4_statement_drafts.sql` | NEW table `statement_gap_note`; NEW `statement_fingerprint`, `statement_continuity`, `cmd_draft_statement`, `q_statement_chain`, `cmd_explain_statement_gap`; MODIFY `intake_validate` (9010, V-11); `function_scope` rows; catalog delta (4) | — | — | OD-AI-1…4 | AI-first statement intake (G1, G4, G7 of `S4_AI_First_Workflows_Design_2026-11-16.md`); PR from `s4/statement-draft` |
+| 9044 | `9044_s4_claude_cimd.sql` | SEED `host_profile_redirect` (9009): Claude CIMD client id, `claude.com` callback; no function, table or catalog change | — | — | OD-AI-4; D-AIH-16 | Claude custom connector (first real connection, 2026-11-19); with the 401 scope hint widened in the Worker; PR from `s4/claude-cimd` |
 
 ## 3. Proposed disposition rows
 
@@ -66,6 +67,7 @@
 | 9041 | **Accepted** by the Owner 2026-11-15 (OD-REG-1) as the card-number guard | none; D-PAN-1 confirmed as OD-PAN-1 with the debit change in 9042 |
 | 9042 | **Accept** as the OD-PAN-1 change | none beyond confirming the row |
 | 9043 | **Accept** as the database part of the AI-first statement intake | none beyond confirming the row |
+| 9044 | **Accept** as the Claude connection fix | none beyond confirming the row |
 | 9014, 9015 | Unchanged: an Owner decision (L-9016-8) — implement them, or commit documented no-op reservations before any persistent install | yes |
 
 ## 4. How to verify a row

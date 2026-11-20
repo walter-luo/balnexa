@@ -331,9 +331,15 @@
    "min_worker_release": "V1.0-R03",
    "sha256": "7ee72862b7529766a577bc68fcdeea37072310bda758e436a256c4b2365a3b5c",
    "version": "9043"
+  },
+  {
+   "file": "9044_s4_claude_cimd.sql",
+   "min_worker_release": "V1.0-R04",
+   "sha256": "3d5cf5ec4534c9983a5d0db50960cc01ee0ee97330c57fbc533044fe217298f5",
+   "version": "9044"
   }
  ],
- "pwa_shell": "bnx-shell-V1.0-R03",
+ "pwa_shell": "bnx-shell-V1.0-R04",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -524,11 +530,11 @@
     "0109"
    ],
    "extension": [
-    "9042",
-    "9043"
+    "9043",
+    "9044"
    ]
   },
-  "version": "V1.0-R03",
+  "version": "V1.0-R04",
   "work_kinds": [
    "plan.execute",
    "staging.promote"

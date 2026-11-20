@@ -221,7 +221,7 @@ test('BB-OAUTH-01 PKCE S256 authorization code flow and MCP read-only scope', as
   assert.deepEqual([rest.status, rest.json.error], [403, 'FORBIDDEN_CHANNEL']);
   const noBearer = await call('/mcp', { body: { jsonrpc: '2.0', id: 1, method: 'tools/list' }, cookie: S.owner });
   assert.equal(noBearer.status, 401);
-  assert.equal(noBearer.headers.get('www-authenticate'), `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="finance.read reports.read offline_access"`);
+  assert.equal(noBearer.headers.get('www-authenticate'), `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="finance.read finance.draft reports.read offline_access"`);
 });
 
 test('BB-PLAN-01 import plan approved via REST is activated by the scheduled dispatcher (KV hint path) ', async () => {
@@ -537,6 +537,12 @@ test('BB-OAUTH-03 DCR: host profile inferred from the redirect URIs; outside the
   assert.deepEqual([d.status, d.json.host_profile, d.json.registration_kind, d.json.client_name], [200, 'claude_remote_mcp', 'DCR', 'Claude']);
   const cg = await reg({ redirect_uris: ['https://chatgpt.com/connector_platform_oauth_redirect'] });
   assert.equal(cg.status, 201, cg.text);
+  // 9044: Claude's announced claude.com callback, alone or with the claude.ai one, is the same host profile
+  const both = await reg({ client_name: 'Claude', redirect_uris: ['https://claude.ai/api/mcp/auth_callback', 'https://claude.com/api/mcp/auth_callback'] });
+  assert.equal(both.status, 201, both.text);
+  const d2 = await call('/oauth/authorize', { body: { action: 'describe', client_id: both.json.client_id, redirect_uri: 'https://claude.com/api/mcp/auth_callback' },
+    cookie: S.owner, headers: { origin: ORIGIN } });
+  assert.deepEqual([d2.status, d2.json.host_profile], [200, 'claude_remote_mcp']);
   for (const [b, err] of [
     [{ redirect_uris: ['https://evil.example/cb'] }, 'invalid_redirect_uri'],
     [{ redirect_uris: ['https://claude.ai/api/mcp/auth_callback', 'https://chatgpt.com/connector_platform_oauth_redirect'] }, 'invalid_redirect_uri'],
@@ -707,6 +713,32 @@ test('AT-AIH-06b CIMD: an allowlisted client-id URL is fetched once and register
     assert.deepEqual(fetched, [CID], 'fetched once, then known');
     const d = await callAt(b2, '/oauth/authorize', { body: { action: 'describe', client_id: CID, redirect_uri: CB }, cookie: S.owner, headers: { origin: ORIGIN } });
     assert.deepEqual([d.json.host_profile, d.json.registration_kind, d.json.client_name], ['chatgpt_plugin_mcp', 'CIMD', 'ChatGPT']);
+  });
+});
+
+test('AT-AIH-06c CIMD for Claude (9044): the observed client-id URL is fetched once, registered under claude_remote_mcp; the hinted scopes reach the consent screen', async () => {
+  const fetched = [];
+  const CID = 'https://claude.ai/oauth/mcp-oauth-client-metadata', CB = 'https://claude.ai/api/mcp/auth_callback';
+  // the metadata document as Claude served it on 2026-11-19 (grant_types includes jwt-bearer, which Balnexa ignores)
+  const doc = (u) => ({ client_id: u, client_name: 'Claude', client_uri: 'https://claude.ai', redirect_uris: [CB],
+    grant_types: ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'], response_types: ['code'], token_endpoint_auth_method: 'none' });
+  const e2 = { ...env, KV: makeKv(), CIMD_FETCH: async (u) => { fetched.push(u); return new Response(JSON.stringify(doc(u)), { status: 200 }); } };
+  await at(e2, async (b2) => {
+    const k = pkce();
+    // exactly the request Claude sent: no explicit host profile, the hinted scopes, resource and prompt=consent
+    const q = (cid, ru, scope) => fetch(`${b2}/oauth/authorize?${new URLSearchParams({ response_type: 'code', client_id: cid, redirect_uri: ru,
+      code_challenge: k.c, code_challenge_method: 'S256', state: 'st-claude', ...(scope ? { scope } : {}), resource: R_MCP, prompt: 'consent' })}`, { redirect: 'manual' });
+    assert.equal((await q('https://claude.ai/oauth/claude-code-client-metadata', CB)).status, 400, 'only the hosted-app document is allowlisted');
+    assert.equal((await q('https://claude.ai.evil.example/oauth/mcp-oauth-client-metadata', CB)).status, 400);
+    assert.deepEqual(fetched, [], 'a URL outside the CIMD allowlist is never fetched');
+    const ok = await q(CID, CB, 'finance.read finance.draft reports.read offline_access');
+    assert.equal(ok.status, 302);
+    const cp = new URLSearchParams(ok.headers.get('location').split('?')[1]);
+    assert.deepEqual([cp.get('client_id'), cp.get('scope'), cp.get('resource')], [CID, 'finance.read finance.draft reports.read offline_access', R_MCP]);
+    assert.equal((await q(CID, 'https://claude.ai/api/mcp/other')).status, 400, 'a redirect URI outside the document is refused');
+    assert.deepEqual(fetched, [CID], 'fetched once, then known');
+    const d = await callAt(b2, '/oauth/authorize', { body: { action: 'describe', client_id: CID, redirect_uri: CB }, cookie: S.owner, headers: { origin: ORIGIN } });
+    assert.deepEqual([d.json.host_profile, d.json.registration_kind, d.json.client_name], ['claude_remote_mcp', 'CIMD', 'Claude']);
   });
 });
 
