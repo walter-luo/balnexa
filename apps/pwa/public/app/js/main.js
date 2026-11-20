@@ -56,6 +56,17 @@ async function ledger(force) {
   if (!S.ledger || force) S.ledger = await api.query('ledger_accounts');
   return S.ledger;
 }
+// categories of one kind and currency as "Parent › Child", each parent followed by its children (9045, OD-CAT-1)
+function catName(c, all) {
+  const nm = (x) => (i18n.current() === 'zh' ? (x.name_zh || x.name_en) : x.name_en);
+  const p = c.parent_id && all.find((x) => x.ledger_account_id === c.parent_id);
+  return p ? `${nm(p)} › ${nm(c)}` : nm(c);
+}
+function catOptions(L, kind, currency) {
+  const cs = L.categories.filter((c) => c.kind === kind && c.currency === currency);
+  const name = (c) => catName(c, L.categories);
+  return cs.slice().sort((x, y) => name(x).localeCompare(name(y))).map((c) => ({ id: c.ledger_account_id, label: name(c) }));
+}
 
 // ------------------------------------------------------------------------------------------------------------- home
 async function home() {
@@ -113,8 +124,7 @@ async function add() {
     f.querySelector('#q-cat-f').hidden = type === 'transfer';
     f.querySelector('#q-to-f').hidden = type !== 'transfer';
     const kind = type === 'income' ? 'income' : 'expense';
-    el.cat.replaceChildren(...L.categories.filter((c) => c.kind === kind && c.currency === a.currency)
-      .map((c) => h('option', { value: c.ledger_account_id }, i18n.current() === 'zh' ? c.name_zh : c.name_en)));
+    el.cat.replaceChildren(...catOptions(L, kind, a.currency).map((c) => h('option', { value: c.id }, c.label)));
     f.querySelector('#q-note').textContent = a.can_post ? '' : t('add.via_draft');
   }
   sync();
@@ -217,7 +227,8 @@ async function setup() {
       h('input', { id: 'su-cur-other', name: 'other', maxlength: 3, pattern: '[A-Za-z]{3}', autocapitalize: 'characters', autocomplete: 'off' })));
   const acct = h('form', { class: 'task-form', id: 'su-account', novalidate: true },
     h('div', { class: 'field' }, h('label', { for: 'su-kind' }, t('setup.kind')),
-      h('select', { id: 'su-kind', name: 'kind' }, KINDS.map((k) => h('option', { value: k }, t(`kind.${k}`))))),
+      h('select', { id: 'su-kind', name: 'kind' }, KINDS.map((k) => h('option', { value: k }, t(`kind.${k}`)))),
+      h('p', { class: 'hint' }, t('setup.kind_hint'))),
     h('div', { class: 'field' }, h('label', { for: 'su-label' }, t('setup.label')), h('input', { id: 'su-label', name: 'label', required: true, maxlength: 80 })),
     cur,
     h('div', { class: 'field' }, h('label', { for: 'su-open-date' }, t('setup.opening_date')), h('input', { id: 'su-open-date', name: 'odate', type: 'date', value: today() })),
@@ -229,14 +240,16 @@ async function setup() {
   acct.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     if (!acct.checkValidity()) { acct.reportValidity(); return; }
-    if (!inst) return status(t('setup.need_institution'), 'error');
     const el = acct.elements;
+    const noInst = ['cash', 'other_asset'].includes(el.kind.value);          // the database refuses an institution for these
+    if (!inst && !noInst) return status(t('setup.need_institution'), 'error');
     const curs = [...acct.querySelectorAll('input[name=cur]:checked')].map((x) => x.value);
     const other = el.other.value.trim().toUpperCase();
     if (other && !curs.includes(other)) curs.push(other);
     if (!curs.length) return status(t('error.VALIDATION_FAILED', { field: t('field.currencies') }), 'error');
     try {
-      const r = await api.command('create_account', { kind: el.kind.value, label: el.label.value.trim(), institution_id: inst, currencies: curs }, akey);
+      const r = await api.command('create_account', { kind: el.kind.value, label: el.label.value.trim(), ...(noInst ? {} : { institution_id: inst }),
+        currencies: curs }, akey);
       akey = api.newKey();
       const amt = el.oamt.value.trim();
       if (amt && entry('bnx.cmd_set_opening')) {
@@ -270,7 +283,8 @@ async function setup() {
     } catch (e) { fail(e); }
   });
   const accRows = L.accounts.map((a) => ({ account: a.label, currency: a.currency, state: a.state }));
-  const catRows = L.categories.map((c) => ({ kind: t(`add.${c.kind}`), currency: c.currency, name: i18n.current() === 'zh' ? (c.name_zh || c.name_en) : c.name_en }));
+  const catRows = L.categories.map((c) => ({ kind: t(`add.${c.kind}`), currency: c.currency, name: catName(c, L.categories) }))
+    .sort((x, y) => x.kind.localeCompare(y.kind) || x.currency.localeCompare(y.currency) || x.name.localeCompare(y.name));
   screen('setup.title', h('p', { class: 'hint' }, t('setup.explain')),
     h('h2', {}, t('setup.accounts')), accRows.length ? renderTable(accRows, { name: 'accounts' }) : h('p', { class: 'empty' }, t('add.no_accounts')),
     h('h2', {}, t('setup.step_institution')), search, h('details', {}, h('summary', {}, t('setup.not_listed')), prop),
@@ -351,13 +365,52 @@ async function tx(id) {
 
 // ------------------------------------------------------------------------------------------------------------ review
 async function review() {
-  let r;
+  let r, props = [];
   try { r = await api.query('review_queue'); } catch (e) { return fail(e); }
+  if (entry('bnx.q_account_proposals') && entry('bnx.cmd_resolve_account_proposal')) {
+    try { props = (await api.query('account_proposals', { state: 'PROPOSED' })).proposals; } catch (e) { fail(e); }
+  }
   const plans = r.plans.map((p) => ({ kind: p.kind, items: p.item_count, origin: p.origin_channel, approvable_by_me: p.approvable_by_me,
     held: (p.hold_reasons || []).join(' '), plan_id: p.plan_id }));
-  screen('review.title', plans.length ? renderTable(plans, { caption: t('review.title'), name: 'review', onRow: (p) => go(`confirm/${p.plan_id}`) })
-    : h('p', { class: 'empty' }, t('review.none')),
+  screen('review.title', ...(props.length ? [h('h2', {}, t('review.accounts')), ...props.map(proposalCard)] : []),
+    plans.length ? renderTable(plans, { caption: t('review.title'), name: 'review', onRow: (p) => go(`confirm/${p.plan_id}`) })
+    : (props.length ? '' : h('p', { class: 'empty' }, t('review.none'))),
     entry('bnx.q_r30_review_queue') ? h('p', {}, h('a', { href: '#/task/bnx.q_r30_review_queue' }, t('task.bnx.q_r30_review_queue'))) : '');
+}
+
+// An account the AI read from a statement (OD-ACC-1, two-step approval): approving creates the account, sets the opening balance
+// printed on that statement and lets the proposing AI connection see the account, so it can submit the statement next.
+function proposalCard(p) {
+  const id = `ap-${p.proposal_id.slice(0, 8)}`;
+  const f = h('form', { class: 'task-form proposal', id, 'data-proposal': p.proposal_id, novalidate: true },
+    h('p', {}, h('strong', {}, `${p.institution || p.institution_code || '?'} · ${t(`kind.${p.suggested_kind || 'bank_deposit'}`)} · ${p.reference_display || ''} · ${(p.currencies || []).join(', ')}`)),
+    (p.holder_names || []).length ? h('p', { class: 'hint' }, t('proposal.holders', { names: p.holder_names.join('; ') })) : '',
+    p.origin_client ? h('p', { class: 'hint' }, t('proposal.from', { client: p.origin_client })) : '',
+    h('div', { class: 'field' }, h('label', { for: `${id}-label` }, t('proposal.label')),
+      h('input', { id: `${id}-label`, name: 'label', value: p.suggested_label || '', required: true, maxlength: 80 })),
+    p.opening ? h('p', {}, h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'opening', checked: true }),
+      h('span', {}, t('proposal.set_opening', { amount: p.opening.amount, date: p.opening.anchor_date })))) : '',
+    p.origin_client ? h('p', {}, h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'grant', checked: true }),
+      h('span', {}, t('proposal.grant', { client: p.origin_client })))) : '',
+    h('p', { class: 'toolbar' }, h('button', { type: 'submit', class: 'primary' }, t('proposal.approve')),
+      h('button', { type: 'button', onclick: async () => {
+        try { await api.command('resolve_account_proposal', { proposal_id: p.proposal_id, action: 'reject' }); status(t('proposal.rejected'), 'ok'); review(); }
+        catch (e) { fail(e); }
+      } }, t('proposal.reject'))));
+  let key = api.newKey();
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!f.checkValidity()) { f.reportValidity(); return; }
+    const el = f.elements;
+    try {
+      await api.command('resolve_account_proposal', { proposal_id: p.proposal_id, action: 'approve', label: el.label.value.trim(),
+        ...(el.opening ? { set_opening: el.opening.checked ? 'true' : 'false' } : {}),
+        ...(el.grant ? { grant_connection: el.grant.checked ? 'true' : 'false' } : {}) }, key);
+      key = api.newKey(); S.ledger = null;
+      status(t('proposal.approved', { label: el.label.value.trim() }), 'ok'); review();
+    } catch (e) { fail(e); }
+  });
+  return f;
 }
 
 // Draft Confirm (C-01/C-04; UA §12.3 Mode H): the PWA review screen is the guaranteed confirmation path. A sealed link from an
@@ -368,9 +421,16 @@ async function confirm(planId, params) {
   try { d = await api.query('draft_get_for_confirmation', { plan_id: planId }); } catch (e) { return fail(e); }
   const sealH = params.get('h'), sealS = params.get('s');
   const sealed = sealH || sealS ? sealH === d.plan_hash && sealS === d.scope_digest : null;
+  const zh = i18n.current() === 'zh';
+  const lname = (l) => (zh ? l.ledger_account_name_zh : l.ledger_account_name) || l.ledger_account_name || '';
   const items = d.items.map((it) => ({ seq: it.seq, date: it.payload.transaction_date, type: it.economic_type, description: it.payload.description,
-    lines: it.lines.map((l) => `${l.amount} ${l.currency}`).join(' / ') }));
-  const kids = [h('dl', { class: 'detail' }, h('dt', {}, 'kind'), h('dd', {}, d.kind), h('dt', {}, 'state'), h('dd', {}, h('span', { class: `st st-${d.state}` }, d.state)),
+    lines: it.lines.map((l) => `${lname(l)} ${l.amount} ${l.currency}`.trim()).join(' / ') }));
+  const st = d.statement;
+  const kids = [h('dl', { class: 'detail' },
+    h('dt', {}, t('confirm.account')), h('dd', { id: 'cf-account' }, `${d.account_label || '?'}${d.account_reference_display ? ` · ${d.account_reference_display}` : ''} · ${d.account_currency || ''}`),
+    ...(st ? [h('dt', {}, t('confirm.statement')), h('dd', { id: 'cf-statement' }, t('confirm.statement_line', { from: st.period_from, to: st.period_to,
+      opening: st.printed_opening, closing: st.printed_closing, lines: st.line_count }))] : []),
+    h('dt', {}, 'kind'), h('dd', {}, d.kind), h('dt', {}, 'state'), h('dd', {}, h('span', { class: `st st-${d.state}` }, d.state)),
     h('dt', {}, 'plan_hash'), h('dd', { class: 'mono' }, d.plan_hash)),
   h('h2', {}, t('confirm.items')), renderTable(items, { caption: t('confirm.items'), name: `draft-${planId}` })];
   if ((d.hold_reasons || []).length) kids.push(h('p', { class: 'status error' }, t('confirm.held', { reasons: d.hold_reasons.join(', ') })));

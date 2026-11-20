@@ -14,8 +14,8 @@ Balnexa runs on an AI platform (OD-AI-1, OD-AI-4). The household's AI does the w
 
 | Skill | Workflow | Version | Status |
 |---|---|---|---|
-| `balnexa-statement-intake` | W1: one bank, card or investment statement as a statement draft | 0.1.0 | candidate |
-| `balnexa-history` | W6: past statements per account, oldest first, and the history report | 0.1.0 | candidate |
+| `balnexa-statement-intake` | W1: one bank, card or investment statement as a statement draft; a new account is proposed first (two-step approval) | 0.2.0 | candidate |
+| `balnexa-history` | W6: past statements per account, oldest first, and the history report | 0.2.0 | candidate |
 | `balnexa-reports` | W4, OD-IO-4/5: fixed and real-time reports from read tools | — | planned |
 | `balnexa-entry` | W2: single transactions and receipts as drafts | — | planned |
 | `balnexa-reconcile` | W3: explaining reconciliation exceptions | — | planned |

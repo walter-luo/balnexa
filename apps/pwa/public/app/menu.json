@@ -38,6 +38,7 @@
     "bnx.q_registry_review",
     "bnx.cmd_reassign_account_institution",
     "bnx.q_account_proposals",
+    "bnx.cmd_propose_account_from_statement",
     "bnx.cmd_propose_account",
     "bnx.cmd_resolve_account_proposal",
     "bnx.cmd_create_party"

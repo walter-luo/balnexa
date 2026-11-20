@@ -6729,6 +6729,119 @@
      }
     }
    }
+  },
+  "cmd_propose_account_from_statement": {
+   "description": "Propose a new household account read from a statement when no visible account matches it (institution, account type, last 4 digits, currency). Nothing is created: a member approves the account in the Balnexa app, which also sets the opening balance from this statement and lets this connection see the account; then submit the statement with fin.draft.create_statement. Never send a full card or account number.",
+   "input": {
+    "type": "object",
+    "required": [
+     "institution_id",
+     "kind",
+     "account_last4",
+     "currency",
+     "idempotency_key"
+    ],
+    "properties": {
+     "institution_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The institution from reg.institutions.search"
+     },
+     "kind": {
+      "enum": [
+       "bank_deposit",
+       "e_wallet",
+       "credit_card",
+       "investment",
+       "loan_payable",
+       "loan_receivable"
+      ],
+      "description": "Account type"
+     },
+     "account_last4": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$",
+      "description": "Last 4 digits of the account or card number, as printed"
+     },
+     "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+     },
+     "label": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Suggested account name; default: institution, type and last 4"
+     },
+     "holder_names": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "description": "Account holder names as printed; no numbers"
+     },
+     "period_from": {
+      "type": "string",
+      "format": "date",
+      "description": "First day of the earliest statement you will submit"
+     },
+     "opening_balance": {
+      "type": "string",
+      "pattern": "^-?[0-9]{1,24}(\\.[0-9]{1,12})?$",
+      "description": "That statement's printed opening balance; becomes the account's opening balance on approval"
+     },
+     "sign_convention": {
+      "enum": [
+       "asset_positive",
+       "owed_positive"
+      ],
+      "description": "As for fin.draft.create_statement; required with opening_balance"
+     }
+    }
+   },
+   "output": {
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+     "proposal_id",
+     "state",
+     "existing"
+    ],
+    "properties": {
+     "proposal_id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "state": {
+      "type": "string",
+      "description": "PROPOSED until a member decides in the Balnexa app"
+     },
+     "existing": {
+      "type": "boolean",
+      "description": "True when an open proposal for the same institution, last 4 and currency already existed"
+     },
+     "suggested_kind": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "suggested_label": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "opening": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "description": "Opening anchor that approval will set (ledger sign)"
+     }
+    }
+   }
   }
  },
  "note_schemas": "2.8 curated tool schemas (L-CORE7-2, L-AIH-7): hand-written input schemas and descriptions for the tools AI hosts use most. The generator refuses a curated schema that omits a key the function reads, or adds one it does not read; provenance becomes 'curated'.",

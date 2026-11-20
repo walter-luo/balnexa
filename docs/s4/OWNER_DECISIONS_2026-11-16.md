@@ -42,3 +42,12 @@ The Owner set the input and output design and confirmed the proposed details ("�
 | OD-IO-4 (output, AI, fixed reports) | Fixed reports (fixed period and category) are produced by the AI from database queries and stored on Drive with their queries (B4), under `Balnexa_Data/40-Reports/<year>/<month>/`. Format: Google Sheet for tables, Doc for narrative; Markdown is the generic repository format. The report list and the schedule are to be defined in the reports skill |
 | OD-IO-5 (output, AI, real-time reports) | The AI generates reports on request from database queries and returns them in the conversation. They are saved, as in OD-IO-4, only when the member asks |
 | Boundary | The PWA real-time reports (OD-IO-2) are the only reports defined in code; every other report is produced by the AI (OD-AI-1) |
+
+## 2026-11-20 07:11–07:17 (America/Toronto)
+
+Found at the first real AI connection (Claude, synthetic test instance). Owner words: 07:11 "1. category应该系统预定义，我可以加但不是都我输入；2.账户手工可以输入，但是从读banking statement自动生成"; 07:17 "默认类别清单从qicken，随手记等软件抄。账户生成采用「两步批准」".
+
+| ID | Decision |
+|---|---|
+| OD-CAT-1 | Categories are predefined by the system: a built-in list, modelled on the default lists of common household finance software (Quicken, 随手记 and the like), in English and Chinese, two levels. Members may add their own; they do not have to enter the list |
+| OD-ACC-1 | Accounts may be entered by hand, but mainly come from the AI reading bank statements. **Two-step approval:** the AI proposes the account read from the statement; a member approves it in the app (which also sets the opening balance from that statement); then the AI submits the statement, which the member approves as usual |

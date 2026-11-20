@@ -6,12 +6,17 @@ The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16
 
 ## Unreleased
 
+- **Default categories (9045, OD-CAT-1).** 89 built-in categories in two levels, English and Chinese, modelled on common household finance software; added on upgrade and by the installer, never duplicating a member's own category. Quick Entry and Set up accounts show "Parent › Child".
+- **Accounts from statements (9045, OD-ACC-1, two-step approval).** New MCP tool `fin.account.propose_from_statement`: the AI proposes an account read from a statement; the member approves it on Review, which also sets the opening balance from that statement and lets the AI connection see the account; the AI then submits the statement. An AI connection sees only its own proposals; an existing account is refused without naming it.
+- **Draft screen.** Account, statement header and the name of every line's account or category (also in the MCP result).
+- Cash and other-asset accounts are created without an institution (was refused as "Please check the field: ?").
+- Skills `balnexa-statement-intake` and `balnexa-history` 0.2.0.
 - **Claude can connect (9044).** Claude's custom connector identifies itself with a Client ID Metadata Document, `https://claude.ai/oauth/mcp-oauth-client-metadata`, which was not allowlisted, so the first real connection stopped at "Unknown client or unregistered redirect URI". 9044 allowlists it and adds Claude's announced `claude.com` callback. The 401 scope hint now names `finance.draft`, because Claude requests exactly the hinted scopes; the consent screen still starts with drafting unticked. Tests AT-AIH-06c, BB-OAUTH-03 (claude.com), UT-BIND-01.
 - **Skills: index, entry template and life cycle** (AI-first design §5). `skills/README.md` describes the three copies of a skill (this repository, the household's data folder, the member's AI account) and the life cycle candidate → active → retired. `skills/INDEX.csv` records version, status, size and SHA-256 per skill; `tools/s4/skill_index.py --check` (in CI) refuses a stale row, a malformed skill or an instance detail in a generic skill. `skills/BALNEXA-AI-ENTRY.template.md` is the template of the entry file an AI reads first in the data folder. Skills `balnexa-statement-intake` and `balnexa-history` 0.1.0 (candidates).
 - Data folder convention: `40-Reports/<year>/<month>/` for AI reports (OD-IO-4), `50-Skills` and the entry file (§7). Input and output design OD-IO-1..5 recorded in `docs/s4/OWNER_DECISIONS_2026-11-16.md`.
 - Runbook: the installer's secrets file nests the Worker connection strings under `runtime`; extract that object before `wrangler secret bulk`.
-- Migrations: 9044. Release string V1.0-R04 (proposed; the Owner decides).
-- **Operator action:** deploy the Worker first, then migrate to 9044.
+- Migrations: 9044, 9045. Release string V1.0-R05 (proposed; the Owner decides). V1.0-R04 (9044) is deployed on the test instance but not published.
+- **Operator action:** deploy the Worker first, then migrate (one migration per step, no gap).
 
 ## V1.0-R03 — 2026-11-17
 
