@@ -35,13 +35,15 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 
 | Tool | Use |
 |---|---|
-| `fin.ledger.accounts` | Find the account-currency of the statement (match institution, product, currency, last 4 digits) and the categories for classification |
+| `fin.ledger.accounts` | Find the account-currency of the statement (match institution, currency and the last 4 digits in `reference_display`) and the categories for classification (`parent_id` links a subcategory to its category) |
 | `fin.statements.chain` | See the statements already entered for the account, their periods, balances and continuity |
 | `fin.draft.create_statement` | Submit the statement |
 | `fin.draft.validate` | Re-run the checks of a draft (after a member explained a gap) |
 | `fin.draft.withdraw` | Withdraw your own draft |
 | `fin.draft.get_for_confirmation` | Show the member exactly what they will approve |
-| `fin.account.propose` | Propose an account that does not exist yet; a member resolves it |
+| `reg.institutions.search` | Find the institution's id for a new account |
+| `fin.account.propose_from_statement` | Propose a new account read from the statement; a member approves it in the app |
+| `fin.account.proposals` | See your proposals and whether a member decided them |
 
 ## Steps
 
@@ -53,7 +55,13 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
    - every line: posting date, amount, description and bank reference if any.
 
    On a multi-page statement, make sure you have every line. If the text is unclear, say so; do not guess an amount.
-3. **Find the account.** Call `fin.ledger.accounts`. Match on the institution, the currency and the last 4 digits. A card may be reissued with a new number on the same account: a carried-over balance shows it. If you find no match, propose the account (`fin.account.propose`) and stop until a member resolves it.
+3. **Find the account.** Call `fin.ledger.accounts`. Match on the institution, the currency and the last 4 digits (`reference_display`). A card may be reissued with a new number on the same account: a carried-over balance shows it; ask the member before treating it as a new account.
+
+   **No match: propose the account (step one of two).**
+   - Find the institution with `reg.institutions.search`. If it is not in the registry, tell the member; only a member can add an institution.
+   - Call `fin.account.propose_from_statement` with the institution id, the account type (`bank_deposit`, `credit_card`, `investment`, `loan_payable`, …), the last 4 digits, the currency, the holder names as printed, and, from the **earliest** statement you will enter for this account, `period_from`, `opening_balance` as printed and `sign_convention`.
+   - `ACCOUNT_EXISTS` means the household already has this account but this connection may not see it: ask the member to let you see it (Settings → AI connections), do not propose it again.
+   - Tell the member to approve the new account on **Review** in the Balnexa app. Approving creates the account, sets its opening balance from the statement, and lets you see it. Stop here until `fin.account.proposals` shows the proposal `APPROVED` and `fin.ledger.accounts` lists the account; then continue with step 4 (step two: the statement).
 4. **Check the history.** Call `fin.statements.chain` for the account. If this statement is older than the first one entered, or there is a gap before it, say so. History is handled by `balnexa-history`.
 5. **Classify each line.**
    - Give every line a `counter_ledger_account_id` from the categories, or typed `lines` for a transfer between household accounts (for example a card payment from a chequing account: `economic_type` `card_repayment`, both accounts).

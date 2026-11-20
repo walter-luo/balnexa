@@ -40,8 +40,8 @@ The member does these in the Balnexa app; you cannot do them:
    - card reissues: a new card number whose first statement carries over the old card's balance. Treat both numbers as one account.
 
    Ask the member to confirm the list before you submit anything.
-2. **Match the accounts.** Call `fin.ledger.accounts`. An account that is not there must be created or resolved by a member first (`balnexa-statement-intake` step 3).
-3. **Opening point.** Call `fin.statements.chain` for the account. The opening must sit at the start of the earliest statement you will enter. If it does not, tell the member exactly what to enter in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**):
+2. **Match the accounts.** Call `fin.ledger.accounts`. For an account that is not there, propose it with `fin.account.propose_from_statement` using the **earliest** statement's period start and printed opening balance, and wait until a member approves it on **Review** (`balnexa-statement-intake` step 3). The approval sets the opening at that point, so step 3 then only confirms it.
+3. **Opening point.** Call `fin.statements.chain` for the account. The opening must sit at the start of the earliest statement you will enter. If it does not (an account that existed before, or a proposal approved without its opening), tell the member exactly what to enter in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**):
    - the date: the earliest statement's period start;
    - the amount: that statement's opening balance as printed, with its sign as the app asks.
 

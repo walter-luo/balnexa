@@ -8,7 +8,8 @@ owner, or a local stand-in). Synthetic data only. Steps (each re-runnable):
   1. B001 and B002 (psql; PGOPTIONS createrole_self_grant=set,inherit so the installer may create bnx_definer objects);
   2. random passwords for the LOGIN roles the deployment uses (bnx_migrator, bnx_app, bnx_authn, bnx_worker);
   3. db/tools/run_migrations.py as bnx_migrator (B003 as the installer when the runner asks for it);
-  4. install_household_v2 (Owner placeholder identity until the probe, runbook step 6) and install_activate_config;
+  4. install_household_v2 (Owner placeholder identity until the probe, runbook step 6), install_activate_config and the
+     default categories (9045, OD-CAT-1; only missing ones are added);
   5. apps/worker/wrangler.toml from the template, and the runtime connection strings for `wrangler secret put`.
 Secrets go to --secrets-dir (mode 0600, outside the repository) and are never printed.
 
@@ -113,7 +114,7 @@ def validate(a):
 def plan(a):
     steps = ["1. B001/B002 as the installer (skipped when applied)", "2. passwords for bnx_migrator, bnx_app, bnx_authn, bnx_worker",
              "3. migrations as bnx_migrator (B003 on request)", f"4. install_household_v2 for project {a.project_id} (data_class synthetic), "
-             "install_activate_config", f"5. render apps/worker/wrangler.toml for {a.worker_name} at {a.app_origin}; runtime secrets to "
+             "install_activate_config, default categories (only missing ones)", f"5. render apps/worker/wrangler.toml for {a.worker_name} at {a.app_origin}; runtime secrets to "
              f"{a.secrets_dir} (0600)"]
     why, files = release_status(a)
     steps.insert(0, f"0. release: signature {why}; migration files {'match' if not files else 'DIFFER from'} release/manifest.json")
@@ -231,6 +232,12 @@ def main():
                                                 "worker_supports_extension": wr})))
             cx.commit()
             print(f"ok install_activate_config v{cv}")
+        # 9045 (OD-CAT-1): the built-in categories; only the missing ones are added, so every re-run is safe
+        if cx.execute("select to_regprocedure('bnx.install_default_categories(character)') is not null").fetchone()[0]:
+            cx.execute("set role bnx_definer")
+            r = cx.execute("select bnx.install_default_categories()").fetchone()[0]
+            cx.commit()
+            print(f"ok default categories ({r['currency']}): {r['added']} added, {r['kept']} already present")
 
     # 5. Worker configuration and runtime secrets
     t = open(os.path.join(ROOT, "apps", "worker", "wrangler.template.toml")).read()

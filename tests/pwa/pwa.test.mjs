@@ -726,6 +726,45 @@ test('AT-SETUP-01 account setup screen (W-M01): registry search, Owner propose-a
   assert.deepEqual(p.errors, []);
 });
 
+test('AT-ACC-UI-01 accounts from statements (9045, OD-ACC-1): the AI proposes, the Owner approves on Review (opening and connection), the AI submits the statement, the draft screen names account, statement and categories', async () => {
+  const CB = 'https://claude.ai/api/mcp/auth_callback';
+  const cid = (await S.call('/oauth/register', { body: { client_name: 'Claude', redirect_uris: [CB] } })).json.client_id;
+  const verifier = crypto.randomBytes(40).toString('base64url');
+  const az = await S.call('/oauth/authorize', { cookie: owner, body: { client_id: cid, redirect_uri: CB, code_challenge: crypto.createHash('sha256').update(verifier).digest('base64url'),
+    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft'], account_currency_ids: [ac.account_currency_id], resource: `${S.base}/mcp` } });
+  assert.equal(az.status, 200, az.text);
+  const tok = await (await fetch(`${S.base}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({
+    grant_type: 'authorization_code', code: new URL(az.json.redirect).searchParams.get('code'), client_id: cid, redirect_uri: CB, code_verifier: verifier }) })).json();
+  const mcp = async (name, args) => (await (await fetch(`${S.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json',
+    authorization: `Bearer ${tok.access_token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }) })).json()).result;
+  const prop = await mcp('fin_account_propose_from_statement', { institution_id: S.info.institution_id, kind: 'credit_card', account_last4: '7788', currency: 'CAD',
+    holder_names: ['SYNTHETIC HOLDER'], period_from: '2026-04-01', opening_balance: '120.00', sign_convention: 'owed_positive', idempotency_key: 'pwa-acc-ui-proposal' });
+  assert.ok(!prop.isError, JSON.stringify(prop));
+  const o = await page(owner);
+  await open(o, 'review');
+  const card = o.locator(`form[data-proposal="${prop.structuredContent.proposal_id}"]`);
+  await card.waitFor();
+  const txt = await card.textContent();
+  assert.ok(txt.includes('•••• 7788') && txt.includes('Claude') && txt.includes('-120') && txt.includes('2026-04-01'), txt);
+  assert.equal(await card.locator('input[name=label]').inputValue(), prop.structuredContent.suggested_label);
+  assert.ok(await card.locator('input[name=opening]').isChecked() && await card.locator('input[name=grant]').isChecked(), 'both ticked by default');
+  await card.locator('input[name=label]').fill('Synthetic Visa');
+  await card.locator('button.primary').click();
+  await o.waitForFunction(() => /Synthetic Visa/.test(document.querySelector('#status').textContent));
+  const la = (await mcp('fin_ledger_accounts', {})).structuredContent;
+  const visa = la.accounts.find((x) => x.label === 'Synthetic Visa');
+  assert.ok(visa && visa.reference_display === '•••• 7788', JSON.stringify(la.accounts));
+  const st = await mcp('fin_draft_create_statement', { account_currency_id: visa.account_currency_id, period_from: '2026-04-01', period_to: '2026-04-30',
+    opening_balance: '120.00', closing_balance: '150.00', sign_convention: 'owed_positive', idempotency_key: 'pwa-acc-ui-statement',
+    lines: [{ date: '2026-04-09', amount: '30.00', description: 'SYNTHETIC GROCER', counter_ledger_account_id: groceries, economic_type: 'card_spend' }] });
+  assert.ok(!st.isError && st.structuredContent.hold_reasons.length === 0, JSON.stringify(st.structuredContent));
+  await open(o, `confirm/${st.structuredContent.plan_id}`);
+  await o.waitForSelector('#cf-statement');
+  assert.match(await o.textContent('#cf-account'), /Synthetic Visa · •••• 7788 · CAD/);
+  assert.match(await o.textContent('#cf-statement'), /2026-04-01 to 2026-04-30: opening 120, closing 150/);
+  assert.match(await o.textContent('main table'), /Synthetic Visa -30(\.00)? CAD \/ Groceries 30(\.00)? CAD/);
+});
+
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {
   const external = contexts.flatMap((c) => c.log.external);
   const ai = contexts.flatMap((c) => c.log.ai);
