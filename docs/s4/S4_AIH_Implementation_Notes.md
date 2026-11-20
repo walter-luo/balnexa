@@ -100,6 +100,7 @@ Taken under the Owner's instruction "你做出判断和决定，继续推进开�
 | D-AIH-13 | Tool errors use `isError: true` with `structuredContent {error, field}` carrying the REST code. An authentication failure is HTTP 401 with the challenge. | AT-AIH-05 error equivalence; MCP authorization (an invalid token is a transport error). |
 | D-AIH-14 | `/mcp` checks `Origin` and `MCP-Protocol-Version`. | MCP transport security (DNS rebinding) and version negotiation. |
 | D-AIH-15 | Revocation lives in Settings → AI connections. | OR-M-05; PV-AIH-03 path. |
+| D-AIH-16 (9044, 2026-11-19) | Claude's hosted apps (web, Desktop, mobile) are allowlisted for CIMD with the exact client id `https://claude.ai/oauth/mcp-oauth-client-metadata`, and `https://claude.com/api/mcp/auth_callback` joins the `claude_remote_mcp` redirect allowlist. The 401 scope hint becomes `finance.read finance.draft reports.read offline_access`; the consent screen still starts with draft scopes unticked (D-AIH-11). `DELEGATED_DECISION` | Found at the first real connection (§ Field findings 2026-11-19). Claude selects CIMD because Balnexa advertises it, and it requests exactly the hinted scopes, so without these changes no Claude connection could be made, and none could ever draft. |
 
 ## Tests — `AUTHOR_RUNTIME_EVIDENCE`
 
@@ -153,7 +154,7 @@ This test's browser context allows `/oauth/authorize` and records the host redir
 | ID | Limit | Follow-up |
 |---|---|---|
 | L-AIH-1 | 9021 needs register and disposition rows. | Next register revision. |
-| L-AIH-2 | No real host has connected. PV-AIH-01…08, PV-01…13 and PV-UI-* are `NOT_EXECUTED`. Platform facts PF-A*/PF-O* are not re-verified here. | AIH-5, after the Owner's PoC authorization. |
+| L-AIH-2 | No real host has connected yet. The first attempt (Claude, 2026-11-19) stopped at `/oauth/authorize` and led to 9044. PV-AIH-01…08, PV-01…13 and PV-UI-* are `NOT_EXECUTED`. Platform facts PF-A*/PF-O* are not re-verified here, except the Claude facts recorded in 9044. | AIH-5, after V1.0-R04 is deployed to the test instance. |
 | L-AIH-3 | No MCP App confirmation card (`ui://balnexa/cards/v1`). Proposals reach the Owner through the PWA review queue and the instructions' link rule only. | AIH-4. |
 | L-AIH-4 | The DCR limit is best effort: KV is eventually consistent, and the client address comes from `cf-connecting-ip`. | Durable counter if abuse appears. |
 | L-AIH-5 | A CIMD client's metadata is not refreshed after its first registration; a changed document needs a new client id. | With PV-AIH-02. |
@@ -163,3 +164,15 @@ This test's browser context allows `/oauth/authorize` and records the host redir
 | L-AIH-9 | `documents.read` (document-class subset) and `tax.*` cannot be consented yet. | WP-DOC consent subset; WP-TAX (G-CRA-1). |
 | L-AIH-10 | The equivalence envelope fields of AIH §2.3 are present only where the Core's queries return them. The Gateway adds nothing, which is what makes REST and MCP byte-identical. | Report families already carry the envelope (9013). |
 | L-AIH-11 | Not deployed: no real instance URL and no TLS. Discovery documents were verified only on the test origin. | M0. |
+
+## Field findings 2026-11-19 (first real connection: Claude custom connector, synthetic test instance V1.0-R03)
+
+| Observed | Evidence | Consequence |
+|---|---|---|
+| Claude never called `/oauth/register`, even with "Register automatically" selected | `bnx.oauth_client` still held only the 11-12 smoke client after two attempts | Claude uses CIMD whenever the authorization server metadata advertises `client_id_metadata_document_supported` and the auth method `none` (Claude connector documentation, "Authentication for connectors") |
+| Authorize request: `client_id=https://claude.ai/oauth/mcp-oauth-client-metadata`, `redirect_uri=https://claude.ai/api/mcp/auth_callback`, `scope=finance.read reports.read offline_access`, `resource=<instance>/mcp`, `prompt=consent` | The Owner copied the URL of the error page | The client id was outside the CIMD allowlist: "Unknown client or unregistered redirect URI" (9044 adds it) |
+| The metadata document at that URL: `client_name` "Claude", `redirect_uris` [`https://claude.ai/api/mcp/auth_callback`], `token_endpoint_auth_method` "none", `grant_types` includes `urn:ietf:params:oauth:grant-type:jwt-bearer` | Fetched 2026-11-19 | Passes the Gateway's CIMD checks unchanged (the grant types are not used) |
+| The requested scopes are the 401 hint, nothing more | Same URL | `finance.draft` would never be offered (D-AIH-16 widens the hint) |
+| Claude Code uses a different document, `https://claude.ai/oauth/claude-code-client-metadata`, with loopback redirects on ephemeral ports | Fetched 2026-11-19 | Not allowlisted: an exact redirect match cannot accept a varying port (L-AIH-6) |
+
+| L-AIH-6 | Claude Code (CLI) cannot connect: its CIMD is not allowlisted and its loopback redirect port varies per session, which the exact redirect check (`redirect_uri = any(redirect_uris)`) cannot match. | Only if the Owner wants Claude Code as a host. |

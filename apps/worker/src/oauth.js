@@ -18,7 +18,9 @@ export const SCOPES = ['finance.read', 'finance.draft', 'documents.read', 'docum
 // what the consent screen can grant in this release (D-AIH-6): documents.read needs a document-class subset and tax.* the
 // taxpayer subset of WP-TAX (G-CRA-1), neither of which the consent screen offers yet; alerts.summary.read has no tool
 export const CONSENTABLE = ['finance.read', 'finance.draft', 'reports.read', 'handoff.read', 'handoff.prepare', 'offline_access'];
-export const HINT_SCOPE = 'finance.read reports.read offline_access';
+// D-AIH-16 (9044): the hint names finance.draft too. Claude requests exactly the hinted scopes, so without it the consent screen
+// could never offer drafting; the screen still starts with draft scopes unticked (D-AIH-11), so the member decides.
+export const HINT_SCOPE = 'finance.read finance.draft reports.read offline_access';
 
 export const instanceUrl = (env) => String(env.BNX_PUBLIC_URL || env.APP_ORIGIN || '').replace(/\/+$/, '');
 export const resources = (env) => ({ mcp: `${instanceUrl(env)}/mcp`, api: `${instanceUrl(env)}/api` });
