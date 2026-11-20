@@ -765,6 +765,44 @@ test('AT-ACC-UI-01 accounts from statements (9045, OD-ACC-1): the AI proposes, t
   assert.match(await o.textContent('main table'), /Synthetic Visa -30(\.00)? CAD \/ Groceries 30(\.00)? CAD/);
 });
 
+// an AI host connected through the Claude callback, as in AT-ACC-UI-01; returns a tools/call helper
+async function aiConnect(acIds) {
+  const CB = 'https://claude.ai/api/mcp/auth_callback';
+  const cid = (await S.call('/oauth/register', { body: { client_name: 'Claude', redirect_uris: [CB] } })).json.client_id;
+  const verifier = crypto.randomBytes(40).toString('base64url');
+  const az = await S.call('/oauth/authorize', { cookie: owner, body: { client_id: cid, redirect_uri: CB, code_challenge: crypto.createHash('sha256').update(verifier).digest('base64url'),
+    code_challenge_method: 'S256', scopes: ['finance.read', 'finance.draft'], account_currency_ids: acIds, resource: `${S.base}/mcp` } });
+  assert.equal(az.status, 200, az.text);
+  const tok = await (await fetch(`${S.base}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({
+    grant_type: 'authorization_code', code: new URL(az.json.redirect).searchParams.get('code'), client_id: cid, redirect_uri: CB, code_verifier: verifier }) })).json();
+  return async (name, args) => (await (await fetch(`${S.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json',
+    authorization: `Bearer ${tok.access_token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }) })).json()).result;
+}
+
+test('AT-REV-UI-01 statement line review (9046, F-LIVE-1, F-LIVE-2): holds read as sentences with where; the Owner ticks a line reviewed and saves; the new version has no hold and can be approved', async () => {
+  const mcp = await aiConnect([ac.account_currency_id]);
+  const st = await mcp('fin_draft_create_statement', { account_currency_id: ac.account_currency_id, period_from: '2026-05-01', period_to: '2026-05-31',
+    opening_balance: '500.00', closing_balance: '488.00', sign_convention: 'asset_positive', idempotency_key: 'pwa-rev-ui-statement',
+    lines: [{ date: '2026-05-03', amount: '-12.00', description: 'SYNTHETIC CAFE', counter_ledger_account_id: groceries, needs_review: true }] });
+  assert.ok(!st.isError, JSON.stringify(st));
+  assert.deepEqual(st.structuredContent.hold_reasons, ['REVIEW_QUEUE'], JSON.stringify(st.structuredContent));
+  const o = await page(owner);
+  await open(o, `confirm/${st.structuredContent.plan_id}`);
+  await o.waitForSelector('#cf-review');
+  assert.match(await o.textContent('#cf-holds'), /marked for review.*\(seq 1\)/);
+  assert.ok(await o.locator('main button.primary', { hasText: 'Approve' }).isDisabled(), 'held: approve disabled');
+  const sel = o.locator('#cf-review select[data-seq="1"]');
+  assert.equal(await sel.inputValue(), groceries);
+  await o.locator('#cf-review input[type=checkbox][data-seq="1"]').check();
+  await o.locator('#cf-review button.primary').click();
+  await o.waitForFunction((old) => location.hash.startsWith('#/confirm/') && !location.hash.includes(old), st.structuredContent.plan_id);
+  // the hash changes before the new version is rendered: wait until the screen shows a plan hash other than the reviewed one
+  await o.waitForFunction((oldHash) => { const m = document.querySelector('main dd.mono'); return m && m.textContent && m.textContent !== oldHash; },
+    st.structuredContent.plan_hash);
+  assert.equal(await o.locator('#cf-holds').count(), 0, 'no hold after the review');
+  assert.ok(await o.locator('main button.primary', { hasText: 'Approve' }).isEnabled(), 'approvable after the review');
+});
+
 test('AT-NOAI-00 no hidden LLM call: no request left this origin and no AI route was requested in the whole suite', () => {
   const external = contexts.flatMap((c) => c.log.external);
   const ai = contexts.flatMap((c) => c.log.ai);

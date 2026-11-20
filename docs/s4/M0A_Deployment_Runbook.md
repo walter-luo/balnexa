@@ -101,6 +101,10 @@ Then deploy the Worker (step 5). No secret upload is needed when the passwords a
 
 A one-migration step could keep serving through the N-1 range: deploy the Worker first, then migrate (UA §9.1). A jump of several migrations cannot, so it takes a short maintenance gap, made safe by B3 failing closed.
 
+**Order used for one-migration releases since V1.0-R05 (2026-11-20):** backup branch → `wrangler deploy` of the new Worker (it serves the old head through its N-1 range) → installer re-run → `wrangler secret bulk` of the `runtime` object at once. The re-run sets new passwords for the four LOGIN roles whenever the installer's secrets file of the previous run is gone, which is the normal case in a fresh session; the Worker then fails closed until the secrets are uploaded (about 10 s on R05).
+
+**AI hosts after a release (F-LIVE-6).** A conversation that was already open in claude.ai keeps the tool list it loaded at the start; new or changed tools appear in a **new** conversation. Tell the member to start a new conversation after a release that changes MCP tools.
+
 **Rollback:**
 - Point the runtime secrets at the backup branch, or restore the main branch from it.
 - Redeploy the old Worker from its commit.

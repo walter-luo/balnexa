@@ -433,7 +433,19 @@ async function confirm(planId, params) {
     h('dt', {}, 'kind'), h('dd', {}, d.kind), h('dt', {}, 'state'), h('dd', {}, h('span', { class: `st st-${d.state}` }, d.state)),
     h('dt', {}, 'plan_hash'), h('dd', { class: 'mono' }, d.plan_hash)),
   h('h2', {}, t('confirm.items')), renderTable(items, { caption: t('confirm.items'), name: `draft-${planId}` })];
-  if ((d.hold_reasons || []).length) kids.push(h('p', { class: 'status error' }, t('confirm.held', { reasons: d.hold_reasons.join(', ') })));
+  if ((d.hold_reasons || []).length) {
+    kids.push(h('p', { class: 'status error' }, t('confirm.held', { reasons: d.hold_reasons.join(', ') })));
+    // 9046 (F-LIVE-1): each hold as a sentence, with where the database found it (the text in brackets of its check)
+    const vr = d.validation_result || {};
+    const where = (code) => {
+      const v = Object.values(vr).find((x) => typeof x === 'string' && (x === `HOLD:${code}` || x.startsWith(`HOLD:${code} `)));
+      const m = v && v.match(/\((.*)\)$/);
+      return m ? m[1] : '';
+    };
+    kids.push(h('ul', { id: 'cf-holds', class: 'holds' }, d.hold_reasons.map((c) => h('li', {},
+      i18n.has(`hold.${c}`) ? t(`hold.${c}`) : c, where(c) ? h('span', { class: 'mono' }, ` (${where(c)})`) : ''))));
+  }
+  if (d.reviewable_by_me && st && entry('bnx.cmd_review_statement_items')) kids.push(await reviewLines(d));
   if (sealed === true) kids.push(h('p', { class: 'status ok' }, t('confirm.sealed_ok')));
   let ack = sealed !== false;
   if (sealed === false) {
@@ -455,6 +467,54 @@ async function confirm(planId, params) {
     } }, t('confirm.withdraw')));
   }
   screen('confirm.title', ...kids);
+}
+
+// G3 (9046, F-LIVE-2): line review of a statement draft. Per line the member picks a category or the other household
+// account (transfer, card payment) and ticks "reviewed" where the AI was unsure; the database makes a new version, which
+// this screen then shows for approval. Dates, amounts and descriptions are the statement's and cannot change here.
+async function reviewLines(d) {
+  let L;
+  try { L = await ledger(); } catch { return h('p', { class: 'hint' }, t('review_lines.unavailable')); }
+  const cur = d.account_currency;
+  const own = (L.accounts.find((a) => a.account_currency_id === d.account_currency_id) || {}).ledger_account_id;
+  const choices = [
+    ...catOptions(L, 'expense', cur).map((o) => ({ id: o.id, label: `${t('review_lines.expense')}: ${o.label}` })),
+    ...catOptions(L, 'income', cur).map((o) => ({ id: o.id, label: `${t('review_lines.income')}: ${o.label}` })),
+    ...L.accounts.filter((a) => a.currency === cur && a.ledger_account_id !== own)
+      .map((a) => ({ id: a.ledger_account_id, label: `${t('review_lines.account')}: ${a.label}` }))];
+  const rows = d.items.map((it) => {
+    const p = it.payload || {};
+    const orig = p.counter_ledger_account_id || ((it.lines || []).find((l) => l.ledger_account_id !== own) || {}).ledger_account_id || '';
+    const sel = h('select', { 'data-seq': it.seq, 'data-orig': orig, 'aria-label': t('review_lines.choice_for', { seq: it.seq }) },
+      h('option', { value: '' }, '—'), choices.map((c) => h('option', { value: c.id, selected: c.id === orig }, c.label)));
+    const cb = p.needs_review ? h('input', { type: 'checkbox', 'data-seq': it.seq, 'aria-label': t('review_lines.reviewed_for', { seq: it.seq }) }) : null;
+    return { sel, cb, tr: h('tr', {}, h('td', {}, String(it.seq)), h('td', {}, p.transaction_date || ''), h('td', {}, p.description || ''),
+      h('td', { class: 'num' }, p.amount || ''), h('td', {}, sel), h('td', {}, cb ? h('label', {}, cb, ' ', t('review_lines.reviewed')) : '')) };
+  });
+  let key = api.newKey();
+  const save = h('button', { type: 'button', class: 'primary', onclick: async () => {
+    const changes = [];
+    for (const r of rows) {
+      const c = { seq: Number(r.sel.dataset.seq) };
+      if (r.sel.value && r.sel.value !== r.sel.dataset.orig) c.counter_ledger_account_id = r.sel.value;
+      if (r.cb && r.cb.checked) c.reviewed = true;
+      if (Object.keys(c).length > 1) changes.push(c);
+    }
+    if (!changes.length) return status(t('review_lines.nothing'), 'info');
+    try {
+      save.disabled = true;
+      const res = await api.command('review_statement_items', { plan_id: d.plan_id, plan_hash: d.plan_hash, changes }, key);
+      key = api.newKey();
+      status(t('review_lines.saved'), 'ok');
+      location.hash = `#/confirm/${encodeURIComponent(res.plan_id)}`;
+    } catch (e) { save.disabled = false; fail(e); }
+  } }, t('review_lines.save'));
+  return h('section', { id: 'cf-review', 'aria-labelledby': 'cf-review-h' }, h('h2', { id: 'cf-review-h' }, t('review_lines.title')),
+    h('p', { class: 'hint' }, t('review_lines.hint')),
+    h('table', {}, h('caption', {}, t('review_lines.title')),
+      h('thead', {}, h('tr', {}, ['#', t('review_lines.date'), t('review_lines.description'), t('review_lines.amount'),
+        t('review_lines.choice'), t('review_lines.reviewed')].map((x) => h('th', { scope: 'col' }, x)))),
+      h('tbody', {}, rows.map((r) => r.tr))), save);
 }
 
 // ----------------------------------------------------------------------------------------------------------- reports

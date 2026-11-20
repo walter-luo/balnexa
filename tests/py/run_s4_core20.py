@@ -126,7 +126,8 @@ def t_statement(server, ev):
     check(out["ledger_accounts"], "q_ledger_accounts over MCP")
     check(out["jan"] == ("ai_draft", [], "ok", "first", "first") and out["fingerprints distinct"], f"jan {out['jan']}")
     check(out["jan run"] == "activated" and out["balance 01-31"] in ("2950.00", "2950.0000", "2950"), f"jan run {out['jan run']} {out['balance 01-31']}")
-    check(out["feb bad"] == (["BALANCE_CHAIN"], "HOLD:BALANCE_CHAIN"), f"feb bad {out['feb bad']}")
+    check(out["feb bad"] == (["BALANCE_CHAIN"], "HOLD:BALANCE_CHAIN (ledger sign: opening 2950 + lines -40 = 2910, closing 2900)"),  # 9046
+          f"feb bad {out['feb bad']}")
     check(out["feb"] == ([], "ok", "superseded") and out["feb run"] == "activated", f"feb {out['feb']} {out['feb run']}")
     check(out["again"] == ["COVERAGE", "DUPLICATE"], f"again {out['again']}")
     check(out["mar"] == (["BALANCE_BREAK"], "HOLD:BALANCE_BREAK", "break"), f"mar {out['mar']}")

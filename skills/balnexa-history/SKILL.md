@@ -46,6 +46,8 @@ The member does these in the Balnexa app; you cannot do them:
    - the amount: that statement's opening balance as printed, with its sign as the app asks.
 
    Wait for the member to confirm. If a statement is submitted first, the database holds it with `BEFORE_OPENING` (V-12); nothing is lost, and you can re-validate it after the opening is set.
+
+   **Transfers between household accounts.** A card payment or transfer touches two accounts, and both must exist on the line's date. Set the opening points of all accounts in the history (or at least of both sides of every transfer) before you submit, or enter the paying account's history first. `BEFORE_OPENING (seq N date before opening D)` names the line and the date the other account opens.
 4. **Statements in order.** Submit each statement of the account with `fin.draft.create_statement`, oldest first, one at a time. Read each result before the next:
    - a `BALANCE_CHAIN` hold means your reading of that statement is wrong. Fix it before you go on.
    - a `BALANCE_BREAK` or a `GAP` is about the history, not the statement. Note it and continue.

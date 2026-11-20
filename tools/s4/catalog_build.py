@@ -80,10 +80,15 @@ def derive(cx, ovr):
             errors.append(f"{name}: tier not derivable and not listed in {os.path.relpath(OVR, ROOT)}"); continue
         tier = max(tiers) if tiers else None
         props = {}
+        # bnx.dec(<arg>, 'k') reads a decimal key too (F-LIVE-5: set_opening's amount was missing from its schema, so the
+        # PWA form had no field for it)
+        decs = set(re.findall(rf"bnx\.dec\(\s*{par}\s*,\s*'([a-z][a-z_0-9]*)'\s*\)", src))
         keys = set(re.findall(rf"\b{par}\s*(?:->>|->|\?)\s*'([a-z][a-z_0-9]*)'", src)) | \
-            set(re.findall(rf"\b{par}\s*#>>?\s*'\{{([a-z][a-z_0-9]*)", src))
+            set(re.findall(rf"\b{par}\s*#>>?\s*'\{{([a-z][a-z_0-9]*)", src)) | decs
         for k in sorted(keys - {"idempotency_key"}):
             casts = {CAST[c] for c in re.findall(rf"\(\s*{par}\s*->>\s*'{k}'\s*\)\s*::\s*([a-z]+)", src) if c in CAST}
+            if k in decs:
+                casts.add("numeric")
             if re.search(rf"jsonb_array_elements(?:_text)?\(\s*{par}\s*->\s*'{k}'\s*\)|jsonb_array_length\(\s*{par}\s*->\s*'{k}'\s*\)", src):
                 casts.add("array")
             props[k] = dict(TYPES[next(iter(casts))]) if len(casts) == 1 else {}
