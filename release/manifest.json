@@ -349,9 +349,15 @@
    "min_worker_release": "V1.0-R06",
    "sha256": "b32a2769ed2311a81454c6d0dea44eedb7fc0c42fb7260701e50b828874aa4e7",
    "version": "9046"
+  },
+  {
+   "file": "9047_s4_check_statement_merge_audit.sql",
+   "min_worker_release": "V1.0-R08",
+   "sha256": "5b36bd9b1bbf07c738ba746ab3feb9924b6cc2a556c5a15cdd338424722fd6b4",
+   "version": "9047"
   }
  ],
- "pwa_shell": "bnx-shell-V1.0-R07",
+ "pwa_shell": "bnx-shell-V1.0-R08",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -542,11 +548,11 @@
     "0109"
    ],
    "extension": [
-    "9045",
-    "9046"
+    "9046",
+    "9047"
    ]
   },
-  "version": "V1.0-R07",
+  "version": "V1.0-R08",
   "work_kinds": [
    "plan.execute",
    "staging.promote"

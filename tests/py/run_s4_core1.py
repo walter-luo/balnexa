@@ -625,6 +625,8 @@ HELPERS_NOT_IN_DISPOSITION = {
     "bnx.default_category_tree", "bnx.install_default_categories", "bnx.cmd_propose_account_from_statement", "bnx.ledger_account_display",
     # 9046 member line review of a statement draft (F-LIVE-2, G3; register row 9046)
     "bnx.cmd_review_statement_items",
+    # 9047 statement check that stores nothing (F-LIVE-9; register row 9047)
+    "bnx.cmd_check_statement",
     "bnx.audit_canonical_v2",
     "bnx.audit_head",
     "bnx.brand_issuer_at",

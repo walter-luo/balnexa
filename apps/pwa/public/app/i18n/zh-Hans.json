@@ -493,5 +493,6 @@
  "task.bnx.cmd_review_statement_items": "逐行处理对账单",
  "review_lines.type": "类型",
  "review_lines.flagged": "待核实：请检查类别或账户",
- "review_lines.confirm_keep": "第 {seqs} 行：已勾「已核实」，但仍是 AI 原来的类别。请确认类别或账户正确（信用卡还款或转账要选另一个账户，不是支出类别）。确认无误请再点一次保存。"
+ "review_lines.confirm_keep": "第 {seqs} 行：已勾「已核实」，但仍是 AI 原来的类别。请确认类别或账户正确（信用卡还款或转账要选另一个账户，不是支出类别）。确认无误请再点一次保存。",
+ "task.bnx.cmd_check_statement": "检查对账单（不保存）"
 }

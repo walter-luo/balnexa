@@ -95,7 +95,8 @@
     "bnx.cmd_draft_statement",
     "bnx.q_statement_chain",
     "bnx.cmd_explain_statement_gap",
-    "bnx.cmd_review_statement_items"
+    "bnx.cmd_review_statement_items",
+    "bnx.cmd_check_statement"
    ]
   },
   {
