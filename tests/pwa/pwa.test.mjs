@@ -779,7 +779,7 @@ async function aiConnect(acIds) {
     authorization: `Bearer ${tok.access_token}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }) })).json()).result;
 }
 
-test('AT-REV-UI-01 statement line review (9046, F-LIVE-1, F-LIVE-2): holds read as sentences with where; the Owner ticks a line reviewed and saves; the new version has no hold and can be approved', async () => {
+test('AT-REV-UI-01 statement line review (9046, F-LIVE-1, F-LIVE-2, F-LIVE-8): holds read as sentences with where; the marked line is flagged with its type; Reviewed without a changed category needs a second click; the new version has no hold and can be approved', async () => {
   const mcp = await aiConnect([ac.account_currency_id]);
   const st = await mcp('fin_draft_create_statement', { account_currency_id: ac.account_currency_id, period_from: '2026-05-01', period_to: '2026-05-31',
     opening_balance: '500.00', closing_balance: '488.00', sign_convention: 'asset_positive', idempotency_key: 'pwa-rev-ui-statement',
@@ -793,7 +793,13 @@ test('AT-REV-UI-01 statement line review (9046, F-LIVE-1, F-LIVE-2): holds read 
   assert.ok(await o.locator('main button.primary', { hasText: 'Approve' }).isDisabled(), 'held: approve disabled');
   const sel = o.locator('#cf-review select[data-seq="1"]');
   assert.equal(await sel.inputValue(), groceries);
+  // F-LIVE-8: the marked line stands out with its type; Reviewed without a changed category needs a second click
+  assert.equal(await o.locator('#cf-review tr.flagged[data-seq="1"] .flag').count(), 1, 'marked line flagged');
+  assert.match(await o.textContent('#cf-review tr[data-seq="1"]'), /consumption_expense/);
   await o.locator('#cf-review input[type=checkbox][data-seq="1"]').check();
+  await o.locator('#cf-review button.primary').click();
+  await o.waitForFunction(() => /Line 1: ticked Reviewed/.test(document.querySelector('#status')?.textContent || ''));
+  assert.ok(o.url().includes(st.structuredContent.plan_id), 'first click only warns');
   await o.locator('#cf-review button.primary').click();
   await o.waitForFunction((old) => location.hash.startsWith('#/confirm/') && !location.hash.includes(old), st.structuredContent.plan_id);
   // the hash changes before the new version is rendered: wait until the screen shows a plan hash other than the reviewed one

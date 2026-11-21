@@ -490,5 +490,8 @@
  "review_lines.saved": "Saved: a new version is shown for approval.",
  "review_lines.nothing": "Nothing changed.",
  "review_lines.unavailable": "The categories could not be loaded; try again.",
- "task.bnx.cmd_review_statement_items": "Review statement lines"
+ "task.bnx.cmd_review_statement_items": "Review statement lines",
+ "review_lines.type": "Type",
+ "review_lines.flagged": "Marked for review: check the category or account",
+ "review_lines.confirm_keep": "Line {seqs}: ticked Reviewed but left as the AI proposed. Check that the category or account is right (a card payment or transfer needs the other account, not an expense). Press Save again to keep it."
 }

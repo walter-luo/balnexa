@@ -67,7 +67,8 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 5. **Classify each line.**
    - Give every line a `counter_ledger_account_id` from the categories, or typed `lines` for a transfer between household accounts (for example a card payment from a chequing account: `economic_type` `card_repayment`, both accounts).
    - **The other account of a transfer must already exist on the line's date.** Call `fin.balances.as_of` for that account on the line's date. If its status is `BEFORE_OPENING` (or the account is not visible to you), do not guess: ask the member which account paid, and tell them it opens later in Balnexa. They can enter that account's earlier statement first, or move its opening date earlier in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**).
-   - Mark a line `needs_review: true` when you are not sure. The member then decides, line by line, in the app.
+   - **A card payment or transfer whose other account you do not know is not a category.** Never put it under an expense or income category (for example "Other Expense") to get the draft through: Balnexa would post it as a refund or income. Ask the member which account paid **before** you submit, then use typed `lines` with that account. Only if the member cannot say now, submit the line with `needs_review: true` and tell them plainly that, in the app, they must pick the paying account for that line (not just tick Reviewed).
+   - Mark a line `needs_review: true` when you are not sure. The member then decides, line by line, in the app; lines marked for review stand out there with their type.
 6. **Submit.** Call `fin.draft.create_statement` with:
    - `account_currency_id`, `period_from`, `period_to`;
    - `opening_balance` and `closing_balance` as printed;
