@@ -38,6 +38,7 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 | `fin.balances.as_of` | Check that another household account a line touches already exists in Balnexa on that date (status `BEFORE_OPENING` means it does not) |
 | `fin.ledger.accounts` | Find the account-currency of the statement (match institution, currency and the last 4 digits in `reference_display`) and the categories for classification (`parent_id` links a subcategory to its category) |
 | `fin.statements.chain` | See the statements already entered for the account, their periods, balances and continuity |
+| `fin.draft.check_statement` | Check a statement with the same arguments as `fin.draft.create_statement`; stores nothing |
 | `fin.draft.create_statement` | Submit the statement |
 | `fin.draft.validate` | Re-run the checks of a draft (after a member explained a gap) |
 | `fin.draft.withdraw` | Withdraw your own draft |
@@ -67,6 +68,7 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 5. **Classify each line.**
    - Give every line a `counter_ledger_account_id` from the categories, or typed `lines` for a transfer between household accounts (for example a card payment from a chequing account: `economic_type` `card_repayment`, both accounts).
    - **The other account of a transfer must already exist on the line's date.** Call `fin.balances.as_of` for that account on the line's date. If its status is `BEFORE_OPENING` (or the account is not visible to you), do not guess: ask the member which account paid, and tell them it opens later in Balnexa. They can enter that account's earlier statement first, or move its opening date earlier in the app (menu **2. Accounts, currencies and balances** → **Set starting balance**).
+   - **Ask, do not pick.** If the household has more than one account that could have paid, or you are not told which one, ask the member before you submit, even when one account seems likely.
    - **A card payment or transfer whose other account you do not know is not a category.** Never put it under an expense or income category (for example "Other Expense") to get the draft through: Balnexa would post it as a refund or income. Ask the member which account paid **before** you submit, then use typed `lines` with that account. Only if the member cannot say now, submit the line with `needs_review: true` and tell them plainly that, in the app, they must pick the paying account for that line (not just tick Reviewed).
    - Mark a line `needs_review: true` when you are not sure. The member then decides, line by line, in the app; lines marked for review stand out there with their type.
 6. **Submit.** Call `fin.draft.create_statement` with:
@@ -87,7 +89,7 @@ The connector lists each tool under its catalog name with `.` replaced by `_` (f
 
    With `opening_balance` `250.00` (owed) and `closing_balance` as printed, V-04 checks opening + lines = closing. A bank statement (`asset_positive`) prints deposits positive and withdrawals negative; send them as printed.
 
-   **Submit once.** Do not send trial drafts to find out how signs work: each one is stored and must be withdrawn. If a check fails, its text says where (step 7); fix your reading and resubmit with `supersedes_plan_id`.
+   **Check first, then submit once.** Call `fin.draft.check_statement` with exactly the arguments you will submit. It runs every check and stores nothing. If V-04 or another check fails, its text says where (step 7): fix your reading and check again. When the checks show only what you expect (for example `REVIEW_QUEUE` for lines you marked), submit once with `fin.draft.create_statement`. Never send trial or one-line drafts with `fin.draft.create_statement`: each one is stored and must be withdrawn.
 7. **Report the checks** from `validation_result` and `continuity`, in plain words:
 
    | Check | Meaning | What you do |

@@ -64,6 +64,7 @@ def derive(cx, ovr):
     fscope = {r[0]: r[1:] for r in cx.execute(
         "select function_name, scope, legacy_read, legacy_propose, needs_ac_subset, note from bnx.function_scope").fetchall()}
     entries, errors = [], []
+    srcmap = {r[1]: r[2] for r in rows}
     for nsp, name, src, args in rows:
         if args not in ("cred jsonb, cmd jsonb", "cred jsonb, q jsonb"):
             errors.append(f"{name}: unexpected signature ({args})"); continue
@@ -82,14 +83,18 @@ def derive(cx, ovr):
         props = {}
         # bnx.dec(<arg>, 'k') reads a decimal key too (F-LIVE-5: set_opening's amount was missing from its schema, so the
         # PWA form had no field for it)
-        decs = set(re.findall(rf"bnx\.dec\(\s*{par}\s*,\s*'([a-z][a-z_0-9]*)'\s*\)", src))
-        keys = set(re.findall(rf"\b{par}\s*(?:->>|->|\?)\s*'([a-z][a-z_0-9]*)'", src)) | \
-            set(re.findall(rf"\b{par}\s*#>>?\s*'\{{([a-z][a-z_0-9]*)", src)) | decs
+        # a command that hands its whole input to another command (9047: cmd_check_statement runs cmd_draft_statement) reads
+        # that command's keys
+        ksrc = src + "".join(srcmap.get(d, "") for d in
+                             re.findall(rf"bnx\.(cmd_[a-z_0-9]+)\(\s*cred\s*,\s*\(?\s*{par}\b", src) if d != name)
+        decs = set(re.findall(rf"bnx\.dec\(\s*{par}\s*,\s*'([a-z][a-z_0-9]*)'\s*\)", ksrc))
+        keys = set(re.findall(rf"\b{par}\s*(?:->>|->|\?)\s*'([a-z][a-z_0-9]*)'", ksrc)) | \
+            set(re.findall(rf"\b{par}\s*#>>?\s*'\{{([a-z][a-z_0-9]*)", ksrc)) | decs
         for k in sorted(keys - {"idempotency_key"}):
-            casts = {CAST[c] for c in re.findall(rf"\(\s*{par}\s*->>\s*'{k}'\s*\)\s*::\s*([a-z]+)", src) if c in CAST}
+            casts = {CAST[c] for c in re.findall(rf"\(\s*{par}\s*->>\s*'{k}'\s*\)\s*::\s*([a-z]+)", ksrc) if c in CAST}
             if k in decs:
                 casts.add("numeric")
-            if re.search(rf"jsonb_array_elements(?:_text)?\(\s*{par}\s*->\s*'{k}'\s*\)|jsonb_array_length\(\s*{par}\s*->\s*'{k}'\s*\)", src):
+            if re.search(rf"jsonb_array_elements(?:_text)?\(\s*{par}\s*->\s*'{k}'\s*\)|jsonb_array_length\(\s*{par}\s*->\s*'{k}'\s*\)", ksrc):
                 casts.add("array")
             props[k] = dict(TYPES[next(iter(casts))]) if len(casts) == 1 else {}
         cur = ovr.get("schemas", {}).get(name)

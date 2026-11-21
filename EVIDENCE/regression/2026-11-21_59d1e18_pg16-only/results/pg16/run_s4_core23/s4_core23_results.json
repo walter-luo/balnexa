@@ -1,0 +1,30 @@
+{
+ "server": "pg16",
+ "seconds": 10.8,
+ "pass": 3,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-CHK-01",
+   "ref": "F-LIVE-9; 9047 (fin.draft.check_statement answers what fin.draft.create_statement would, holds and texts included, and stores nothing: no draft, no audit entry, no idempotency record; with supersedes_plan_id the open draft stays frozen; the AI then submits once)",
+   "status": "PASS",
+   "detail": "misread -> BALANCE_CHAIN with figures, nothing stored; good reading -> REVIEW_QUEUE as the draft then got; a superseding check leaves the draft frozen",
+   "seconds": 3.74
+  },
+  {
+   "id": "AT-CHK-02",
+   "ref": "F-LIVE-9; 9047 (the check refuses what the draft refuses: an account the connection may not see, a connection without finance.draft, a missing field; nothing is stored)",
+   "status": "PASS",
+   "detail": "NOT_AVAILABLE, SCOPE_NOT_CONSENTED, VALIDATION_FAILED; nothing stored",
+   "seconds": 3.53
+  },
+  {
+   "id": "AT-SIN-02",
+   "ref": "F-SIN-2; 9047 (a merge whose target UUID holds a Luhn-valid 9-digit run is no longer refused as SIN_CANDIDATE; the guard still refuses a SIN in a free-text field)",
+   "status": "PASS",
+   "detail": "merge into a UUID with a Luhn-valid run accepted (MERGED); a SIN-shaped label still refused (SIN_CANDIDATE)",
+   "seconds": 3.52
+  }
+ ]
+}

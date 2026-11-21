@@ -6,6 +6,9 @@ The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16
 
 ## Unreleased
 
+- **Statement check that stores nothing (9047, F-LIVE-9).** New MCP tool `fin.draft.check_statement`: the checks of `fin.draft.create_statement` with the same arguments, without a draft, audit entry or idempotency record. Skill `balnexa-statement-intake` 0.3.2: check first, then submit once; ask which account paid instead of picking one.
+- **Merge of account proposals no longer refused at random (9047, F-SIN-2).** The merge target is audited as `merge_into_id`, so the SIN guard does not read its UUID as free text.
+- Release string V1.0-R08 (proposed).
 - **Line review guard (F-LIVE-8).** Lines the AI marked for review are highlighted with a note, every line shows its type, and ticking Reviewed without changing the category asks for a second Save with a warning (a card payment needs the paying account, not an expense). Release string V1.0-R07 (PWA only; no migration).
 - Skill `balnexa-statement-intake` 0.3.1: ask for the paying account before submitting a card payment or transfer; never park it under a category.
 - **Holds say where (9046, F-LIVE-1).** `validation_result` texts name the figures (V-04, ledger sign), the line numbers (V-09) and the line, date and opening date (V-12); hold codes unchanged. The draft screen lists each hold as a sentence.
@@ -22,7 +25,7 @@ The release string is `V<major>.<minor>-R<nn>` since V1.0-R02 (Owner, 2026-11-16
 - **Skills: index, entry template and life cycle** (AI-first design §5). `skills/README.md` describes the three copies of a skill (this repository, the household's data folder, the member's AI account) and the life cycle candidate → active → retired. `skills/INDEX.csv` records version, status, size and SHA-256 per skill; `tools/s4/skill_index.py --check` (in CI) refuses a stale row, a malformed skill or an instance detail in a generic skill. `skills/BALNEXA-AI-ENTRY.template.md` is the template of the entry file an AI reads first in the data folder. Skills `balnexa-statement-intake` and `balnexa-history` 0.1.0 (candidates).
 - Data folder convention: `40-Reports/<year>/<month>/` for AI reports (OD-IO-4), `50-Skills` and the entry file (§7). Input and output design OD-IO-1..5 recorded in `docs/s4/OWNER_DECISIONS_2026-11-16.md`.
 - Runbook: the installer's secrets file nests the Worker connection strings under `runtime`; extract that object before `wrangler secret bulk`.
-- Migrations: 9044, 9045, 9046. Release string V1.0-R07 (proposed; the Owner decides). V1.0-R04, R05 and R06 are deployed on the test instance but not published.
+- Migrations: 9044–9047. Release string V1.0-R08 (proposed; the Owner decides). V1.0-R04 to R07 are deployed on the test instance but not published.
 - **Operator action:** deploy the Worker first, then migrate (one migration per step, no gap).
 
 ## V1.0-R03 — 2026-11-17

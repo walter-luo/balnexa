@@ -68,3 +68,11 @@ Second live run (synthetic card statement, November 2026) on V1.0-R06. Claude ag
 |---|---|
 | OD-LIVE-2 | (1) Publish the skills to Drive `50-Skills/Validation` and give the steps to add them to the Claude account; (2) the line review flags lines marked for review, shows each line's type and asks again when Reviewed is ticked without a changed category; (3) the statement-intake skill asks for the paying account before submitting a card payment or transfer |
 
+## 2026-11-21 06:16–06:27 (America/Toronto)
+
+Third live run (synthetic card statement, December 2026) on V1.0-R07 with the skills saved in the Claude account: posted correctly (card −143.68, chequing −267.56), but Claude still sent two one-line trial drafts and picked the paying account itself (marked for review) instead of asking (F-LIVE-9). The Owner asked whether the AI side could be tested from the development session. Owner word at 06:27: "确认" (to: a check that stores nothing for statements, the F-SIN-2 fix, and AI-side tests run from the development session with the Owner approving in the app).
+
+| ID | Decision |
+|---|---|
+| OD-LIVE-3 | (1) Add `fin.draft.check_statement` (checks, stores nothing) and fix F-SIN-2 in one database PR; the skill says "check first, then submit once"; (2) functional tests: the development session acts as the AI host through its own Balnexa connection; the Owner only approves in the app. Fresh-conversation tests of skill behaviour come with a ready prompt |
+

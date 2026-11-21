@@ -48,7 +48,7 @@ def catalog_entry(H, fn):
 @test("AT-OUT-01", "2.8 part 3; MCP tools outputSchema; 9032 (every tool with a curated output schema returns conforming results "
                    "for an Owner in the PWA and for an AI connection: draft tools incl. replay, transfer, revise, validate, withdraw; "
                    "balances; whoami; report families F1-F7, R09, R30, R31; FX rate, snapshots, registry search, handoff status; 9045 account "
-                   "proposal from a statement)")
+                   "proposal from a statement; 9047 statement check)")
 def t_output_schemas(server, ev):
     ovr = json.load(open(os.path.join(h.ROOT, "db", "catalog", "bnx-tools-1.0.overrides.json")))
     # field-level schemas of 9032/9033 are called here; the 9035 ones (the 9034 tools made field-level) by AT-OUT-03; every
@@ -117,6 +117,10 @@ def t_output_schemas(server, ev):
             run(who, cred, "cmd_propose_account_from_statement", key=k, **pa)
             run(who, cred, "cmd_propose_account_from_statement", key=k, **pa)            # replay
             run(who, cred, "cmd_propose_account_from_statement", **pa)                   # the same account again: existing
+        # 9047: the statement check (stores nothing), for the Owner in the PWA and for the AI connection
+        run(who, cred, "cmd_check_statement", account_currency_id=cad, period_from="2026-04-01", period_to="2026-04-30",
+            opening_balance="100.00", closing_balance="88.00", sign_convention="asset_positive",
+            lines=[{"date": "2026-04-03", "amount": "-12.00", "description": "synthetic", "counter_ledger_account_id": H.groceries}])
     # a member draft revised by its author (draft_revise is the member path)
     md = run("member/pwa", H.member, "cmd_draft_create_transaction", key=new_key(), account_currency_id=cad, transaction_date="2026-03-05",
              economic_type="consumption_expense", amount="-3.00", counter_ledger_account_id=H.groceries, description="member draft")
