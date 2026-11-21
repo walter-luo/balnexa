@@ -1,0 +1,37 @@
+{
+ "server": "pg16",
+ "seconds": 15.8,
+ "pass": 4,
+ "fail": 0,
+ "skip": 0,
+ "results": [
+  {
+   "id": "AT-HOLD-01",
+   "ref": "F-LIVE-1; 9046 (hold texts say where: V-04 opening + lines = result against the closing, V-09 the item numbers, V-12 the items and the opening date they fall before, without naming the other account; codes unchanged)",
+   "status": "PASS",
+   "detail": "V-04 figures, V-09 seq 1, 2, 3, V-12 seq and opening date; the same text on the PWA and MCP draft screens",
+   "seconds": 4.01
+  },
+  {
+   "id": "AT-REV-01",
+   "ref": "F-LIVE-2, G3; 9046 (the member reviews an AI statement draft line by line: a category, the other account for the card payment (typed card_repayment), reviewed; a new version without holds supersedes the old, keeps kind ai_draft and the AI connection; dates, amounts and fingerprints unchanged; approved and posted)",
+   "status": "PASS",
+   "detail": "3 lines reviewed (reviewed, card payment to chequing, Personal Care) -> new ai_draft without holds -> posted: card -109.15, chequing -250",
+   "seconds": 4.05
+  },
+  {
+   "id": "AT-REV-02",
+   "ref": "F-LIVE-2; 9046 (refusals: an AI connection, a stale or wrong plan_hash, a superseded plan, a change to amount or an unknown field, an unknown or repeated line, a category in another currency, a system account, a plan that is not a statement; nothing changes)",
+   "status": "PASS",
+   "detail": "10 refusals leave the draft as it was; a statement-less plan is not available; a superseded version cannot be reviewed",
+   "seconds": 4.04
+  },
+  {
+   "id": "AT-OPEN-02",
+   "ref": "F-LIVE-5; 9046 (set_opening's catalog input schema carries amount as a decimal, so the PWA form offers it; an existing account's opening moves earlier through the Gateway; cmd_post_transaction's original_amount numeric)",
+   "status": "PASS",
+   "detail": "amount and original_amount are decimals in the catalog; the card's opening moved from 03-01 to 02-01 through the Gateway",
+   "seconds": 3.72
+  }
+ ]
+}

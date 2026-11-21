@@ -98,3 +98,7 @@ details summary { cursor: pointer; min-height: 44px; display: flex; align-items:
 /* Google sign-in mount: the button renders in a Google iframe; cap any placeholder graphic until it loads */
 #gsi { min-height: 44px; }
 #gsi svg { width: 18px; height: 18px; }
+/* F-LIVE-8: statement lines the AI marked for review */
+tr.flagged td { background: color-mix(in srgb, var(--err) 12%, transparent); }
+tr.flagged .flag { color: var(--err); font-size: 13px; font-weight: 600; }
+tr.flagged .flag::before { content: "⚠ "; }

@@ -351,7 +351,7 @@
    "version": "9046"
   }
  ],
- "pwa_shell": "bnx-shell-V1.0-R06",
+ "pwa_shell": "bnx-shell-V1.0-R07",
  "sbom": [
   {
    "ecosystem": "npm",
@@ -546,7 +546,7 @@
     "9046"
    ]
   },
-  "version": "V1.0-R06",
+  "version": "V1.0-R07",
   "work_kinds": [
    "plan.execute",
    "staging.promote"

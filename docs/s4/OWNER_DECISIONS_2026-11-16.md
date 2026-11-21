@@ -59,3 +59,12 @@ First end-to-end run of the two-step approval on the synthetic test instance (Cl
 | ID | Decision |
 |---|---|
 | OD-LIVE-1 | Fix F-LIVE-1..5 in one PR (9046, release V1.0-R06), including the PWA line review of statement drafts (G3); F-LIVE-6 is a runbook note |
+
+## 2026-11-20 18:52–23:05 (America/Toronto)
+
+Second live run (synthetic card statement, November 2026) on V1.0-R06. Claude again sent trial drafts (F-LIVE-7: skill 0.3.0 was not yet available to the conversation) and parked the card payment under "Other Expense" marked for review; the Owner ticked Reviewed and the payment posted as an expense refund (F-LIVE-8). The Owner corrected it with **Correct or reverse transaction**. Owner word at 23:05: "确认" (to: publish the skills to Drive and the Claude account; guard the line review; a skill rule for card payments of unknown source).
+
+| ID | Decision |
+|---|---|
+| OD-LIVE-2 | (1) Publish the skills to Drive `50-Skills/Validation` and give the steps to add them to the Claude account; (2) the line review flags lines marked for review, shows each line's type and asks again when Reviewed is ticked without a changed category; (3) the statement-intake skill asks for the paying account before submitting a card payment or transfer |
+

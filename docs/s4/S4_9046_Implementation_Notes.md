@@ -49,3 +49,13 @@ Claude read a synthetic Canadian Tire card statement (October 2026, ••••
 |---|---|---|
 | L-9046-1 | A line can have one counterpart in the review (no splits); a split stays as the AI submitted it | When a split is needed in the app |
 | L-9046-2 | Batch approval of several statements (rest of G3) is not in this release | With the history work (W6) |
+
+## Follow-up V1.0-R07 (PWA and skill only; OD-LIVE-2)
+
+| ID | Finding (second live run, 2026-11-20) | Fix |
+|---|---|---|
+| F-LIVE-7 | Claude sent four trial drafts again: the conversation did not have skill 0.3.0 | Skills published to Drive `50-Skills/Validation`; steps for the Claude account |
+| F-LIVE-8 | A card payment parked under "Other Expense" was ticked Reviewed and posted as an expense refund | Line review: lines marked for review are highlighted, the type column shows each line's economic type, and ticking Reviewed without changing the category needs a second Save with a warning; skill `balnexa-statement-intake` 0.3.1: ask for the paying account before submitting |
+
+No database change: the type was already in `fin.draft.get_for_confirmation`.
+

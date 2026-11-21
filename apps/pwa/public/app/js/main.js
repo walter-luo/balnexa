@@ -488,11 +488,21 @@ async function reviewLines(d) {
     const sel = h('select', { 'data-seq': it.seq, 'data-orig': orig, 'aria-label': t('review_lines.choice_for', { seq: it.seq }) },
       h('option', { value: '' }, '—'), choices.map((c) => h('option', { value: c.id, selected: c.id === orig }, c.label)));
     const cb = p.needs_review ? h('input', { type: 'checkbox', 'data-seq': it.seq, 'aria-label': t('review_lines.reviewed_for', { seq: it.seq }) }) : null;
-    return { sel, cb, tr: h('tr', {}, h('td', {}, String(it.seq)), h('td', {}, p.transaction_date || ''), h('td', {}, p.description || ''),
-      h('td', { class: 'num' }, p.amount || ''), h('td', {}, sel), h('td', {}, cb ? h('label', {}, cb, ' ', t('review_lines.reviewed')) : '')) };
+    // F-LIVE-8: a line the AI marked stands out, and its type shows (a card payment posted as an expense "refund" is visible)
+    return { sel, cb, tr: h('tr', { class: p.needs_review ? 'flagged' : null, 'data-seq': it.seq }, h('td', {}, String(it.seq)),
+      h('td', {}, p.transaction_date || ''),
+      h('td', {}, p.description || '', p.needs_review ? h('div', { class: 'flag' }, t('review_lines.flagged')) : ''),
+      h('td', { class: 'num' }, p.amount || ''), h('td', { class: 'mono' }, it.economic_type || ''), h('td', {}, sel),
+      h('td', {}, cb ? h('label', {}, cb, ' ', t('review_lines.reviewed')) : '')) };
   });
   let key = api.newKey();
+  let armed = '';   // F-LIVE-8: lines ticked Reviewed but left as the AI proposed need a second click
   const save = h('button', { type: 'button', class: 'primary', onclick: async () => {
+    const kept = rows.filter((r) => r.cb && r.cb.checked && r.sel.value === r.sel.dataset.orig).map((r) => r.sel.dataset.seq).join(', ');
+    if (kept && kept !== armed) {
+      armed = kept;
+      return status(t('review_lines.confirm_keep', { seqs: kept }), 'error');
+    }
     const changes = [];
     for (const r of rows) {
       const c = { seq: Number(r.sel.dataset.seq) };
@@ -512,7 +522,7 @@ async function reviewLines(d) {
   return h('section', { id: 'cf-review', 'aria-labelledby': 'cf-review-h' }, h('h2', { id: 'cf-review-h' }, t('review_lines.title')),
     h('p', { class: 'hint' }, t('review_lines.hint')),
     h('table', {}, h('caption', {}, t('review_lines.title')),
-      h('thead', {}, h('tr', {}, ['#', t('review_lines.date'), t('review_lines.description'), t('review_lines.amount'),
+      h('thead', {}, h('tr', {}, ['#', t('review_lines.date'), t('review_lines.description'), t('review_lines.amount'), t('review_lines.type'),
         t('review_lines.choice'), t('review_lines.reviewed')].map((x) => h('th', { scope: 'col' }, x)))),
       h('tbody', {}, rows.map((r) => r.tr))), save);
 }
